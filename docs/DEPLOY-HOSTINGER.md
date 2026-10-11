@@ -28,8 +28,10 @@ hPanel → **Websites → Add website → Node.js Apps** (or *Deploy Node.js app
 1. Source: **GitHub** (auto-deploys on every push) or **Upload** a project zip. Leave `node_modules`, `.next`,
    `qa` and **`.env.local`** out of the zip: your local secrets must never be uploaded.
 2. Framework: **Next.js** (auto-detected). Node version: **22** (recommended) or **24**.
-3. Build command: `npm run build`. It first compiles the landing CSS kit and runtime (`prebuild`), then runs
-   `next build`. Hostinger handles the start command and applies standalone output itself, so
+3. Build command: `npm run build`. It first compiles the landing CSS kit and runtime and the admin's
+   Tailwind CSS (`prebuild`), then runs `next build`; if Turbopack fails on the build machine it retries
+   once with webpack. Turbopack gets no loaders (Hostinger kills the Node workers they need: "node
+   process exited before we could connect to it"), so never add a `postcss.config` or `turbopack.rules`. Hostinger handles the start command and applies standalone output itself, so
    `next.config.ts` stays a plain object without `output`.
 4. Attach it to your domain (e.g. `mystore.ma`).
 

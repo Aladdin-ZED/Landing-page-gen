@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
-import "./globals.css";
+// Tailwind is precompiled by scripts/build-admin-css.mjs (prebuild/predev) — edit globals.css, not this
+import "./globals.compiled.css";
 
 /*
  * Admin typefaces, self-hosted from the installed @fontsource packages (no network at build time).

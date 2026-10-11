@@ -29,14 +29,8 @@ const nextConfig: NextConfig = {
       "./node_modules/@img/**/*",
     ],
   },
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
+  // No Turbopack loaders on purpose: Turbopack runs loaders in spawned Node workers, which Hostinger's
+  // build machines kill. The admin's Tailwind CSS is precompiled by scripts/build-admin-css.mjs.
 };
 
 export default nextConfig;
