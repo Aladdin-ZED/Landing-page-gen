@@ -1,0 +1,241 @@
+/* ==========================================================================
+   benefits — numbered · bento · zigzag · icons · stack   (v2 · modern)
+   Light & depth from the theme tokens, crisp hairlines, glass over imagery,
+   spring hovers, scroll-driven extras as progressive enhancement (never in
+   the QA final state, never with reduced motion or data-motion="off").
+   Rules every variant uses. A variant's own rules live in benefits.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-benefits__head {
+  margin-block-end: clamp(2.25rem, 1.5rem + 3vw, 4rem);
+}
+
+:is(.lp-benefits__list, .lp-benefits__bento, .lp-benefits__zz, .lp-benefits__more, .lp-benefits__cells, .lp-benefits__stack) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---- shared type ---------------------------------------------------------- */
+.lp-benefits__t {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 1.08 * var(--lp-script-scale-display));
+  line-height: max(1.14, calc(var(--lp-display-lh) + 0.1));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case);
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.lp-benefits__p {
+  margin: 0.6em 0 0;
+  max-inline-size: 44ch;
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-benefits__fact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+  margin: 0;
+}
+
+:is(.lp-benefits__fig, .lp-benefits__bigfig) {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-benefits__fig {
+  font-size: calc(var(--lp-step-4) * 0.9 * var(--lp-script-scale-display));
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+}
+
+:is(.lp-benefits__fig, .lp-benefits__bigfig) .lp-counter__affix {
+  margin-inline-start: 0.06em;
+  font-size: 0.42em;
+  letter-spacing: 0;
+}
+
+.lp-benefits__figlabel {
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  line-height: 1.35;
+  color: var(--sec-ink-soft);
+}
+
+/* the large figure (bento figure tile, plates) */
+.lp-benefits__bigfig {
+  font-size: clamp(4.25rem, 3rem + 6vw, 8.25rem);
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+  color: var(--sec-accent);
+}
+
+.lp-benefits__biglabel {
+  max-inline-size: 24ch;
+  font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+  line-height: 1.35;
+  color: var(--sec-ink-soft);
+}
+
+.lp-benefits__cta {
+  margin-block-start: clamp(2rem, 1.5rem + 2vw, 3rem);
+}
+
+.lp-benefits__cta--center {
+  display: flex;
+  justify-content: center;
+}
+
+/* cutouts in framed media sit in a pool of product light instead of a hard box */
+.lp-benefits .lp-pic--alpha {
+  padding: 9%;
+  background: radial-gradient(62% 52% at 50% 46%, var(--mx-tint-2), transparent 72%), var(--mx-tint);
+}
+
+/* ---- plate: light and type in place of a photo ----------------------------- */
+/* a size container (its box comes from the frame: aspect-ratio or an absolute inset), so the type
+   inside scales with both sides — a landscape plate on a phone card never crops its numeral */
+.lp-benefits__plate {
+  position: relative;
+  isolation: isolate;
+  container-type: size;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  /* a studio sweep: lit from above, the product's hue pooling on the floor */
+  background:
+    radial-gradient(95% 60% at 50% -4%, var(--mx-stage-hi), transparent 72%),
+    radial-gradient(85% 55% at 50% 108%, var(--mx-tint-2), transparent 78%),
+    var(--mx-tint);
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+  color: var(--sec-ink);
+}
+
+/* one soft light drifting slowly across the plate (motion only) */
+.lp-benefits__plate::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block-start: -18%;
+  inset-inline-start: -16%;
+  inline-size: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--mx-stage-hi), transparent);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="off"], .lp-qa) .lp-benefits__plate::before {
+    animation: lp-bn-drift 18s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes lp-bn-drift {
+  to {
+    transform: translate(calc(var(--lp-x) * 52%), 34%);
+  }
+}
+
+/* One accent per block. On a nested accent / pop block (bento statement tile, stacked card) the
+   theme's --sec-accent is the brand's second hue: figures, wells, plates and buttons there take the
+   block's own ink instead, so no tile ever carries two loud colors. */
+.lp-benefits :is([data-bg="accent"], [data-bg="pop"]) {
+  --sec-accent: var(--sec-ink);
+  --sec-accent-ink: var(--sec-bg);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-benefits :is([data-bg="accent"], [data-bg="pop"]) {
+    --mx-on-accent: color-mix(in oklab, var(--sec-ink) 16%, transparent);
+    --mx-btn-1: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 30%, transparent);
+    --mx-btn-2: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 45%, transparent);
+  }
+}
+
+:root[data-mask="circle"] .lp-benefits__plate.lp-mask {
+  aspect-ratio: 1;
+}
+
+/* the item's index as a tone-on-tone supergraphic, cropped by the frame's floor */
+.lp-benefits__platenum {
+  position: absolute;
+  z-index: -1;
+  inset-inline: 0;
+  inset-block-end: -0.08em;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: clamp(8rem, 34vw, 15rem);
+  line-height: 0.8;
+  letter-spacing: -0.05em;
+  font-variant-numeric: lining-nums proportional-nums;
+  text-align: center;
+  color: var(--sec-accent);
+  opacity: 0.17;
+  pointer-events: none;
+}
+
+.lp-benefits__plateico {
+  display: grid;
+  place-items: center;
+  inline-size: 5.25rem;
+  aspect-ratio: 1;
+  margin-block-end: 12%;
+  border-radius: 50%;
+  color: var(--sec-accent);
+}
+
+.lp-benefits__plateico > svg {
+  inline-size: 44%;
+  block-size: 44%;
+}
+
+@supports (width: 1cqi) {
+  .lp-benefits__platenum {
+    font-size: min(74cqi, 60cqb, 16rem);
+  }
+
+  .lp-benefits__plateico {
+    inline-size: clamp(4.25rem, min(30cqi, 30cqb), 7rem);
+  }
+
+  .lp-benefits__platefig .lp-benefits__bigfig {
+    font-size: min(clamp(4.25rem, 3rem + 6vw, 8.25rem), 36cqi, 40cqb);
+  }
+
+  /* round masks (circle, pill, blob) curve away at the floor: the numeral stands inside the shape,
+     under the disc, instead of bleeding off the bottom edge */
+  :root:is([data-mask="circle"], [data-mask="pill"], [data-mask="blob"]) .lp-mask .lp-benefits__platenum {
+    inset-block-end: 13%;
+    font-size: min(50cqi, 38cqb);
+  }
+
+  :root:is([data-mask="circle"], [data-mask="pill"], [data-mask="blob"]) .lp-mask .lp-benefits__plateico {
+    margin-block-end: 26%;
+  }
+}
+
+.lp-benefits__platefig {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  margin: 0;
+  padding-inline: 10%;
+  text-align: center;
+}
+
+.lp-benefits__platefig .lp-benefits__bigfig {
+  color: var(--sec-ink);
+}

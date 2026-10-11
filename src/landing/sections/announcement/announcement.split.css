@@ -1,0 +1,146 @@
+/* announcement · split — rules only this variant renders (inlined after announcement.css on pages whose markup
+   carries .lp-announcement--split; the admin preview loads every variant). Shared rules live in announcement.css. */
+
+.lp-announcement--split .lp-announcement__text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  text-wrap: balance;
+}
+
+/* ---------- split: two promises on a glass capsule --------------------- */
+.lp-announcement--split {
+  padding-block: 0.4rem;
+}
+
+.lp-announcement__capsule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  min-block-size: 2.15rem;
+  padding: 0.25rem;
+  border-radius: var(--ann-r);
+  corner-shape: var(--ann-corner);
+  background-color: var(--ann-tint);
+  box-shadow:
+    inset 0 1px 0 var(--ann-sheen),
+    inset 0 0 0 1px var(--ann-edge),
+    0 0.6rem 1.4rem -1rem var(--ann-drop);
+}
+
+.lp-announcement__side {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.lp-announcement__side--end {
+  justify-content: flex-end;
+  text-align: end;
+}
+
+/* the end promise mirrors the start one: its disc rides the capsule's end edge */
+.lp-announcement__side--end .lp-announcement__msg {
+  flex-direction: row-reverse;
+}
+
+.lp-announcement__capsule .lp-announcement__text {
+  padding-inline: 0.15em;
+}
+
+.lp-announcement__rule {
+  display: none;
+  inline-size: 100%;
+  block-size: 1px;
+  overflow: visible;
+  opacity: 0.5;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+}
+
+.lp-announcement__rule path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.lp-announcement__capsule > .lp-announcement__pill {
+  justify-self: end;
+  min-block-size: 2em;
+  border-radius: var(--ann-r-in);
+  corner-shape: var(--ann-corner);
+}
+
+/* phones: the countdown takes the end slot while it runs; otherwise a hairline parts the two
+   promises, set a little tighter so the usual pair fits on one line each */
+@media (max-width: 47.99rem) {
+  .lp-announcement__capsule[data-timed] {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .lp-announcement__capsule[data-timed] .lp-announcement__side--end {
+    display: none;
+  }
+
+  .lp-announcement__capsule:not([data-timed], [data-single]) {
+    gap: 0.5rem;
+    font-size: 0.94em;
+    letter-spacing: min(0.02em, calc(var(--lp-label-tracking) * 0.5));
+  }
+
+  .lp-announcement__capsule:not([data-timed], [data-single]) .lp-announcement__msg {
+    gap: 0.45em;
+  }
+
+  .lp-announcement__capsule:not([data-timed], [data-single]) .lp-announcement__side--end {
+    padding-inline-start: 0.5rem;
+    border-inline-start: 1px solid var(--ann-edge);
+  }
+}
+
+@media (min-width: 48rem) {
+  /* the promises keep their natural width and only wrap when the capsule runs out of room */
+  .lp-announcement__capsule {
+    grid-template-columns: minmax(0, max-content) minmax(2rem, 1fr) minmax(0, max-content);
+    gap: 1rem;
+    padding: 0.3rem;
+  }
+
+  .lp-announcement__capsule[data-timed] {
+    grid-template-columns: minmax(0, max-content) minmax(1.5rem, 1fr) auto minmax(1.5rem, 1fr) minmax(0, max-content);
+  }
+
+  .lp-announcement__capsule > .lp-announcement__pill {
+    justify-self: center;
+  }
+
+  .lp-announcement__rule {
+    display: block;
+  }
+}
+
+/* one promise, no countdown: the capsule hugs it, centered */
+.lp-announcement__capsule[data-single]:not([data-timed]) {
+  grid-template-columns: minmax(0, auto);
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  margin-inline: auto;
+  padding-inline-end: 1rem;
+}
+
+.lp-announcement__capsule[data-single]:not([data-timed]) .lp-announcement__rule {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* split: the start promise unveils from its inner edge too, mirroring the end one */
+  html.lp-js:not([data-motion="off"]) .lp-announcement__side--start[data-reveal][data-in] {
+    animation-name: lp-rv-wipe-side-rtl;
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"] .lp-announcement__side--start[data-reveal][data-in] {
+    animation-name: lp-rv-wipe-side;
+  }
+}

@@ -1,0 +1,209 @@
+/* video · framed — rules only this variant renders (inlined after video.css on pages whose markup
+   carries .lp-video--framed; the admin preview loads every variant). Shared rules live in video.css. */
+
+.lp-video__wrap {
+  display: grid;
+  gap: var(--vd-gap);
+}
+
+/* ==========================================================================
+   framed
+   ========================================================================== */
+.lp-video__stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-video__frame {
+  container-type: inline-size;
+}
+
+.lp-video__frame > .lp-video__screen {
+  box-shadow: var(--lp-shadow-l);
+}
+
+/* landscape: caption at the top-start, controls at the top-end; the dock owns the bottom edge */
+.lp-video--framed .lp-video__wrap--wide .lp-video__stage {
+  margin-inline: calc(var(--lp-gutter) * -0.5);
+}
+
+.lp-video__frame[data-shape="land"] .lp-video__shade {
+  background: linear-gradient(to top, var(--lp-dark), transparent 34%), linear-gradient(to bottom, var(--lp-dark), transparent 26%);
+  opacity: 0.42;
+}
+
+/* portrait & square: the caption chip sits across the frame's bottom edge, controls at its foot */
+.lp-video__frame:not([data-shape="land"]) > .lp-video__fc {
+  inset: auto 0 0;
+  justify-content: center;
+  padding: 0 var(--vd-pad);
+  translate: 0 50%;
+}
+
+.lp-video__frame:not([data-shape="land"]) .lp-video__cap {
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+}
+
+.lp-video__frame:not([data-shape="land"]) > .lp-video__ctl {
+  inset-block: auto calc(var(--vd-pad) + 1.6rem);
+}
+
+.lp-video--framed .lp-video__wrap--side .lp-video__stage {
+  align-self: center;
+  justify-self: center;
+  /* room for the caption chip hanging over the frame's bottom edge and the panel below it */
+  margin-block: 0 2.25rem;
+  inline-size: min(100% - 2.5rem, 34rem, calc(72vh * var(--vr, 0.8)));
+}
+
+@supports (block-size: 1svh) {
+  .lp-video--framed .lp-video__wrap--side .lp-video__stage {
+    inline-size: min(100% - 2.5rem, 34rem, calc(72svh * var(--vr, 0.8)));
+  }
+}
+
+/* the panel of light behind a portrait frame: crisp edges, blurred clip inside, hairline rim.
+   The frame breaks out over its top edge. */
+.lp-video__amb.lp-video__plate {
+  inset: 13% -9% -6%;
+  overflow: hidden;
+  border-radius: calc(var(--vd-r) * 1.4);
+  background-color: var(--mx-tint-2);
+  opacity: 1;
+  filter: none;
+}
+
+.lp-video__plate .lp-pic {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  filter: blur(36px) saturate(1.6);
+  scale: 1.35;
+  opacity: 0.72;
+}
+
+/* depth over the light: deeper toward the floor, a lit rim on top */
+.lp-video__plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, transparent 35%, var(--sec-bg));
+  box-shadow: inset 0 0 0 1px var(--vd-rim);
+  opacity: 0.7;
+}
+
+/* arch-mask themes: arched frame in an arched panel — two concentric arches
+   (a mask clips drop shadows: the light does the depth) */
+:root[data-mask="arch"] .lp-video__frame:not([data-shape="land"]) > .lp-video__screen,
+:root[data-mask="arch"] .lp-video__plate {
+  border-radius: 0 0 var(--vd-r) var(--vd-r);
+  -webkit-mask-image: var(--lp-arch-mask);
+  mask-image: var(--lp-arch-mask);
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 50% 0;
+  mask-position: 50% 0;
+}
+
+/* the arched panel encloses the arched frame with an even band: one niche inside another */
+:root[data-mask="arch"] .lp-video__plate {
+  --band: clamp(1rem, 2.4vw, 2.25rem);
+  inset: calc(-1 * var(--band)) calc(-1 * var(--band)) calc(-1 * var(--band) - 0.75rem);
+}
+
+@media (min-width: 64rem) {
+  .lp-video__wrap > .lp-video__head {
+    grid-area: head;
+  }
+
+  .lp-video__wrap > .lp-video__stage {
+    grid-area: stage;
+  }
+
+  .lp-video__wrap > .lp-video__ch {
+    grid-area: rail;
+  }
+
+  .lp-video__wrap > .lp-video__act {
+    grid-area: act;
+  }
+
+  /* landscape: title + lead | order button at the far end, then the frame across the container */
+  .lp-video__wrap--wide {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "head act" "stage stage";
+    align-items: end;
+    column-gap: clamp(2rem, 5vw, 5rem);
+  }
+
+  .lp-video__wrap--wide .lp-video__act {
+    justify-items: end;
+    padding-block-end: 0.35rem;
+  }
+
+  .lp-video--framed .lp-video__wrap--wide .lp-video__stage {
+    margin-inline: 0;
+  }
+
+  .lp-video__wrap--side {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    grid-template-rows: 1fr auto auto auto 1fr;
+    grid-template-areas: ". stage" "head stage" "rail stage" "act stage" ". stage";
+    column-gap: clamp(3rem, 7vw, 7.5rem);
+    row-gap: clamp(1.75rem, 2.6vw, 2.75rem);
+  }
+
+  .lp-video--framed .lp-video__wrap--side .lp-video__stage {
+    inline-size: min(100% - 5rem, 34rem, calc(72vh * var(--vr, 0.8)));
+  }
+
+  @supports (block-size: 1svh) {
+    .lp-video--framed .lp-video__wrap--side .lp-video__stage {
+      inline-size: min(100% - 5rem, 34rem, calc(72svh * var(--vr, 0.8)));
+    }
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* framed: the frame grows into place as it scrolls in */
+    :root:not([data-motion="off"]) .lp-video--framed .lp-video__stage {
+      animation: lp-vid-grow linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 40%;
+    }
+
+    /* the scroll does the entrance: no second reveal on the frame */
+    :root:not([data-motion="off"]) .lp-video--framed .lp-video__frame[data-reveal][data-in] {
+      animation-name: none;
+    }
+
+    /* the panel of light drifts slower than the frame: depth */
+    :root:not([data-motion="off"]) .lp-video__plate {
+      animation: lp-vid-depth linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+  }
+}
+
+@keyframes lp-vid-grow {
+  from {
+    scale: 0.88;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+@keyframes lp-vid-depth {
+  from {
+    translate: 0 5%;
+  }
+  to {
+    translate: 0 -4%;
+  }
+}

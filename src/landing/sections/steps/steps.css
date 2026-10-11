@@ -1,0 +1,135 @@
+/* ==========================================================================
+   steps — timeline · cards · illustrated · strip   (v2 · modern)
+   Rules every variant uses. A variant's own rules live in steps.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* One accent per block. On a nested accent / pop block (the closing frame of the strip) the theme's
+   --sec-accent is the brand's second hue: the check disc and the order button there take the block's
+   own ink instead, so no block ever carries two loud colors. */
+.lp-steps :is([data-bg="accent"], [data-bg="pop"]) {
+  --sec-accent: var(--sec-ink);
+  --sec-accent-ink: var(--sec-bg);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-steps :is([data-bg="accent"], [data-bg="pop"]) {
+    --mx-on-accent: color-mix(in oklab, var(--sec-ink) 16%, transparent);
+    --mx-btn-1: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 30%, transparent);
+    --mx-btn-2: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 45%, transparent);
+  }
+}
+
+.lp-steps__head {
+  margin-block-end: clamp(2.25rem, 1.5rem + 3vw, 4rem);
+}
+
+:is(.lp-steps__rail, .lp-steps__cards, .lp-steps__ill, .lp-steps__frames) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-steps__title {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 1.06 * var(--lp-script-scale-display));
+  line-height: max(1.16, calc(var(--lp-display-lh) + 0.08));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case);
+  text-wrap: balance;
+}
+
+:lang(ar) .lp-steps__title {
+  line-height: 1.45;
+}
+
+.lp-steps__text {
+  margin: 0.6em 0 0;
+  max-inline-size: 42ch;
+  font-size: calc(var(--lp-step-0) * 0.97 * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+/* duration pill: tinted capsule, accent clock, tabular figures */
+.lp-steps__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  inline-size: fit-content;
+  padding-block: 0.36em;
+  padding-inline: 0.62em 0.82em;
+  border-radius: 999px;
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  color: var(--sec-ink);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.75rem, var(--lp-step--1) * 0.92) * var(--lp-script-scale));
+  font-weight: 600;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-steps__time .lp-icon {
+  color: var(--sec-accent);
+}
+
+.lp-steps__note {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  line-height: 1.12;
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  text-wrap: balance;
+}
+
+:lang(ar) .lp-steps__note {
+  line-height: 1.5;
+}
+
+.lp-steps__outro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem 2rem;
+  margin-block-start: clamp(2.5rem, 1.8rem + 3vw, 4rem);
+}
+
+.lp-steps__check {
+  inline-size: 52%;
+  block-size: auto;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lp-steps__conn--h {
+  display: none;
+}
+
+@media (min-width: 60rem) {
+
+  /* a wave across the row: every other plate sits lower, joined edge to edge by a curve whose
+     drop equals the offset (sizes derive from the row width, so the drawing keeps its ratio) */
+  @supports (width: 1cqi) {
+
+    .lp-steps__conn--h {
+      display: block;
+      inset-block-start: calc(var(--p) * var(--pr) / 2);
+      inset-inline-start: calc(50% + var(--p) / 2 + 0.5rem);
+      inline-size: var(--d);
+      block-size: auto;
+    }
+  }
+}

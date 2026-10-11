@@ -1,0 +1,374 @@
+/* showcase · hotspots — rules only this variant renders (inlined after showcase.css on pages whose markup
+   carries .lp-showcase--hotspots; the admin preview loads every variant). Shared rules live in showcase.css. */
+
+:is(.lp-showcase__notes, .lp-showcase__xlist, .lp-showcase__tiles) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* numbered disc: pins on the photo and their notes share it */
+:is(.lp-showcase__pin, .lp-showcase__badge, .lp-showcase__xpin) {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font-family: var(--lp-font-label);
+  font-weight: var(--lp-strong-weight, 600);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   hotspots — pinned photo, leader lines, raised notes
+   ========================================================================== */
+.lp-showcase__hs {
+  display: grid;
+  gap: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+}
+
+.lp-showcase__plate {
+  position: relative;
+  inline-size: min(100%, 32rem);
+  margin: 0 auto;
+}
+
+/* the photo is its own layer (glow behind it); pins sit above the leader lines */
+.lp-showcase__photo {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-showcase__aura {
+  position: absolute;
+  inset: -14%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.lp-showcase__photo .lp-showcase__pic {
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-l);
+}
+
+/* a 1px inner rim of light keeps the photo crisp on any ground */
+.lp-showcase__photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  box-shadow: inset 0 0 0 1px var(--mx-hair), inset 0 1px 0 var(--mx-rim);
+  pointer-events: none;
+}
+
+.lp-showcase__plate[data-kind="cutout"] .lp-showcase__pic {
+  background: radial-gradient(120% 90% at 50% 18%, var(--mx-stage-hi), var(--mx-stage) 78%);
+}
+
+.lp-showcase__pin {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--y);
+  inset-inline-start: var(--x);
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  margin: -0.875rem;
+  font-size: 0.76rem;
+  box-shadow: 0 0 0 3px var(--mx-rim), 0 8px 18px -6px var(--mx-btn-2);
+  transition: scale var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth), opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* a slow sonar ring keeps the pins discoverable (lively pages only) */
+:is(.lp-showcase__pin, .lp-showcase__xpin)::after {
+  content: "";
+  position: absolute;
+  inset: -0.4rem;
+  border: 1.5px solid var(--sec-accent);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion="lively"] :is(.lp-showcase__pin, .lp-showcase__xpin)::after {
+    animation: lp-sc-sonar 3.2s var(--lp-smooth) infinite;
+  }
+
+  :root[data-motion="lively"] :is(.lp-showcase__pin, .lp-showcase__xpin):nth-of-type(even)::after {
+    animation-delay: 1.6s;
+  }
+}
+
+.lp-showcase__leaders {
+  display: none;
+}
+
+/* phones & tablets: one grouped list under the photo */
+.lp-showcase__notes {
+  inline-size: min(100%, 36rem);
+  margin-inline: auto;
+  border: 1px solid var(--mx-hair);
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+  overflow: hidden;
+}
+
+/* inset hairline between rows, starting at the copy (grouped-list style) */
+.lp-showcase__note + .lp-showcase__note .lp-showcase__card::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: calc(clamp(1rem, 0.7rem + 1.2vw, 1.4rem) + 2.45rem) 0;
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-showcase__card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.85rem;
+  padding: 1.05rem clamp(1rem, 0.7rem + 1.2vw, 1.4rem);
+  transition: translate var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth), border-color var(--lp-dur-m) var(--lp-smooth), opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* in the list the card is a plain row (the raised card belongs to the desktop overlay) */
+.lp-showcase__notes .lp-showcase__card {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  box-shadow: none;
+}
+
+.lp-showcase__badge {
+  inline-size: 1.6rem;
+  block-size: 1.6rem;
+  margin-block-start: 0.1rem;
+  font-size: 0.72rem;
+  box-shadow: 0 6px 14px -6px var(--mx-btn-2);
+}
+
+.lp-showcase__card .lp-showcase__label {
+  font-size: calc(var(--lp-step-1) * 0.78 * var(--lp-script-scale-display));
+}
+
+.lp-showcase__card .lp-showcase__text {
+  margin-block-start: 0.3em;
+  font-size: calc(var(--lp-step-0) * 0.86 * var(--lp-script-scale));
+  color: inherit;
+  opacity: 0.74;
+}
+
+@media (min-width: 62rem) {
+  .lp-showcase__hs {
+    position: relative;
+    display: block;
+  }
+
+  /* the stage keeps the solved proportions (padding box: works without aspect-ratio) */
+  .lp-showcase__hs::before {
+    content: "";
+    display: block;
+    padding-block-start: calc(100% / var(--stage, 1));
+  }
+
+  .lp-showcase__plate {
+    position: absolute;
+    inset-block-start: var(--pt);
+    inset-inline-start: var(--px0);
+    inline-size: var(--pw);
+    margin: 0;
+  }
+
+  .lp-showcase__leaders {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    pointer-events: none;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .lp-showcase__leaders g {
+    transition: opacity var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  /* over the ground the line takes the section ink; over the photo, a tone read from the photo */
+  .lp-showcase__ray {
+    stroke: var(--pair, var(--sec-ink));
+    stroke-width: 0.12;
+    transition: stroke var(--lp-dur-m) var(--lp-smooth), stroke-width var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  .lp-showcase__leaders[data-tone="light"] .lp-showcase__ray--photo {
+    stroke: var(--lp-dark);
+  }
+
+  .lp-showcase__leaders[data-tone="dark"] .lp-showcase__ray--photo {
+    stroke: var(--lp-dark-ink);
+  }
+
+  .lp-showcase__end {
+    fill: var(--pair, var(--sec-ink));
+  }
+
+  .lp-showcase__notes {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    inline-size: auto;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  /* zero-height row centred on the solved level: the card hangs evenly above and below it */
+  .lp-showcase__note {
+    position: absolute;
+    inset-block-start: var(--ly);
+    display: flex;
+    align-items: center;
+    inline-size: var(--nw);
+    block-size: 0;
+  }
+
+  .lp-showcase__note[data-side="l"] {
+    inset-inline-start: 0;
+  }
+
+  .lp-showcase__note[data-side="r"] {
+    inset-inline-end: 0;
+  }
+
+  /* a matte raised card: half of it crosses the photo's edge, so it stays solid — frosted glass
+     would smear the photo's border through it */
+  .lp-showcase__notes .lp-showcase__card {
+    inline-size: 100%;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--mx-hair);
+    border-radius: var(--lp-sq-l);
+    corner-shape: var(--lp-corner);
+    background: linear-gradient(180deg, var(--mx-rim), transparent 2.5rem) var(--sec-card);
+    color: var(--sec-card-ink);
+    box-shadow: var(--lp-highlight, 0 0 #0000), 0 1px 2px var(--mx-btn-1), var(--lp-shadow-m);
+    pointer-events: auto;
+  }
+
+  .lp-showcase__note + .lp-showcase__note .lp-showcase__card::before {
+    content: none;
+  }
+
+  .lp-showcase__pin {
+    inline-size: 2rem;
+    block-size: 2rem;
+    margin: -1rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* hover a detail, its pin or its line: the pair lights up (--on), the others step back
+   (hotspots and exploded diagrams share the [data-k] pairing) */
+@media (hover: hover) and (min-width: 60rem) {
+  @supports selector(:has(a)) {
+    :is(
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="1"]:hover) [data-k="1"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="2"]:hover) [data-k="2"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="3"]:hover) [data-k="3"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="4"]:hover) [data-k="4"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="5"]:hover) [data-k="5"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="6"]:hover) [data-k="6"]
+      ) {
+      --on: 1;
+      --pair: var(--sec-accent);
+    }
+  }
+}
+
+@media (hover: hover) and (min-width: 62rem) {
+  @supports selector(:has(a)) {
+    .lp-showcase__hs:has([data-k]:hover) :is(.lp-showcase__pin, .lp-showcase__leaders g, .lp-showcase__card) {
+      opacity: calc(0.4 + var(--on, 0) * 0.6);
+    }
+
+    .lp-showcase__pin {
+      scale: calc(1 + var(--on, 0) * 0.16);
+    }
+
+    .lp-showcase__ray {
+      stroke-width: calc(0.12 + var(--on, 0) * 0.08);
+    }
+
+    .lp-showcase__notes .lp-showcase__card {
+      translate: 0 calc(var(--on, 0) * -3px);
+      border-color: var(--pair, var(--mx-hair));
+    }
+
+    .lp-showcase__badge {
+      scale: calc(1 + var(--on, 0) * 0.12);
+      transition: scale var(--lp-dur-m) var(--lp-spring);
+    }
+  }
+}
+
+/* ==========================================================================
+   motion — the product light drifts against the scroll (progressive)
+   ========================================================================== */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"]) :is(.lp-showcase__aura, .lp-showcase__glow, .lp-showcase__field .lp-orb) {
+      animation: lp-sc-drift linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-showcase :is(.lp-showcase__pin, .lp-showcase__card, .lp-showcase__tile, .lp-showcase__art, .lp-showcase__ray, .lp-showcase__leaders g, .lp-showcase__xpin, .lp-showcase__xray, .lp-showcase__xleaders g, .lp-showcase__xcall > *) {
+    transition: none;
+  }
+
+  .lp-showcase :is(.lp-showcase__tile:hover, .lp-showcase__card, .lp-showcase__xbody) {
+    translate: none;
+  }
+
+  .lp-showcase :is(.lp-showcase__pin, .lp-showcase__xpin, .lp-showcase__badge, .lp-showcase__art) {
+    scale: none;
+  }
+}
+
+@keyframes lp-sc-sonar {
+  0% {
+    opacity: 0.8;
+    scale: 0.65;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    scale: 1.65;
+  }
+}
+
+@keyframes lp-sc-drift {
+  from {
+    translate: 0 8%;
+  }
+  to {
+    translate: 0 -8%;
+  }
+}

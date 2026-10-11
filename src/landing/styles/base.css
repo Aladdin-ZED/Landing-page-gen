@@ -1,0 +1,4424 @@
+/* ==========================================================================
+   COD Studio — landing base stylesheet (shared kit: primitives + page base)
+   v2 · Modern (docs/DESIGN.md): light & depth, glass, generous radii, smooth
+   springs. No craft/vintage material anywhere: no paper, ink, tape, stamps,
+   dashed or double rules, hand-drawn strokes.
+   --------------------------------------------------------------------------
+   Plain CSS, logical properties only. Colors, type, radii, shadows, glass and
+   motion come from theme tokens (DESIGN.md §2) written on :root and on every
+   [data-bg] block by src/lib/theme; style switches read the attributes on
+   <html> (DESIGN.md §2.5): data-arch · data-btn · data-card · data-emphasis ·
+   data-mask · data-glyph · data-texture · data-radius · data-shadow ·
+   data-surfaces · data-motion · data-base · data-density.
+
+   Cascade (no @layer: Chrome < 99, Safari < 15.4 and Samsung Internet 14
+   ignore every layered rule). Every kit default is written inside :where(),
+   so it carries ZERO specificity: section stylesheets (inlined after this
+   file) always win with plain class selectors. Inside this file later rules
+   win over earlier ones — order matters (base → style → variant → state).
+   Kept at normal specificity on purpose: Arabic typography, accessibility
+   utilities and the reveal system (never undone by accident).
+
+   Browser floor: Chrome 90, Safari 14, Firefox 90, Samsung Internet 14.
+   - :where() needs Chromium 88: Samsung Internet 14 (Chromium 87) drops every
+     :where() rule, so §0 gives it a plain, on-brand fallback.
+   - Individual transforms (translate/scale/rotate) arrive in Chrome 104:
+     they only carry motion (hover lifts, reveals). Anything a state depends
+     on (radio dot, RTL mirroring, marquee travel, tilts) uses `transform`.
+   - color-mix() (Chrome 111 / Safari 16.2) only lives in --mx-* tokens with
+     plain-token fallbacks, upgraded inside @supports. Hued tints also need
+     relative colors (Chrome 119 / Safari 16.4 / Firefox 128): see "No orange"
+     in §2 — engines without them keep the theme's own chip/stage tokens.
+   - linear() springs are wrapped as --lp-spring / --lp-spring-pop (fall back to an
+     ease-out curve), so a transition list never becomes invalid.
+   - backdrop-filter (glass) always sits on top of an opaque fallback fill.
+   - :has() / :focus-visible / :placeholder-shown live in rules of their own,
+     so an engine that cannot parse them drops that one rule, not a list.
+
+   Conventions for section authors (full API: src/landing/primitives/README.md):
+   - Static rotations/offsets use `transform` (transform: rotate(var(--rot))).
+     Reveals and hovers animate the individual translate/scale/rotate
+     properties, so the two compose.
+   - Per-instance values travel as custom properties (cssVars()), never as raw
+     declarations in style attributes.
+   - --lp-x is +1 in LTR and −1 in RTL: multiply physical offsets by it.
+   - RTL mirroring (.lp-flip-rtl) uses the individual `scale` property.
+   - The kit owns `.lp-section::before` (grain finish); decorate sections with
+     their own inner elements.
+   - Reveals: data-reveal="<kind>" (+ data-delay). For "draw", give strokes
+     class="lp-draw" and pathLength="1". Never hide the LCP element.
+   - Public knobs: --btn-bg --btn-ink --btn-line --btn-h --btn-px --btn-fs
+     --btn-radius (buttons) · --f-bg --f-ink --f-line --f-ring --f-h (fields)
+     · --st-size (round stickers) · --stage-max --stage-ratio (stages) ·
+     --price-fs · --star-on --star-off · --em-c (swoosh color) · --em-hl
+     (highlight color) · --em-lh (a title's own line-height, for the emphasis
+     marks) · --cd-gap (compact countdown: days ↔ clock) · --tone-bg
+     --tone-ink --tone-line (tones) · --mx-* derived section colors (read-only).
+   - Kit scales (read-only, §2): --lp-z-* (stacking: under · raised · overlay ·
+     header · sticky · float · toast · skip — never an ad-hoc 9999) and
+     --lp-ui-s / --lp-ui-m (interface feedback — hover, press, focus,
+     selection — always 200–280 ms, whatever pace the archetype reveals at).
+   - Shape system (§2b): continuous corners (--lp-corner, --lp-corner-k and the
+     pre-scaled --lp-sq-* radii, or the .lp-sq utility), concentric nesting
+     (--lp-inner-r published by cards, .lp-nest for their content; inner =
+     outer − gap × --lp-corner-d), device hairlines (--lp-hairline, --mx-edge),
+     the media edge (--mx-media-edge) and the inner keyline (.lp-keyline,
+     --kl-d, --kl-c). Radius knobs a section sets (--btn-radius, theme
+     radius tokens) are circular radii: the kit converts them where it draws
+     a squircle, so a section's concentric math stays right.
+   - Color: tokens only. No color literal of the UI may sit in the orange band
+     (OKLCH hue 25°–75° with chroma > 0.06); white/black only as light/shade
+     inside mixes, sheens and masks — never as a block fill.
+   ========================================================================== */
+
+/* ==========================================================================
+   0. Fallback for engines without :where() (Samsung Internet 14 = Chromium 87)
+   They drop every kit rule below, so this block alone keeps the page usable
+   and on-brand: tokens still apply, images fit, buttons and fields look like
+   buttons and fields, decorations stay out of the flow. `selector()` gates
+   it: Chromium 83–87 enters; Safari 14.0 (:where() but no selector()) and
+   every modern engine skip it.
+   ========================================================================== */
+@supports (not selector(:where(*))) and selector(*) {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--lp-bg);
+    color: var(--lp-ink);
+    font-family: var(--lp-font-body);
+    font-size: var(--lp-step-0);
+    line-height: var(--lp-body-lh);
+    overflow-x: hidden;
+  }
+
+  img,
+  video {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .lp-section,
+  [data-bg] {
+    background-color: var(--sec-bg);
+    color: var(--sec-ink);
+  }
+
+  .lp-section {
+    position: relative;
+    padding: 3.5rem 0;
+  }
+
+  .lp-container {
+    width: calc(100% - 2 * var(--lp-gutter));
+    max-width: var(--lp-container);
+    margin: 0 auto;
+  }
+
+  .lp-display-1,
+  .lp-display-2,
+  .lp-display-3,
+  .lp-display-4,
+  .lp-h1,
+  .lp-h2,
+  .lp-h3 {
+    margin: 0 0 0.4em;
+    font-family: var(--lp-font-display);
+    font-weight: var(--lp-display-weight);
+    font-size: var(--lp-step-3);
+    line-height: 1.1;
+  }
+
+  .lp-em {
+    font-style: normal;
+    color: var(--sec-accent);
+  }
+
+  .lp-em__deco,
+  .lp-stage__set,
+  .lp-stage__shadow,
+  .lp-select__chev,
+  .lp-radio__dot,
+  .lp-check__mark {
+    display: none;
+  }
+
+  .lp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.5rem;
+    padding: 0.6em 1.5em;
+    border: 0;
+    border-radius: max(var(--lp-radius-btn), 0.875rem);
+    background: var(--sec-accent);
+    color: var(--sec-accent-ink);
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .lp-btn--secondary,
+  .lp-btn--ghost,
+  .lp-btn--glass {
+    border: 1.5px solid currentColor;
+    background: transparent;
+    color: inherit;
+  }
+
+  .lp-btn__price,
+  .lp-btn__icon {
+    margin-left: 0.6em;
+    white-space: nowrap;
+  }
+
+  [dir="rtl"] .lp-btn__price,
+  [dir="rtl"] .lp-btn__icon {
+    margin-left: 0;
+    margin-right: 0.6em;
+  }
+
+  .lp-btn__sub {
+    display: block;
+    font-size: 0.75em;
+    font-weight: 500;
+  }
+
+  .lp-field {
+    display: block;
+    margin: 0 0 1rem;
+  }
+
+  .lp-field__label {
+    display: block;
+    margin: 0 0 0.35rem;
+    font-weight: 600;
+  }
+
+  .lp-field__error {
+    color: var(--sec-danger);
+  }
+
+  .lp-input,
+  .lp-select__el,
+  .lp-input-group {
+    display: block;
+    width: 100%;
+    min-height: 3.5rem;
+    padding: 0.7em 1em;
+    border: 1px solid var(--sec-line-strong);
+    border-radius: var(--lp-radius-m);
+    background: var(--sec-card);
+    color: var(--sec-card-ink);
+    font: inherit;
+    font-size: 16px;
+  }
+
+  .lp-input-group {
+    display: flex;
+    align-items: center;
+    padding: 0 0 0 1em;
+  }
+
+  .lp-input-group .lp-input {
+    border: 0;
+    background: transparent;
+  }
+
+  .lp-card {
+    padding: 1.25rem;
+    border-radius: var(--lp-radius-l);
+    background: var(--sec-card);
+    color: var(--sec-card-ink);
+  }
+
+  .lp-stage {
+    max-width: 30rem;
+    margin: 0 auto;
+  }
+
+  .lp-stage .lp-pic__img {
+    width: auto;
+    max-height: 26rem;
+    margin: 0 auto;
+  }
+
+  .lp-diecut,
+  .lp-badge,
+  .lp-chip {
+    display: inline-block;
+    padding: 0.4em 0.9em;
+    border-radius: 999px;
+    background: var(--sec-chip);
+    color: var(--sec-chip-ink);
+    font-weight: 700;
+  }
+
+  .lp-trust {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lp-trust__item {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 1.2rem 0.6rem 0;
+  }
+
+  .lp-stars__row {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .lp-stars__row svg {
+    display: block;
+    width: 6.6em;
+    height: 1.2em;
+    fill: var(--sec-line);
+  }
+
+  .lp-stars__row .lp-stars__fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    fill: var(--sec-accent);
+    clip-path: inset(0 calc(100% - var(--v, 1) * 100%) 0 0);
+  }
+
+  .lp-marquee {
+    overflow: hidden;
+  }
+
+  .lp-marquee__track,
+  .lp-marquee__group {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .lp-marquee__group[aria-hidden="true"] {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   1. Reset
+   ========================================================================== */
+:where(*),
+:where(*)::before,
+:where(*)::after {
+  box-sizing: border-box;
+}
+
+:where(html) {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+:where(body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, ul, ol, fieldset, legend) {
+  margin: 0;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+:where(ul[role="list"], ol[role="list"]) {
+  list-style: none;
+  padding: 0;
+}
+
+:where(fieldset) {
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+}
+
+:where(legend) {
+  padding: 0;
+}
+
+:where(img, picture, video, canvas) {
+  display: block;
+  max-inline-size: 100%;
+}
+
+:where(input, button, textarea, select) {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+:where(button) {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+:where(a) {
+  color: inherit;
+  text-decoration-skip-ink: auto;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.2em;
+  transition: color var(--lp-ui-s, 200ms) ease, text-decoration-color var(--lp-ui-s, 200ms) ease, opacity var(--lp-ui-s, 200ms) ease;
+}
+
+/* bare links in running text (no component class): a quiet underline that takes the accent on hover */
+:where(a:not([class])) {
+  text-decoration-line: underline;
+  text-decoration-color: var(--mx-line, currentColor);
+}
+
+@media (hover: hover) {
+  :where(a:not([class]):hover) {
+    text-decoration-color: var(--sec-accent, currentColor);
+  }
+}
+
+:where(a:not([class]):active) {
+  opacity: 0.72;
+}
+
+:where(table) {
+  border-collapse: collapse;
+}
+
+:where(p, li, dd, figcaption, blockquote, h1, h2, h3, h4) {
+  overflow-wrap: break-word;
+}
+
+/* running text never ends a paragraph on a lone word (headings balance: §3) */
+:where(p, li, dd, figcaption, blockquote) {
+  text-wrap: pretty;
+}
+
+/* figures that change in place (live totals, counters, clocks) never make the line twitch */
+:where([data-lp-price], [data-lp-sum], [data-count-to], [data-cd], [data-ty="total"], [data-ty="orderId"], time) {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+:where([hidden]) {
+  display: none !important;
+}
+
+/* ==========================================================================
+   2. Kit tokens & derived section colors
+   ========================================================================== */
+
+/* The theme writes a zero radius as a unitless "0", which is not a length inside min()/max()/calc():
+   max(var(--lp-radius-btn), 14px) would turn invalid and drop the corner to 0. Registered as
+   <length>, "0" computes to 0px, so the kit's radius floors hold (engines without @property keep the
+   theme's value as written). */
+@property --lp-radius-xs {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --lp-radius-s {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --lp-radius-m {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --lp-radius-btn {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+/* a button's corner radius (sections may set it: a length, or 50% for a disc). Registered, so it
+   computes on the button itself (an `em` is the button's) and `if(style(--btn-radius: 999px))` can
+   tell a pill or a disc — which keep circular ends — from a rounded rectangle (squircle, §2b) */
+@property --btn-radius {
+  syntax: "<length-percentage>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+:where(:root) {
+  /* inline direction sign for physical offsets (nudges, light direction) */
+  --lp-x: 1;
+  /* Arabic reads smaller at the same font-size: +8% text, +4% display (set under :lang(ar)) */
+  --lp-script-scale: 1;
+  --lp-script-scale-display: 1;
+  /* springs: the theme's damped linear() when the engine has it, a firm ease-out otherwise.
+     --lp-spring-pop is the overshoot (badge pops, radio dots). Never call an easing "--lp-pop":
+     the theme writes the pop COLOR under that name on :root, which would win and turn every
+     transition/animation shorthand using it invalid. */
+  --lp-spring: var(--lp-ease-expo-out, cubic-bezier(0.16, 1, 0.3, 1));
+  --lp-spring-pop: var(--lp-ease-expo-out, cubic-bezier(0.16, 1, 0.3, 1));
+  /* cubic stand-ins for the new easing tokens (themes built before they existed) */
+  --lp-smooth: var(--lp-ease-quint-out, cubic-bezier(0.22, 1, 0.36, 1));
+  --lp-sway: var(--lp-ease-in-out, cubic-bezier(0.45, 0, 0.25, 1));
+  /* glass: the theme's blur + saturation, a sensible default otherwise */
+  --lp-glass: var(--lp-glass-filter, blur(18px) saturate(140%));
+  /* arch mask: a half-disc on a tall column (intrinsic 1:10, sized by the width → true half-circle) */
+  --lp-arch-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='1000' viewBox='0 0 100 1000'%3E%3Cpath d='M0 50A50 50 0 0 1 100 50V1000H0Z'/%3E%3C/svg%3E");
+  /* stacking scale — the values the shared layers already sit on (header 40, sticky CTA 80,
+     WhatsApp 85); inside a section, decoration lives on under/raised/overlay */
+  --lp-z-under: -1;
+  --lp-z-raised: 1;
+  --lp-z-overlay: 2;
+  --lp-z-header: 40;
+  --lp-z-sticky: 80;
+  --lp-z-float: 85;
+  --lp-z-toast: 90;
+  --lp-z-skip: 100;
+  /* interface feedback stays quick on every archetype (reveals keep the theme's own pace) */
+  --lp-ui-s: 200ms;
+  --lp-ui-m: 280ms;
+}
+
+/* motion "off": every state change is instant, like the theme's own durations */
+:where(:root[data-motion="off"]) {
+  --lp-ui-s: 0ms;
+  --lp-ui-m: 0ms;
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+  :where(:root) {
+    --lp-spring: var(--lp-ease-spring, cubic-bezier(0.16, 1, 0.3, 1));
+    --lp-spring-pop: var(--lp-ease-pop, var(--lp-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)));
+  }
+}
+
+:where([dir="rtl"]) {
+  --lp-x: -1;
+}
+
+:where([dir="ltr"]) {
+  --lp-x: 1;
+}
+
+/* --------------------------------------------------------------------------
+   2b. Shape system
+   Continuous corners — kit surfaces (cards, buttons, fields, rounded media,
+   stage sets, section panels) draw a superellipse corner where the engine can
+   (corner-shape, Chromium 139+) and the theme's circular corner elsewhere.
+   A squircle corner turns in later than a circle of the same radius, so its
+   radius is scaled by --lp-corner-k: at 1.6 it keeps the theme's perceived
+   roundness, with a curvature that grows smoothly out of the straight edge
+   instead of starting abruptly (no visible "start of the arc"). Pills,
+   circles, discs, arch heads and blobs always stay circular.
+     --lp-sq-<size>  the theme radius, rendered (× k): use it WITH
+                     corner-shape: var(--lp-corner), or the .lp-sq utility;
+     --lp-corner-d   concentric factor: an inner corner set `gap` inside an
+                     outer one takes  outer − gap × d  (1 for circles; 1.84
+                     for squircles, whose corner sits closer to the box
+                     corner — this keeps the gap even along the whole curve);
+     --lp-inner-r    published by kit containers (cards, the stage's glass
+                     mat) for the media/content set inside their padding.
+   Theme radius tokens and --btn-radius stay circular radii: a section's own
+   concentric math keeps working; the kit converts where it draws.
+   Hairlines — --lp-hairline is one device pixel on 2× screens (0.5px) and 1px
+   elsewhere; --mx-edge is its color (a touch stronger on the thinner line).
+   -------------------------------------------------------------------------- */
+:where(:root) {
+  --lp-corner: round;
+  --lp-corner-k: 1;
+  --lp-corner-d: 1;
+  --lp-hairline: 1px;
+  --lp-sq-xs: calc(var(--lp-radius-xs, 4px) * var(--lp-corner-k));
+  --lp-sq-s: calc(var(--lp-radius-s, 8px) * var(--lp-corner-k));
+  --lp-sq-m: calc(var(--lp-radius-m, 14px) * var(--lp-corner-k));
+  --lp-sq-l: calc(var(--lp-radius-l, 20px) * var(--lp-corner-k));
+  --lp-sq-xl: calc(var(--lp-radius-xl, 28px) * var(--lp-corner-k));
+  --lp-sq-media: calc(var(--lp-radius-media, 24px) * var(--lp-corner-k));
+  --lp-sq-panel: calc(var(--lp-radius-panel, var(--lp-radius-xl, 28px)) * var(--lp-corner-k));
+}
+
+/* if() is required too: the kit keeps pills and discs circular with if(style(…)) (buttons) — an
+   engine with corner-shape but no if() stays on circular corners everywhere, consistently */
+@supports (corner-shape: squircle) and (corner-shape: if(else: round)) {
+  :where(:root) {
+    --lp-corner: squircle;
+    --lp-corner-k: 1.6;
+    --lp-corner-d: 1.84;
+  }
+}
+
+@media (min-resolution: 2dppx) {
+  :where(:root) {
+    --lp-hairline: 0.5px;
+  }
+}
+
+/* opt-in for section surfaces: continuous corners at the radius the element already has. Give it a
+   --lp-sq-* radius (pre-scaled) — a raw theme radius would read a little tighter as a squircle. */
+:where(.lp-sq) {
+  corner-shape: var(--lp-corner);
+}
+
+/* content nested inside a kit container's padding (a card's media, a mat's photo): concentric */
+:where(.lp-nest) {
+  border-radius: var(--lp-inner-r, var(--lp-sq-m));
+  corner-shape: var(--lp-corner);
+}
+
+/* Derived section colors, re-resolved on every color block so they follow --sec-*.
+   Fallbacks are plain theme tokens (engines without color-mix keep a coherent look). */
+:where(:root, [data-bg]) {
+  --mx-hair: var(--sec-line);
+  --mx-line: var(--sec-line);
+  --mx-tint: var(--sec-chip);
+  --mx-tint-2: var(--sec-chip);
+  --mx-field: var(--sec-card);
+  --mx-stage: var(--sec-chip);
+  --mx-stage-lo: var(--sec-chip);
+  --mx-stage-hi: var(--sec-card);
+  --mx-contact: rgb(0 0 0 / 0.22);
+  --mx-rim: rgb(255 255 255 / 0.45);
+  --mx-floor: rgb(0 0 0 / 0.08);
+  --mx-on-accent: rgb(255 255 255 / 0.18);
+  --mx-btn-1: rgb(0 0 0 / 0.12);
+  --mx-btn-2: rgb(0 0 0 / 0.2);
+  --mx-plinth: var(--sec-card);
+  --mx-plinth-side: var(--sec-chip);
+  --mx-plinth-top: var(--sec-card);
+  /* hairline edge of a kit surface (§2b) and the inner edge drawn on masked photos */
+  --mx-edge: var(--sec-line);
+  --mx-media-edge: transparent;
+}
+
+@supports (color: color-mix(in oklab, black 50%, white)) {
+  :where(:root, [data-bg]) {
+    --mx-edge: color-mix(in oklab, var(--sec-ink) 12%, transparent);
+    /* a photo's edge, defined in one quiet line: a pale photo on a pale ground keeps a crisp
+       silhouette (ink-tinted, so it is a rim light on dark grounds) */
+    --mx-media-edge: color-mix(in oklab, var(--sec-ink) 9%, transparent);
+    --mx-hair: color-mix(in oklab, var(--sec-ink) 11%, transparent);
+    --mx-line: color-mix(in oklab, var(--sec-ink) 22%, transparent);
+    --mx-field: color-mix(in oklab, var(--sec-ink) 3.5%, var(--sec-card));
+    --mx-contact: color-mix(in oklab, var(--sec-ink) 34%, transparent);
+    --mx-floor: color-mix(in oklab, var(--sec-ink) 13%, transparent);
+    --mx-on-accent: color-mix(in oklab, var(--sec-accent-ink) 16%, transparent);
+    --mx-btn-1: color-mix(in oklab, var(--sec-accent) 34%, transparent);
+    --mx-btn-2: color-mix(in oklab, var(--sec-accent) 52%, transparent);
+    /* the plinth only ever mixes the stage with white or black: a neutral keeps the stage's hue */
+    --mx-plinth: color-mix(in oklab, var(--mx-stage) 42%, #fff);
+    --mx-plinth-side: color-mix(in oklab, var(--mx-stage-lo) 90%, #000);
+    --mx-plinth-top: color-mix(in oklab, var(--mx-stage) 18%, #fff);
+    /* highlighter wash without relative colors: softened toward white (a neutral, so hue-true) */
+    --mx-hl: color-mix(in oklab, var(--sec-highlight, var(--sec-accent)) 72%, #fff);
+  }
+
+  :where([data-bg="accent"], [data-bg="pop"]) {
+    --mx-hl: var(--sec-highlight, var(--sec-chip));
+  }
+
+  /* dark blocks: a top light reads as a spotlight, not a fog */
+  :where([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])) {
+    --mx-hl: color-mix(in oklab, var(--sec-highlight, var(--sec-accent)) 72%, #000);
+    --mx-rim: rgb(255 255 255 / 0.16);
+    --mx-floor: rgb(0 0 0 / 0.38);
+    --mx-contact: rgb(0 0 0 / 0.6);
+    --mx-plinth: color-mix(in oklab, var(--sec-card) 86%, #fff);
+    --mx-plinth-side: color-mix(in oklab, var(--sec-card) 70%, #000);
+    --mx-plinth-top: color-mix(in oklab, var(--sec-card) 72%, #fff);
+  }
+}
+
+/* a one-device-pixel line carries half the ink of a CSS pixel: its color steps up to read the same */
+@media (min-resolution: 2dppx) {
+  @supports (color: color-mix(in oklab, black 50%, white)) {
+    :where(:root, [data-bg]) {
+      --mx-edge: color-mix(in oklab, var(--sec-ink) 17%, transparent);
+      --mx-media-edge: color-mix(in oklab, var(--sec-ink) 13%, transparent);
+    }
+  }
+}
+
+/* No orange (owner rule 2026-10-10: no UI color at OKLCH hue 25–75° above chroma 0.06).
+   Every token is clean, but a MIX of two clean colors is not: a crimson accent mixed into a butter
+   or cream ground passes straight through peach and amber on its way (the yellow of the ground pulls
+   the hue across the band), and a gold into a rose ground does the same from the other side. A blend
+   can only land in the band when both ends carry real color on opposite sides of it, so every hued
+   tint here mixes a color with a NEUTRAL, which keeps that color's own hue exactly:
+     --mx-ground   the section ground drained of color (same lightness) — tints are the accent's hue,
+                   just quieter: blush for a crimson, sand for a gold, never a peach;
+     color blocks  (accent / pop) mix tone on tone instead: their ink (a white or near-black in the
+                   block's own hue) into the block itself — the block's second color never bleeds in.
+   The product stage (--mx-stage/-lo/-hi) is normally the theme's own clean ramp per block; these
+   formulas are its fallback. Engines without relative colors keep the theme's chip/stage tokens. */
+@supports (color: oklch(from red l c h)) {
+  :where(:root, [data-bg]) {
+    --mx-ground: oklch(from var(--sec-bg) l 0 0);
+    --mx-tint-of: var(--sec-accent);
+    --mx-tint: color-mix(in oklab, var(--mx-tint-of) 11%, var(--mx-ground));
+    --mx-tint-2: color-mix(in oklab, var(--mx-tint-of) 22%, var(--mx-ground));
+    --mx-stage: color-mix(in oklab, var(--mx-tint-of) 24%, var(--mx-ground));
+    --mx-stage-lo: color-mix(in oklab, var(--mx-tint-of) 42%, var(--mx-ground));
+    --mx-stage-hi: color-mix(in oklab, color-mix(in oklab, var(--mx-tint-of) 7%, var(--mx-ground)) 80%, #fff);
+    /* the highlighter wash behind *emphasis*: the theme's highlighter, a quarter of the way to the ground */
+    --mx-hl: color-mix(in oklab, var(--sec-highlight, var(--mx-tint-of)) 72%, var(--mx-ground));
+  }
+
+  :where([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])) {
+    --mx-stage: color-mix(in oklab, var(--mx-tint-of) 22%, var(--mx-ground));
+    --mx-stage-lo: color-mix(in oklab, var(--mx-tint-of) 9%, var(--mx-ground));
+    --mx-stage-hi: color-mix(in oklab, var(--mx-stage) 84%, #fff);
+  }
+
+  /* color blocks: tone on tone (the highlighter there is a tone of the block too) */
+  :where([data-bg="accent"], [data-bg="pop"]) {
+    --mx-ground: var(--sec-bg);
+    --mx-tint-of: var(--sec-ink);
+    --mx-stage: color-mix(in oklab, var(--sec-bg) 92%, #fff);
+    --mx-stage-lo: color-mix(in oklab, var(--sec-bg) 88%, #000);
+    --mx-stage-hi: color-mix(in oklab, var(--sec-bg) 80%, #fff);
+    --mx-hl: color-mix(in oklab, var(--sec-highlight, var(--sec-bg)) 72%, var(--sec-bg));
+  }
+}
+
+/* --mx-safe: a chroma cap for one relative color — `oklch(from <mix> l var(--mx-safe) h)` keeps
+   the mix as it is unless its hue lands in the forbidden band, where it settles to a sand (C 0.045).
+   For the few blends that must join two real colors (a fade between two section grounds, a
+   highlighter that is not a tone of its color block). */
+@supports (color: oklch(from red l min(c, calc(0.045 + 2 * clamp(0, (h - 24) * 40, 1))) h)) {
+  :where(:root) {
+    --mx-safe: min(c, calc(0.045 + 2 * (1 - clamp(0, (h - 24) * 40, 1) * clamp(0, (76 - h) * 40, 1))));
+  }
+
+  :where([data-bg="accent"], [data-bg="pop"]) {
+    --mx-hl: oklch(from color-mix(in oklab, var(--sec-highlight, var(--sec-bg)) 72%, var(--sec-bg)) l var(--mx-safe) h);
+  }
+}
+
+/* ==========================================================================
+   3. Document & typography
+   ========================================================================== */
+:where(html) {
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font-family: var(--lp-font-body);
+  font-weight: var(--lp-body-weight, 400);
+  line-height: var(--lp-body-lh);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  font-optical-sizing: auto;
+  hanging-punctuation: first allow-end last;
+  scroll-padding-block-start: 1rem;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+:where(body) {
+  min-block-size: 100vh;
+  min-block-size: 100svh;
+  background: var(--lp-bg);
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  overflow-x: clip;
+}
+
+/* focus: a 2px accent ring. Safari < 15.4 has no :focus-visible — it gets the ring on :focus. */
+:where(a, button, summary, [tabindex], input, select, textarea):focus {
+  outline: 2px solid var(--sec-accent);
+  outline-offset: 3px;
+}
+
+:where(a:focus:not(:focus-visible), button:focus:not(:focus-visible), summary:focus:not(:focus-visible), [tabindex]:focus:not(:focus-visible)) {
+  outline: none;
+}
+
+:where(:focus-visible) {
+  outline: 2px solid var(--sec-accent);
+  outline-offset: 3px;
+}
+
+:where(h1, h2, h3, h4) {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+:where(.lp-display-1, .lp-display-2, .lp-display-3, .lp-display-4, .lp-h1, .lp-h2, .lp-h3, .lp-h4) {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  line-height: var(--lp-display-lh);
+  font-variant-numeric: lining-nums;
+  font-kerning: normal;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+/* display sizes never outgrow a phone column (the vw ceiling only bites below ~400px) */
+:where(.lp-display-1) {
+  font-size: min(calc(var(--lp-step-6) * var(--lp-script-scale-display)), 16vw);
+  line-height: calc(var(--lp-display-lh) * 0.96);
+  letter-spacing: calc(var(--lp-display-tracking) * 1.25);
+}
+
+:where(.lp-display-2) {
+  font-size: min(calc(var(--lp-step-5) * var(--lp-script-scale-display)), 13.5vw);
+  line-height: calc(var(--lp-display-lh) * 0.98);
+  letter-spacing: calc(var(--lp-display-tracking) * 1.15);
+}
+
+:where(.lp-display-3) {
+  font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 11.5vw);
+}
+
+:where(.lp-display-4) {
+  font-size: min(calc(var(--lp-step-3) * 1.08 * var(--lp-script-scale-display)), 10vw);
+}
+
+:where(.lp-h1) {
+  font-size: min(calc(var(--lp-step-4) * 0.88 * var(--lp-script-scale-display)), 11vw);
+  line-height: calc(var(--lp-display-lh) + 0.03);
+}
+
+:where(.lp-h2) {
+  font-size: calc(var(--lp-step-3) * 0.94 * var(--lp-script-scale-display));
+  line-height: calc(var(--lp-display-lh) + 0.06);
+}
+
+:where(.lp-h3) {
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  line-height: max(1.12, calc(var(--lp-display-lh) + 0.1));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+}
+
+:where(.lp-h4) {
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale));
+  line-height: max(1.25, calc(var(--lp-display-lh) + 0.2));
+  letter-spacing: 0;
+}
+
+:where(.lp-lead) {
+  font-size: calc(var(--lp-step-1) * 0.94 * var(--lp-script-scale));
+  line-height: calc(var(--lp-body-lh) - 0.06);
+  text-wrap: pretty;
+}
+
+:where(.lp-body) {
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  text-wrap: pretty;
+}
+
+:where(.lp-small) {
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  line-height: 1.5;
+}
+
+/* small labels / captions / spec numbers (mono accent when the theme has one) */
+:where(.lp-label, .lp-mono-label) {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.75rem, var(--lp-step--1) * 0.9) * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight, 500);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+/* a quiet aside in the emphasis face (italic serif for Latin, the display face for Arabic) */
+:where(.lp-hand) {
+  font-family: var(--lp-font-emphasis, var(--lp-font-display));
+  font-style: var(--lp-emphasis-style, normal);
+  font-weight: 400;
+  font-synthesis: none;
+  font-size: 1.08em;
+  line-height: 1.2;
+}
+
+:where(.lp-num) {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* a comfortable reading measure (≈ 45–70 characters, whatever the face) */
+:where(.lp-measure) {
+  max-inline-size: min(38rem, 70ch);
+}
+
+/* ==========================================================================
+   4. Sections, panels, containers, materials
+   ========================================================================== */
+:where([data-bg]) {
+  background-color: var(--sec-bg);
+  color: var(--sec-ink);
+}
+
+:where(.lp-section) {
+  --space-k: 1;
+  position: relative;
+  isolation: isolate;
+  /* optical rhythm: the first line's half-leading and ascent already add air above the content, so
+     the bottom edge gets a little more padding than the top to look equal */
+  padding-block: calc(var(--lp-space-section) * var(--space-k)) calc(var(--lp-space-section) * var(--space-k) * 1.08);
+  background-color: var(--sec-bg);
+  color: var(--sec-ink);
+}
+
+:where(.lp-section[data-space="tight"]) {
+  --space-k: 0.55;
+}
+
+:where(.lp-section[data-space="airy"]) {
+  --space-k: 1.45;
+}
+
+/* data-surfaces="panels": in-flow sections of the page body become large rounded panels inset from
+   the viewport edge with small gaps (top bars and floating sections are unaffected). Opt out per
+   section with .lp-section--flush; .lp-section--bleed lets content cross the panel edge. */
+:where(:root[data-surfaces="panels"] :is(.lp-main > .lp-section, .lp-main ~ .lp-section):not(.lp-section--flush)) {
+  margin-inline: var(--lp-panel-inset, clamp(8px, 2vw, 20px));
+  margin-block-start: var(--lp-panel-gap, clamp(8px, 2vw, 20px));
+  /* a large continuous corner: the panel reads as one soft object, no visible start of the curve */
+  border-radius: var(--lp-sq-panel);
+  corner-shape: var(--lp-corner);
+}
+
+@supports (overflow: clip) {
+  :where(:root[data-surfaces="panels"] :is(.lp-main > .lp-section, .lp-main ~ .lp-section):not(.lp-section--flush, .lp-section--bleed)) {
+    overflow: clip;
+  }
+}
+
+:where(:root[data-surfaces="panels"] body) {
+  padding-block-end: var(--lp-panel-gap, clamp(8px, 2vw, 20px));
+}
+
+/* panels are separated by space and color, never by a drawn edge */
+:where(:root[data-surfaces="panels"] .lp-divider) {
+  display: none;
+}
+
+:where(.lp-container) {
+  --c-max: var(--lp-container);
+  inline-size: min(100% - 2 * var(--lp-gutter), var(--c-max));
+  margin-inline: auto;
+}
+
+:where(.lp-container--narrow) {
+  --c-max: min(var(--lp-container), 46rem);
+}
+
+:where(.lp-container--wide) {
+  --c-max: calc(var(--lp-container) + 10rem);
+}
+
+:where(.lp-container--bleed) {
+  inline-size: 100%;
+}
+
+/* container queries for section internals (opt-in: never on fixed-position roots) */
+:where(.lp-cq) {
+  container-type: inline-size;
+}
+
+/* aurora: three soft lights in the product's hues (contrast-solved by the theme) */
+:where(.lp-aurora) {
+  background-image: var(--lp-aurora, radial-gradient(60% 55% at 20% 18%, var(--mx-tint-2), transparent), radial-gradient(55% 50% at 85% 30%, var(--mx-tint), transparent));
+}
+
+/* film grain finish — only on dark, color and light-field blocks (≤ 3% opacity, theme-tinted) */
+:where(:root[data-texture="grain"] :is(.lp-main > .lp-section, .lp-main ~ .lp-section):is([data-bg="dark"], [data-bg="accent"], [data-bg="pop"], .lp-aurora))::before,
+:where(:root[data-texture="grain"][data-base="dark"] :is(.lp-main > .lp-section, .lp-main ~ .lp-section))::before,
+:where(.lp-grain)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  corner-shape: inherit;
+  background-image: var(--lp-grain, none);
+  opacity: var(--lp-grain-opacity, 0.02);
+  pointer-events: none;
+}
+
+:where(.lp-grain) {
+  position: relative;
+  isolation: isolate;
+}
+
+/* frosted glass surface: opaque fallback first, translucent + blur where supported */
+/* the edge is a device hairline: glass reads as a thin pane, never a framed box */
+:where(.lp-glass) {
+  border: var(--lp-hairline) solid var(--sec-glass-border, var(--mx-hair));
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m, 0 8px 24px -12px rgb(0 0 0 / 0.25));
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :where(.lp-glass) {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+/* ==========================================================================
+   5. Rich text & modern emphasis
+   ========================================================================== */
+:where(.lp-rt) > * + * {
+  margin-block-start: 0.85em;
+}
+
+:where(.lp-rt__list) {
+  display: grid;
+  gap: 0.55em;
+}
+
+:where(.lp-rt__list > li) {
+  position: relative;
+  padding-inline-start: 1.5em;
+}
+
+/* bullet: a crisp accent dot with a soft halo */
+:where(.lp-rt__list > li)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0.28em;
+  inset-block-start: calc(var(--lp-body-lh) * 0.5em - 0.2em);
+  inline-size: 0.4em;
+  block-size: 0.4em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 0.22em var(--mx-tint-2);
+}
+
+:where(.lp-strong) {
+  font-weight: var(--lp-strong-weight);
+}
+
+/* isolated numeric expressions ("24–48", "−30%") stay on one line */
+:where(.lp-nobr) {
+  white-space: nowrap;
+}
+
+:where(:is(.lp-display-1, .lp-display-2, .lp-display-3, .lp-display-4, .lp-h1, .lp-h2, .lp-h3, .lp-h4) .lp-strong) {
+  font-weight: inherit;
+  color: var(--sec-accent);
+}
+
+/* word boxes of a split heading (RichText `split`): animated one by one on reveal */
+:where(.lp-word) {
+  display: inline-block;
+}
+
+/* RichText glue: a fragment written flush against an emphasis ("و*ساترة*", "l’*essayer*", "*X*:") or
+   the closing mark of a run set against the page direction travels with its word box. A line may
+   break at any word box's edge, so the pair sits in a no-wrap box; the spaces between its own word
+   boxes are breakable spans (.lp-sp), so a glued emphasis or run still wraps between its words. A
+   long CSS-only emphasis (plain text, no boxes) simply keeps wrapping normally. */
+:where(.lp-glue) {
+  white-space: nowrap;
+}
+
+:where(.lp-glue .lp-sp, .lp-glue > .lp-em--plain) {
+  white-space: normal;
+}
+
+:where(.lp-em) {
+  /* highlight wash: the theme's highlighter tone taken about a quarter of the way back toward the
+     section ground — a soft tint, never a neon marker. --sec-ink keeps AA on it: the mix lies
+     between two grounds the theme already solved for 4.5:1 (the block and the highlighter). The
+     ground is drained of color first (--mx-hl, §2), so a pink highlighter on a cream page stays a
+     pink wash and never turns peach. */
+  --em-hl: var(--mx-hl, var(--sec-highlight, var(--mx-tint-2)));
+  font-style: normal;
+}
+
+/* each emphasized word is its own box, so long emphasis still wraps on phones */
+:where(.lp-em__w) {
+  --em-c: var(--sec-accent);
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+  line-height: 1;
+  margin-block: -0.1em;
+  /* a word wider than the column may break rather than overflow (320px phones, huge display type) */
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Tight display leading (kinetic 0.9, condensed caps) leaves little room under the baseline before
+   the next line's capitals. --em-lh carries the heading's leading to its emphasis; --em-tight goes
+   from 0 (leading ≥ 1.15) to 1 (≤ 0.85) and lifts the swoosh toward the baseline, slims it, and
+   trims the highlight block, so neither ever touches the next line. A section that sets its own
+   title line-height can pass it as --em-lh. */
+:where(.lp-display-1) {
+  --em-lh: calc(var(--lp-display-lh, 1.1) * 0.96);
+}
+
+:where(.lp-display-2) {
+  --em-lh: calc(var(--lp-display-lh, 1.1) * 0.98);
+}
+
+:where(.lp-display-3, .lp-display-4) {
+  --em-lh: var(--lp-display-lh, 1.1);
+}
+
+:where(.lp-h1) {
+  --em-lh: calc(var(--lp-display-lh, 1.1) + 0.03);
+}
+
+:where(.lp-h2) {
+  --em-lh: calc(var(--lp-display-lh, 1.1) + 0.06);
+}
+
+:where(.lp-em__w) {
+  --em-tight: clamp(0, (1.15 - var(--em-lh, 1.5)) * 3.35, 1);
+}
+
+/* swoosh: one clean stroke under the whole emphasis (a slice per word, overlapping the spaces).
+   The slice is a replaced element: its width is set explicitly (word + overhangs) — left to the
+   insets alone, the viewBox ratio (an estimate from character counts) would size it instead. */
+:where(.lp-em__deco) {
+  /* overhangs (mirror emphasis.ts): a short lead before each word, a long tail after it */
+  --em-o-s: 0.06em;
+  --em-o-e: 0.26em;
+  position: absolute;
+  z-index: -1;
+  inset-inline-start: calc(-1 * var(--em-o-s));
+  inset-block-start: calc(0.74em - var(--em-tight, 0) * 0.04em);
+  inline-size: calc(100% + var(--em-o-s) + var(--em-o-e));
+  /* the stroke scales with the box (viewBox 40 units tall): a shorter box = a slimmer, flatter
+     stroke closer to the letters (no calc() on stroke-width: older WebKit drops it to 1px) */
+  block-size: calc(0.4em - var(--em-tight, 0) * 0.07em);
+  overflow: visible;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--em-c);
+  stroke-width: 8.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: none;
+}
+
+/* --s / --e: the words where the stroke starts and ends (RichText marks them in visual order, which
+   is the DOM order except across a run written against the page direction) */
+:where(.lp-em__w--s > .lp-em__deco) {
+  --em-o-s: 0.04em;
+}
+
+:where(.lp-em__w--e > .lp-em__deco) {
+  --em-o-e: 0.04em;
+}
+
+:where([dir="rtl"] .lp-em__deco) {
+  transform: scaleX(-1);
+}
+
+/* Bidi (RichText): an emphasis that is entirely a run against the page direction (a Latin product
+   name on an Arabic page) is an isolate of its own direction, and its stroke follows it; a run inside
+   a mixed emphasis is a <bdi> whose words read their own way while the stroke keeps flowing with the
+   page, so each word's lead and tail swap sides there. */
+:where(.lp-em[dir], .lp-em__run) {
+  unicode-bidi: isolate;
+}
+
+:where(.lp-em[dir="ltr"] .lp-em__deco, :root[dir="ltr"] .lp-em:not([dir]) .lp-em__run .lp-em__deco) {
+  transform: none;
+}
+
+:where(.lp-em__run .lp-em__deco) {
+  inset-inline-start: calc(-1 * var(--em-o-e));
+}
+
+/* Arabic letterforms sit higher in the em box than Latin: the stroke rides closer to them */
+:where(:lang(ar) .lp-em__deco) {
+  inset-block-start: 0.92em;
+}
+
+/* An emphasis that is all Latin words on an Arabic page sits on the Arabic face's baseline (≈ 0.72em
+   down the word box) but has no deep tails: the stroke comes up under it, as close as on a Latin page.
+   (A Latin run inside a mixed emphasis keeps the Arabic height, so the stroke stays one line.) */
+:where(:lang(ar) .lp-em[dir="ltr"] .lp-em__deco) {
+  inset-block-start: 0.68em;
+}
+
+/* and the reverse (an em only carries dir="rtl" on a left-to-right page): an all-Arabic emphasis on
+   a Latin page clears its letters' tails */
+:where(.lp-em[dir="rtl"] .lp-em__deco) {
+  inset-block-start: 0.92em;
+}
+
+/* Arabic headings never run tighter than 1.2 (§17): no tight-leading compensation */
+:where(:lang(ar) .lp-em__w) {
+  --em-tight: 0;
+}
+
+:where(:root[data-emphasis="swoosh"] .lp-em__deco) {
+  display: block;
+}
+
+/* highlight: a soft tinted wash under the lower half of the emphasis — one continuous band (each
+   word's slice reaches into the spaces and overlaps its neighbor's) with fully rounded ends. It sits
+   low (from mid x-height to just under the baseline), so the letters stay crisp above it; under tight
+   display leading (--em-tight) it slims so it never touches the next line. */
+:where(:root[data-emphasis="highlight"] .lp-em__w)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-inline: -0.14em;
+  inset-block: calc(0.5em + var(--em-tight, 0) * 0.05em) calc(var(--em-tight, 0) * 0.1em - 0.03em);
+  border-radius: 0;
+  background: var(--em-hl);
+  transform-origin: left center;
+}
+
+:where([dir="rtl"]:root[data-emphasis="highlight"] .lp-em__w)::before {
+  transform-origin: right center;
+}
+
+/* Arabic letters carry their weight around the baseline (bowls and tails dip under it, little rises
+   to a Latin x-height): the wash centers on the baseline band instead of the lower x-height */
+:where(:root[data-emphasis="highlight"] :lang(ar) .lp-em__w)::before {
+  inset-block: 0.47em 0;
+}
+
+/* an all-Latin emphasis on an Arabic page: the Latin band (mid x-height to just under the baseline),
+   measured from the Arabic face's baseline */
+:where(:root[data-emphasis="highlight"] :lang(ar) .lp-em[dir="ltr"] .lp-em__w)::before {
+  inset-block: 0.4em 0.06em;
+}
+
+/* the wash opens from where the stroke starts: an emphasis set in its own direction wipes that way */
+:where(:root[data-emphasis="highlight"] .lp-em[dir="ltr"] .lp-em__w)::before {
+  transform-origin: left center;
+}
+
+:where(:root[data-emphasis="highlight"] .lp-em[dir="rtl"] .lp-em__w)::before {
+  transform-origin: right center;
+}
+
+/* pill ends: oversized radii are scaled down to exactly half the band's height */
+:where(:root[data-emphasis="highlight"] .lp-em__w--s)::before {
+  inset-inline-start: -0.12em;
+  border-start-start-radius: 999px;
+  border-end-start-radius: 999px;
+}
+
+:where(:root[data-emphasis="highlight"] .lp-em__w--e)::before {
+  inset-inline-end: -0.12em;
+  border-start-end-radius: 999px;
+  border-end-end-radius: 999px;
+}
+
+/* inside a run against the page direction the stroke's start is the run's inline end, and back */
+:where(:root[data-emphasis="highlight"] .lp-em__run .lp-em__w--s)::before {
+  inset-inline: -0.14em -0.12em;
+  border-radius: 0;
+  border-start-end-radius: 999px;
+  border-end-end-radius: 999px;
+}
+
+:where(:root[data-emphasis="highlight"] .lp-em__run .lp-em__w--e)::before {
+  inset-inline: -0.12em -0.14em;
+  border-radius: 0;
+  border-start-start-radius: 999px;
+  border-end-start-radius: 999px;
+}
+
+:where(:root[data-emphasis="highlight"] .lp-em__run .lp-em__w--s.lp-em__w--e)::before {
+  inset-inline: -0.12em;
+  border-radius: 999px;
+}
+
+:where(:root[data-emphasis="color"] .lp-em) {
+  color: var(--sec-accent);
+}
+
+/* in running text an accent color alone is not enough contrast: ink + an accent underline.
+   Never matches <body class="lp-body"> (it would reach every heading) nor text inside a heading. */
+:where(:root[data-emphasis="color"] :is(.lp-rt, .lp-body:not(body), .lp-lead, .lp-small, p) :is(.lp-em, .lp-em__w):not(:is(h1, h2, h3, h4, .lp-display-1, .lp-display-2, .lp-display-3, .lp-display-4, .lp-h1, .lp-h2, .lp-h3, .lp-h4) *)) {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: var(--sec-accent);
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.2em;
+}
+
+:where(:root[data-emphasis="italic"] .lp-em) {
+  font-family: var(--lp-font-emphasis);
+  font-style: var(--lp-emphasis-style);
+  font-synthesis: none;
+  letter-spacing: -0.005em;
+}
+
+/* long emphasis & tiny UI text: CSS-only equivalents that wrap freely */
+:where(.lp-em--plain) {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* decorations never propagate into inline-blocks: the word boxes of a split heading redraw it */
+:where(.lp-em--plain .lp-word) {
+  text-decoration: inherit;
+}
+
+:where(:root[data-emphasis="swoosh"] .lp-em--plain) {
+  text-decoration-line: underline;
+  text-decoration-color: var(--sec-accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: none;
+}
+
+/* the same rounded wash, drawn as background on every line fragment (box-decoration-break: clone):
+   a band with a round cap at each end of each line */
+:where(:root[data-emphasis="highlight"] .lp-em--plain) {
+  --em-band: 0.5em;
+  --em-band-y: calc(100% - 0.17em);
+  /* the band reaches past the first and last letter without moving the text */
+  padding-inline: 0.14em;
+  margin-inline: -0.1em;
+  background-image:
+    radial-gradient(circle closest-side, var(--em-hl) calc(100% - 1px), transparent),
+    radial-gradient(circle closest-side, var(--em-hl) calc(100% - 1px), transparent),
+    linear-gradient(var(--em-hl), var(--em-hl));
+  background-repeat: no-repeat;
+  background-size:
+    var(--em-band) var(--em-band),
+    var(--em-band) var(--em-band),
+    calc(100% - var(--em-band)) var(--em-band);
+  background-position:
+    0 var(--em-band-y),
+    100% var(--em-band-y),
+    50% var(--em-band-y);
+}
+
+/* inside buttons emphasis is weight only: the button already owns color and shape */
+:where(.lp-btn .lp-em) {
+  color: inherit;
+  text-decoration: none;
+  background: none;
+  padding: 0;
+}
+
+/* ==========================================================================
+   6. Section header, kicker, eyebrow
+   ========================================================================== */
+:where(.lp-sh) {
+  display: grid;
+  gap: clamp(0.85rem, 0.7rem + 0.5vw, 1.25rem);
+  max-inline-size: 54rem;
+  margin-block-end: clamp(2.25rem, 1.5rem + 3vw, 4.5rem);
+}
+
+:where(.lp-sh--center) {
+  margin-inline: auto;
+  justify-items: center;
+  text-align: center;
+}
+
+:where(.lp-sh__meta) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.85rem;
+}
+
+:where(.lp-sh--center .lp-sh__meta, .lp-sh--center .lp-sh__extra) {
+  justify-content: center;
+}
+
+/* tabular section number, set off from the kicker by a slim divider: "01 │ ● Bienfaits" */
+:where(.lp-sh__num) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.8rem, var(--lp-step--1) * 0.95) * var(--lp-script-scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-sh__num)::after {
+  content: "";
+  inline-size: 1px;
+  block-size: 1.15em;
+  background: var(--mx-line);
+}
+
+/* hairline that runs out from the meta row (SectionHeader `rule`) */
+:where(.lp-sh__rule) {
+  flex: 1 1 3rem;
+  min-inline-size: 3rem;
+  block-size: 1px;
+  background: var(--mx-line);
+}
+
+:where(.lp-sh__title) {
+  max-inline-size: 17ch;
+}
+
+:where(.lp-sh--m .lp-sh__title) {
+  max-inline-size: 20ch;
+}
+
+:where(.lp-sh--xl .lp-sh__title) {
+  max-inline-size: 14ch;
+}
+
+:where(.lp-sh--center .lp-sh__title) {
+  margin-inline: auto;
+}
+
+:where(.lp-sh__side) {
+  display: grid;
+  gap: 1.35rem;
+}
+
+:where(.lp-sh__lead) {
+  max-inline-size: min(36rem, 100%);
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-sh--center .lp-sh__lead) {
+  margin-inline: auto;
+}
+
+:where(.lp-sh__extra) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+/* condensed caps carry more words per line; Arabic needs a wider measure for the same words */
+:where(:root:is([data-arch="kinetic"], [data-arch="garage"]) .lp-sh__title) {
+  max-inline-size: 18ch;
+}
+
+:where(:root:is([data-arch="kinetic"], [data-arch="garage"]) .lp-sh--xl .lp-sh__title) {
+  max-inline-size: 16ch;
+}
+
+:where(:lang(ar) .lp-sh__title) {
+  max-inline-size: 20ch;
+}
+
+@media (min-width: 56rem) {
+  :where(.lp-sh--split) {
+    max-inline-size: none;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    column-gap: clamp(2rem, 6vw, 6rem);
+    align-items: end;
+  }
+
+  :where(.lp-sh--split .lp-sh__meta) {
+    grid-column: 1 / -1;
+  }
+
+  :where(.lp-sh--split .lp-sh__side) {
+    padding-block-end: 0.35em;
+  }
+}
+
+/* kicker: the archetype glyph + a small label — a soft tinted pill, or a bare label */
+:where(.lp-kicker, .lp-eyebrow) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  max-inline-size: 100%;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.78rem, var(--lp-step--1) * 0.9) * var(--lp-script-scale));
+  font-weight: 600;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.25;
+}
+
+:where(.lp-kicker) {
+  color: var(--sec-ink);
+}
+
+:where(.lp-kicker__ornament) {
+  flex: none;
+  inline-size: 0.78em;
+  block-size: 0.78em;
+  color: var(--sec-accent);
+}
+
+:where(.lp-kicker__ornament[data-ornament="dot"]) {
+  inline-size: 0.62em;
+  block-size: 0.62em;
+}
+
+:where(:root[data-glyph="none"] .lp-kicker__ornament[data-auto]) {
+  display: none;
+}
+
+/* pill look: soft accent tint, hairline, a hint of light on top */
+:where(.lp-kicker--pill),
+:where(:root:not([data-arch="maison"], [data-arch="kinetic"], [data-arch="editorial"], [data-arch="garage"]) .lp-kicker:not(.lp-kicker--label)) {
+  padding-block: 0.52em;
+  padding-inline: 0.85em 1em;
+  border-radius: 999px;
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+}
+
+:where(.lp-kicker--label) {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+:where(.lp-eyebrow) {
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-eyebrow__num) {
+  color: var(--sec-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.lp-eyebrow__rule) {
+  flex: none;
+  inline-size: 2em;
+  block-size: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+:where(.lp-ornament) {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.08em;
+  overflow: visible;
+}
+
+/* ==========================================================================
+   7. Buttons — html[data-btn]: solid · pill · glow · soft · outline · underline
+      Confident fill, a 1px inner highlight, a soft shadow tinted by the
+      button's own color. Hover lifts 2px and opens a glow; press settles to
+      .98 on a spring; the arrow nudges forward.
+   ========================================================================== */
+:where(.lp-btn) {
+  --btn-bg: var(--sec-accent);
+  --btn-ink: var(--sec-accent-ink);
+  --btn-line: transparent;
+  --btn-h: 3.5rem;
+  --btn-px: clamp(1.25em, 0.75em + 2.2vw, 1.75em);
+  --btn-fs: var(--lp-step-0);
+  /* never a boxy slab: whatever the theme's button radius, the corners stay a confident quarter of
+     the button's height (14px at 56px) — pills and softer styles only go rounder */
+  --btn-radius: max(var(--lp-radius-btn), calc(var(--btn-h) * 0.25));
+  /* the price chip sits this far inside the button's edge (block axis): its corner is concentric */
+  --btn-chip-h: 1.74em;
+  --btn-hl: var(--lp-highlight-accent, inset 0 1px 0 rgb(255 255 255 / 0.22));
+  /* a crisp 1px edge a shade deeper than the fill (keeps pale fills defined on pale grounds) */
+  --btn-edge: 0 0 #0000;
+  --btn-shadow: var(--btn-hl), var(--btn-edge), 0 1px 2px var(--mx-btn-1), 0 6px 16px -6px var(--mx-btn-2);
+  --btn-shadow-hover: var(--btn-hl), var(--btn-edge), var(--lp-shadow-glow, 0 10px 26px -8px var(--mx-btn-2));
+  --btn-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0) 58%);
+  /* hover / press light: a wash of the button's own ink over its fill (lighter on deep fills,
+     deeper on pale ones) — an inset shadow flooding the padding box, so it eases in with the other
+     shadows and needs no pseudo-element (sections may give a button position: static) */
+  --btn-wash: 8%;
+  --btn-wash-press: 13%;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65em;
+  max-inline-size: 100%;
+  min-block-size: var(--btn-h);
+  padding-block: 0.5em;
+  padding-inline: var(--btn-px);
+  border: 1px solid var(--btn-line);
+  /* --btn-radius is a circular radius: a rounded-rectangle button draws it as a continuous corner
+     (× k, §2b); a pill (999px) or a disc (50%) keeps circular ends */
+  border-radius: calc(var(--btn-radius) * var(--lp-corner-k));
+  corner-shape: if(style(--btn-radius: 999px): round; style(--btn-radius: 50%): round; else: var(--lp-corner));
+  background-color: var(--btn-bg);
+  background-image: var(--btn-sheen);
+  color: var(--btn-ink);
+  /* the first (transparent) layer is the hover/press wash's slot: same list shape in every state,
+     so the shadows always interpolate smoothly */
+  box-shadow: inset 0 0 0 100vmax #0000, var(--btn-shadow);
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--btn-fs) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: -0.006em;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    background-color var(--lp-ui-s) var(--lp-ease),
+    color var(--lp-ui-s) var(--lp-ease),
+    border-color var(--lp-ui-s) var(--lp-ease),
+    box-shadow var(--lp-ui-m) var(--lp-smooth),
+    translate var(--lp-ui-m) var(--lp-spring),
+    scale var(--lp-ui-m) var(--lp-spring);
+}
+
+@supports (color: color-mix(in oklab, black 50%, white)) {
+  :where(.lp-btn) {
+    --btn-edge: inset 0 0 0 var(--lp-hairline) color-mix(in oklab, var(--btn-bg) 84%, black);
+  }
+}
+
+:where(.lp-btn--m) {
+  --btn-h: 3rem;
+  --btn-px: clamp(1.05em, 0.7em + 1.4vw, 1.4em);
+  --btn-fs: calc(var(--lp-step-0) * 0.95);
+}
+
+:where(.lp-btn--xl) {
+  --btn-h: 4rem;
+  --btn-px: clamp(1.3em, 0.6em + 3vw, 2.1em);
+  --btn-fs: calc(var(--lp-step-1) * 0.92);
+}
+
+:where(:root[data-shadow="none"] .lp-btn) {
+  --btn-shadow: var(--btn-hl);
+}
+
+:where(.lp-btn__label) {
+  min-inline-size: 0;
+  text-wrap: balance;
+}
+
+/* optical vertical centering: Latin labels are centered on their capitals (cap height to baseline),
+   not on the font's ascent + descent box, which sits every face a little high or low in the button.
+   Arabic keeps the full line box (its letters live around the baseline, with deep tails). */
+@supports (text-box: trim-both cap alphabetic) {
+  :where(:root:not(:lang(ar)) :is(.lp-btn__label, .lp-btn__sub)) {
+    text-box: trim-both cap alphabetic;
+  }
+}
+
+/* optical padding: a trailing arrow carries its own side bearing, so the end padding steps in a
+   little and the label + icon group reads centered (pill buttons park the arrow in a disc instead) */
+:where(.lp-btn--has-icon:not(.lp-btn--ghost)) {
+  padding-inline-end: calc(var(--btn-px) * 0.84);
+}
+
+:where(.lp-btn--has-lead:not(.lp-btn--ghost)) {
+  padding-inline-start: calc(var(--btn-px) * 0.84);
+}
+
+/* label + reassurance line stacked (Cta `sub`) */
+:where(.lp-btn__text) {
+  display: inline-grid;
+  justify-items: center;
+  gap: 0.16em;
+  min-inline-size: 0;
+}
+
+/* full ink (no fading): the reassurance line is small, so it keeps the label's AA contrast */
+:where(.lp-btn__sub) {
+  font-family: var(--lp-font-body);
+  font-size: 0.7em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/* trimmed to their capitals, label and reassurance line need a real gap between them: the label's
+   baseline to the small line's cap height */
+@supports (text-box: trim-both cap alphabetic) {
+  :where(:root:not(:lang(ar)) .lp-btn__text) {
+    gap: 0.5em;
+  }
+}
+
+/* price pill: tabular numerals, never split from its currency */
+:where(.lp-btn__price) {
+  display: inline-flex;
+  align-items: baseline;
+  flex: none;
+  padding-block: 0.32em;
+  padding-inline: 0.66em;
+  /* concentric with the button: its corner minus the gap between the two edges (a pill button keeps
+     a pill chip — the subtraction from 999px leaves a capsule) */
+  border-radius: max(0.5em, calc(var(--btn-radius) * var(--lp-corner-k) - (var(--btn-h) - var(--btn-chip-h, 1.74em)) / 2 * var(--lp-corner-d)));
+  corner-shape: inherit;
+  background: var(--mx-on-accent);
+  font-size: 0.9em;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.1;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+:where(.lp-btn__price .lp-money__cur) {
+  font-size: 0.82em;
+}
+
+:where(.lp-btn__icon) {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  transition: translate var(--lp-ui-m) var(--lp-spring), background-color var(--lp-ui-s) var(--lp-ease);
+}
+
+:where(.lp-btn__icon--lead) {
+  margin-inline-start: -0.2em;
+}
+
+@media (max-width: 39.99rem) {
+  :where(.lp-btn--wide) {
+    inline-size: 100%;
+  }
+
+  /* a full-width order button reads like a checkout bar: words at the start, the price and the
+     arrow locked together at the end */
+  :where(.lp-btn--wide.lp-btn--has-price) {
+    justify-content: flex-start;
+    text-align: start;
+  }
+
+  :where(.lp-btn--wide.lp-btn--has-price .lp-btn__label, .lp-btn--wide.lp-btn--has-price .lp-btn__text) {
+    flex: 1 1 auto;
+  }
+
+  :where(.lp-btn--wide.lp-btn--has-price .lp-btn__text) {
+    justify-items: start;
+  }
+}
+
+/* smallest phones: the xl CTA (label + price + icon) must still fit a card */
+@media (max-width: 22.5rem) {
+  :where(.lp-btn) {
+    --btn-px: 1.05em;
+    gap: 0.5em;
+  }
+
+  :where(.lp-btn--xl) {
+    --btn-fs: var(--lp-step-0);
+  }
+}
+
+/* --- pill: fully round; the arrow rides in its own disc at the end -------- */
+:where(:root[data-btn="pill"] .lp-btn) {
+  --btn-radius: 999px;
+}
+
+:where(:root[data-btn="pill"] .lp-btn--has-icon:not(.lp-btn--ghost)) {
+  padding-inline-end: max(0.32em, calc((var(--btn-h) - 2.15em) / 2));
+}
+
+:where(:root[data-btn="pill"] .lp-btn:not(.lp-btn--ghost) > .lp-btn__icon) {
+  inline-size: 2.15em;
+  block-size: 2.15em;
+  border-radius: 50%;
+  background: var(--mx-on-accent);
+}
+
+/* --- glow: a luminous action — the accent glow is always on ------------------ */
+:where(:root[data-btn="glow"] .lp-btn) {
+  --btn-shadow: var(--btn-hl), var(--lp-shadow-glow, 0 8px 22px -8px var(--mx-btn-2));
+  --btn-shadow-hover: var(--btn-hl), var(--lp-shadow-glow, 0 8px 22px -8px var(--mx-btn-2)), 0 18px 48px -14px var(--mx-btn-2);
+  --btn-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 62%);
+}
+
+/* --- soft: squishy clay — a light top edge, a shaded bottom edge, a colored drop -- */
+:where(:root[data-btn="soft"] .lp-btn) {
+  --btn-radius: max(var(--lp-radius-btn), 1.15em);
+  --btn-shadow: inset 0 1.5px 0 rgb(255 255 255 / 0.3), inset 0 -0.2em 0 rgb(0 0 0 / 0.12), 0 2px 3px var(--mx-btn-1), 0 12px 24px -10px var(--mx-btn-2);
+  --btn-shadow-hover: inset 0 1.5px 0 rgb(255 255 255 / 0.32), inset 0 -0.2em 0 rgb(0 0 0 / 0.12), 0 3px 4px var(--mx-btn-1), 0 18px 34px -12px var(--mx-btn-2);
+}
+
+/* --- outline: a precise accent ring; fills with the accent on hover --------- */
+:where(:root[data-btn="outline"] .lp-btn--primary) {
+  --btn-bg: transparent;
+  --btn-ink: var(--sec-ink);
+  --btn-line: var(--sec-accent);
+  --btn-sheen: none;
+  --btn-shadow: inset 0 0 0 1px var(--sec-accent);
+  --btn-shadow-hover: var(--btn-hl), var(--lp-shadow-glow, 0 8px 22px -8px var(--mx-btn-2));
+}
+
+/* --- underline (editorial): a crisp block; the label's underline draws across on hover */
+:where(:root[data-btn="underline"] .lp-btn) {
+  --btn-sheen: none;
+  letter-spacing: 0.01em;
+}
+
+:where(:root[data-btn="underline"] .lp-btn .lp-btn__label) {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  padding-block-end: 0.12em;
+  transition: background-size var(--lp-ui-m) var(--lp-smooth);
+}
+
+:where([dir="rtl"]:root[data-btn="underline"] .lp-btn .lp-btn__label) {
+  background-position: 100% 100%;
+}
+
+/* --- variants ---------------------------------------------------------------- */
+:where(.lp-btn--secondary) {
+  --btn-bg: transparent;
+  --btn-ink: var(--sec-ink);
+  --btn-line: var(--sec-line-strong);
+  --btn-sheen: none;
+  --btn-shadow: 0 0 #0000;
+  --btn-shadow-hover: inset 0 0 0 1px var(--sec-ink);
+}
+
+:where(.lp-btn--ghost) {
+  --btn-bg: transparent;
+  --btn-ink: var(--sec-ink);
+  --btn-px: 0.1em;
+  --btn-sheen: none;
+  --btn-shadow: 0 0 #0000;
+  --btn-shadow-hover: 0 0 #0000;
+  --btn-wash: 0%;
+  --btn-wash-press: 0%;
+  --btn-h: 2.75rem;
+  border-width: 0;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.36em;
+  text-decoration-color: var(--sec-accent);
+}
+
+:where(.lp-btn--glass) {
+  --btn-bg: var(--sec-glass-solid, var(--sec-card));
+  --btn-ink: var(--sec-glass-ink, var(--sec-card-ink));
+  --btn-line: var(--sec-glass-border, var(--mx-hair));
+  --btn-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 60%);
+  --btn-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m, 0 8px 24px -12px rgb(0 0 0 / 0.25));
+  --btn-shadow-hover: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 16px 40px -16px rgb(0 0 0 / 0.3));
+  border-width: var(--lp-hairline);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :where(.lp-btn--glass) {
+    --btn-bg: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+:where(.lp-btn--secondary .lp-btn__price, .lp-btn--ghost .lp-btn__price, .lp-btn--glass .lp-btn__price) {
+  background: var(--mx-tint);
+}
+
+:where(:root[data-btn="underline"] .lp-btn--secondary) {
+  --btn-line: transparent;
+  --btn-px: 0.1em;
+  --btn-shadow: inset 0 -2px 0 var(--sec-accent);
+  --btn-shadow-hover: inset 0 -2px 0 var(--sec-ink);
+  --btn-wash: 0%;
+  --btn-wash-press: 0%;
+  border-radius: 0;
+}
+
+/* --- states (hover-capable devices only; touch gets the press) ---------------- */
+@media (hover: hover) {
+  :where(.lp-btn:hover) {
+    translate: 0 -2px;
+    box-shadow: inset 0 0 0 100vmax #0000, var(--btn-shadow-hover);
+  }
+
+  @supports (color: color-mix(in oklab, black 50%, white)) {
+    :where(.lp-btn:hover) {
+      box-shadow: inset 0 0 0 100vmax color-mix(in oklab, currentColor var(--btn-wash), transparent), var(--btn-shadow-hover);
+    }
+  }
+
+  :where(.lp-btn:hover .lp-btn__icon) {
+    translate: calc(var(--lp-x) * 0.2em) 0;
+  }
+
+  :where(:root[data-btn="outline"] .lp-btn--primary:hover) {
+    --btn-bg: var(--sec-accent);
+    --btn-ink: var(--sec-accent-ink);
+  }
+
+  :where(:root[data-btn="underline"] .lp-btn:hover .lp-btn__label) {
+    background-size: 100% 1px;
+  }
+
+  :where(.lp-btn--secondary:hover) {
+    --btn-line: var(--sec-ink);
+  }
+
+  :where(.lp-btn--ghost:hover) {
+    translate: none;
+    text-decoration-color: currentColor;
+  }
+}
+
+:where(.lp-btn:active) {
+  translate: 0 0;
+  scale: 0.98;
+  transition-duration: var(--lp-ui-s);
+}
+
+/* pressed: the lift and glow settle, the wash deepens (touch screens get the same feedback) */
+@supports (color: color-mix(in oklab, black 50%, white)) {
+  :where(.lp-btn:active) {
+    box-shadow: inset 0 0 0 100vmax color-mix(in oklab, currentColor var(--btn-wash-press), transparent), var(--btn-shadow);
+  }
+}
+
+:where(.lp-btn:focus-visible) {
+  outline: 2px solid var(--sec-accent);
+  outline-offset: 3px;
+}
+
+:where(.lp-btn[aria-disabled="true"], .lp-btn:disabled) {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   8. Price, money, stars
+   ========================================================================== */
+:where(.lp-price) {
+  --price-fs: var(--lp-step-2);
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3em 0.65em;
+  line-height: 1;
+}
+
+:where(.lp-price > *) {
+  unicode-bidi: isolate;
+}
+
+:where(.lp-price--s) {
+  --price-fs: var(--lp-step-1);
+}
+
+:where(.lp-price--l) {
+  --price-fs: var(--lp-step-3);
+}
+
+:where(.lp-price--xl) {
+  --price-fs: var(--lp-step-4);
+}
+
+:where(.lp-price__from) {
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-price__now) {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--price-fs) * var(--lp-script-scale-display));
+  letter-spacing: min(-0.01em, var(--lp-display-tracking));
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 0.95;
+  white-space: nowrap;
+}
+
+/* typographic money: big tabular numerals, a small currency on the baseline, raised cents */
+:where(.lp-money) {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+:where(.lp-money__gap) {
+  font-size: 0.5em;
+  padding-inline-start: 0.12rem;
+  white-space: pre;
+}
+
+:where(.lp-money__cur) {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  /* small next to big numerals, but never shouting at display sizes */
+  font-size: max(0.72rem, min(0.42em, 0.9rem + 0.16em));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: 0.02em;
+  text-transform: var(--lp-label-case);
+  white-space: pre;
+}
+
+:where(.lp-money__cur--pre) {
+  align-self: flex-start;
+  margin-inline: 0 0.04em;
+  margin-block-start: 0.1em;
+  font-size: max(0.72rem, 0.5em);
+}
+
+:where(.lp-money__num) {
+  display: inline-flex;
+  align-items: baseline;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+:where(.lp-money__frac) {
+  align-self: flex-start;
+  margin-block-start: 0.1em;
+  font-size: 0.52em;
+  letter-spacing: 0;
+}
+
+/* the reference price, struck by one clean diagonal hairline (drawn on scroll) */
+:where(.lp-price__was) {
+  position: relative;
+  font-size: max(0.95rem, calc(var(--price-fs) * 0.36));
+  font-weight: 500;
+  color: var(--sec-ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+:where(.lp-price__was)::after {
+  content: "";
+  position: absolute;
+  inset-block: 0.12em 0.04em;
+  inset-inline: -0.12em;
+  /* "to top left" lays the band through the bottom-left and top-right corners: a rising "/" */
+  background: linear-gradient(to top left, transparent calc(50% - 1px), var(--sec-accent) calc(50% - 0.7px) calc(50% + 0.7px), transparent calc(50% + 1px));
+  pointer-events: none;
+}
+
+:where([dir="rtl"] .lp-price__was)::after {
+  background: linear-gradient(to top right, transparent calc(50% - 1px), var(--sec-accent) calc(50% - 0.7px) calc(50% + 0.7px), transparent calc(50% + 1px));
+}
+
+/* savings pill: the action color, crisp and tabular */
+:where(.lp-price__save) {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  padding-block: 0.36em 0.32em;
+  padding-inline: 0.62em;
+  border-radius: 999px;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: clamp(0.78rem, calc(var(--price-fs) * 0.28), 1.1rem);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+:where(.lp-price__save-amt) {
+  align-self: center;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-stars) {
+  --star-h: 1.1rem;
+  --star-on: var(--sec-accent);
+  --star-off: var(--mx-hair);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+:where(.lp-stars--s) {
+  --star-h: 0.875rem;
+}
+
+:where(.lp-stars--l) {
+  --star-h: 1.45rem;
+}
+
+:where(.lp-stars__row) {
+  display: grid;
+  flex: none;
+}
+
+:where(.lp-stars__row > svg) {
+  grid-area: 1 / 1;
+  display: block;
+  block-size: var(--star-h);
+  inline-size: calc(var(--star-h) * 5.5);
+}
+
+:where(.lp-stars__base) {
+  fill: var(--star-off);
+}
+
+:where(.lp-stars__fill) {
+  fill: var(--star-on);
+  clip-path: inset(0 calc(100% - var(--v, 1) * 100%) 0 0);
+}
+
+:where([dir="rtl"] .lp-stars__fill) {
+  clip-path: inset(0 0 0 calc(100% - var(--v, 1) * 100%));
+}
+
+:where(.lp-stars__value) {
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.lp-stars__count) {
+  color: var(--sec-ink-soft);
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   9. Tones, badges, chips, stickers — crisp pills with soft depth
+   ========================================================================== */
+:where(.lp-tone-accent) {
+  --tone-bg: var(--sec-accent);
+  --tone-ink: var(--sec-accent-ink);
+  --tone-line: transparent;
+  --tone-hl: var(--lp-highlight-accent, 0 0 #0000);
+}
+
+:where(.lp-tone-pop) {
+  --tone-bg: var(--lp-pop);
+  --tone-ink: var(--lp-pop-ink);
+  --tone-line: transparent;
+  --tone-hl: inset 0 1px 0 rgb(255 255 255 / 0.28);
+}
+
+:where(.lp-tone-ink) {
+  --tone-bg: var(--sec-ink);
+  --tone-ink: var(--sec-bg);
+  --tone-line: transparent;
+  --tone-hl: inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+:where(.lp-tone-dark) {
+  --tone-bg: var(--lp-dark);
+  --tone-ink: var(--lp-dark-ink);
+  --tone-line: transparent;
+  --tone-hl: inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+:where(.lp-tone-soft, .lp-tone-chip) {
+  --tone-bg: var(--sec-chip);
+  --tone-ink: var(--sec-chip-ink);
+  --tone-line: var(--mx-edge);
+  --tone-hl: 0 0 #0000;
+}
+
+:where(.lp-tone-card, .lp-tone-paper) {
+  --tone-bg: var(--sec-card);
+  --tone-ink: var(--sec-card-ink);
+  --tone-line: var(--mx-edge);
+  --tone-hl: var(--lp-highlight, 0 0 #0000);
+}
+
+:where(.lp-tone-sec) {
+  --tone-bg: transparent;
+  --tone-ink: var(--sec-ink);
+  --tone-line: var(--mx-line);
+  --tone-hl: 0 0 #0000;
+}
+
+/* status tones keep AA: the status ink straight on the section, a hairline in the same hue */
+:where(.lp-tone-success) {
+  --tone-bg: transparent;
+  --tone-ink: var(--sec-success);
+  --tone-line: currentColor;
+  --tone-hl: 0 0 #0000;
+}
+
+:where(.lp-tone-danger) {
+  --tone-bg: transparent;
+  --tone-ink: var(--sec-danger);
+  --tone-line: currentColor;
+  --tone-hl: 0 0 #0000;
+}
+
+:where(.lp-tone-warn) {
+  --tone-bg: transparent;
+  --tone-ink: var(--sec-warn);
+  --tone-line: currentColor;
+  --tone-hl: 0 0 #0000;
+}
+
+:where(.lp-tone-glass) {
+  --tone-bg: var(--sec-glass-solid, var(--sec-card));
+  --tone-ink: var(--sec-glass-ink, var(--sec-card-ink));
+  --tone-line: var(--sec-glass-border, var(--mx-hair));
+  --tone-hl: var(--lp-highlight, 0 0 #0000);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :where(.lp-tone-glass) {
+    --tone-bg: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+/* solid tones that would vanish on their own color block */
+:where([data-bg="pop"] .lp-tone-pop, [data-bg="dark"] .lp-tone-dark) {
+  --tone-bg: var(--sec-ink);
+  --tone-ink: var(--sec-bg);
+}
+
+:where(.lp-badge, .lp-chip, .lp-diecut) {
+  background-color: var(--tone-bg, var(--sec-chip));
+  color: var(--tone-ink, var(--sec-chip-ink));
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--tone-line, transparent), var(--tone-hl, 0 0 #0000);
+}
+
+/* badge: small label pill */
+:where(.lp-badge) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  max-inline-size: 100%;
+  padding-block: 0.46em 0.42em;
+  padding-inline: 0.8em;
+  border-radius: 999px;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.7rem, var(--lp-step--1) * 0.82) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.15;
+}
+
+:where(:root[data-radius="none"] .lp-badge) {
+  border-radius: calc(max(var(--lp-radius-xs), 0.3em) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+}
+
+/* chip: crisp rounded capsule for ingredients, trust points, cities */
+:where(.lp-chip) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  max-inline-size: 100%;
+  min-block-size: 2.5em;
+  padding-block: 0.5em;
+  padding-inline: 0.95em 1.05em;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+:where(.lp-chip .lp-icon) {
+  color: var(--sec-accent);
+}
+
+:where(.lp-chip:is(.lp-tone-accent, .lp-tone-pop, .lp-tone-ink, .lp-tone-dark, .lp-tone-success, .lp-tone-warn, .lp-tone-danger) .lp-icon) {
+  color: inherit;
+}
+
+:where(.lp-chip--s) {
+  min-block-size: 2.1em;
+  padding-block: 0.38em;
+  padding-inline: 0.75em 0.85em;
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+}
+
+:where(:root[data-radius="none"] .lp-chip) {
+  border-radius: calc(max(var(--lp-radius-s), 0.5em) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+}
+
+/* sticker: a clean pill (or disc) that floats over media — slight seeded tilt, lifted shadow */
+:where(.lp-diecut) {
+  --st-size: 5.4em;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-inline-size: 100%;
+  padding-block: 0.6em 0.56em;
+  padding-inline: 1em;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--tone-line, transparent), var(--tone-hl, 0 0 #0000), var(--lp-shadow-m, 0 10px 24px -12px rgb(0 0 0 / 0.3));
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.1;
+  text-align: center;
+  transform: rotate(var(--rot, 0deg));
+}
+
+:where(.lp-diecut__text) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  min-inline-size: 0;
+}
+
+:where(.lp-diecut--s) {
+  --st-size: 4.4em;
+  font-size: calc(var(--lp-step--1) * 0.86 * var(--lp-script-scale));
+}
+
+:where(.lp-diecut--l) {
+  --st-size: 6.4em;
+  font-size: calc(var(--lp-step-0) * 1.06 * var(--lp-script-scale));
+}
+
+:where(.lp-diecut--label) {
+  border-radius: calc(max(var(--lp-radius-s), 0.5em) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  font-size: calc(max(0.72rem, var(--lp-step--1) * 0.84) * var(--lp-script-scale));
+}
+
+/* disc for a short figure ("−30%", "N°1"): text wraps inside the circle */
+:where(.lp-diecut--circle) {
+  inline-size: var(--st-size);
+  block-size: var(--st-size);
+  padding: 0.7em;
+  border-radius: 50%;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1;
+}
+
+:where(.lp-diecut--circle .lp-diecut__text) {
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+/* ==========================================================================
+   10. Cards — html[data-card]: flat · soft · outlined · raised · glass
+   ========================================================================== */
+:where(.lp-card) {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s, 0 2px 8px -2px rgb(0 0 0 / 0.12));
+  --card-pad: clamp(1.25rem, 0.9rem + 1.4vw, 2rem);
+  /* the radius content set inside the padding takes (a card's photo, an inner panel): concentric */
+  --lp-inner-r: max(var(--lp-sq-xs), calc(var(--lp-sq-l) - var(--card-pad) * var(--lp-corner-d)));
+  position: relative;
+  padding: var(--card-pad);
+  border: 1px solid transparent;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--card-shadow);
+  transition: translate var(--lp-ui-m) var(--lp-spring), box-shadow var(--lp-ui-m) var(--lp-smooth);
+}
+
+/* the page's card language (html[data-card]) first, then the per-card modifiers (.lp-card--*), so a
+   modifier always wins over the page's style — whatever their order in this list */
+:where(:root[data-card="flat"] .lp-card) {
+  --card-shadow: none;
+  border-color: transparent;
+}
+
+:where(:root[data-card="soft"] .lp-card) {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s, 0 2px 8px -2px rgb(0 0 0 / 0.12));
+  border-color: transparent;
+}
+
+:where(:root[data-card="outlined"] .lp-card) {
+  --card-shadow: none;
+  border-color: var(--mx-line);
+}
+
+:where(:root[data-card="raised"] .lp-card) {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m, 0 10px 30px -12px rgb(0 0 0 / 0.22));
+  border-color: transparent;
+}
+
+/* glass: a frosted pane with a device-hairline edge */
+:where(:root[data-card="glass"] .lp-card, .lp-card.lp-card--glass) {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s, 0 2px 8px -2px rgb(0 0 0 / 0.12));
+  border-width: var(--lp-hairline);
+  border-color: var(--sec-glass-border, var(--mx-hair));
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :where(:root[data-card="glass"] .lp-card, .lp-card.lp-card--glass) {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+/* solid modifiers: a matte card, whatever the page's language (glass reset included) */
+:where(.lp-card:is(.lp-card--flat, .lp-card--soft, .lp-card--outlined, .lp-card--raised)) {
+  border-width: 1px;
+  border-color: transparent;
+  background-color: var(--sec-card);
+  color: var(--sec-card-ink);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:where(.lp-card.lp-card--flat) {
+  --card-shadow: none;
+}
+
+:where(.lp-card.lp-card--soft) {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s, 0 2px 8px -2px rgb(0 0 0 / 0.12));
+}
+
+:where(.lp-card.lp-card--outlined) {
+  --card-shadow: none;
+  border-color: var(--mx-line);
+}
+
+:where(.lp-card.lp-card--raised) {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m, 0 10px 30px -12px rgb(0 0 0 / 0.22));
+}
+
+@media (hover: hover) {
+  :where(.lp-card--lift:hover) {
+    translate: 0 -4px;
+    box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 20px 44px -18px rgb(0 0 0 / 0.3));
+  }
+}
+
+/* ==========================================================================
+   11. Pictures & masks — html[data-mask]: arch · circle · pill · rounded · blob
+   ========================================================================== */
+:where(.lp-pic) {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: var(--ratio);
+  background-color: var(--ph, var(--mx-hair));
+}
+
+:where(.lp-pic--alpha, .lp-pic--contain) {
+  background-color: transparent;
+}
+
+/* cutouts keep their drop shadow (masks below clip again) */
+:where(.lp-pic--alpha) {
+  overflow: visible;
+}
+
+:where(.lp-pic__img) {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: var(--pic-pos, 50% 50%);
+}
+
+:where(.lp-pic--contain .lp-pic__img) {
+  object-fit: contain;
+}
+
+/* missing asset: a calm tinted block with a centered image glyph */
+:where(.lp-pic--empty) {
+  display: grid;
+  place-items: center;
+  aspect-ratio: var(--ratio, 4 / 5);
+  background-color: var(--mx-tint);
+  background-image: radial-gradient(70% 60% at 50% 35%, var(--mx-tint-2), transparent);
+  color: var(--sec-accent);
+}
+
+:where(.lp-pic__ph) {
+  inline-size: clamp(2rem, 18%, 3.5rem);
+  block-size: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
+
+/* explicit masks (deprecated craft names map to rounded: rect, polaroid, ticket, stamp) */
+:where(.lp-mask, [class*="lp-mask-"]) {
+  overflow: hidden;
+}
+
+:where(.lp-mask-rounded, .lp-mask-rect, .lp-mask-polaroid, .lp-mask-ticket, .lp-mask-stamp) {
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+}
+
+/* arch: a true half-circle head at any aspect ratio (the Roman arch: SVG mask sized by the width, so
+   the head is always exactly half the width tall), springing straight into the jambs, and softly
+   rounded feet with continuous corners */
+:where(.lp-mask-arch) {
+  border-radius: 0 0 var(--lp-sq-media) var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  -webkit-mask-image: var(--lp-arch-mask);
+  mask-image: var(--lp-arch-mask);
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 50% 0;
+  mask-position: 50% 0;
+}
+
+:where(.lp-mask-circle) {
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+:where(.lp-mask-pill) {
+  border-radius: 999px;
+}
+
+/* blob: smooth organic radii (seed with --blob), never a wobbly outline */
+:where(.lp-mask-blob) {
+  border-radius: var(--blob, 58% 42% 52% 48% / 46% 56% 44% 54%);
+}
+
+:where(.lp-mask-tilt) {
+  transform: rotate(var(--rot, 0deg));
+}
+
+/* page mask (.lp-mask) follows html[data-mask] */
+:where(.lp-mask) {
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+}
+
+:where(:root[data-mask="arch"] .lp-mask) {
+  border-radius: 0 0 var(--lp-sq-media) var(--lp-sq-media);
+  -webkit-mask-image: var(--lp-arch-mask);
+  mask-image: var(--lp-arch-mask);
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 50% 0;
+  mask-position: 50% 0;
+}
+
+:where(:root[data-mask="circle"] .lp-mask) {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  corner-shape: round;
+}
+
+:where(:root[data-mask="pill"] .lp-mask) {
+  border-radius: 999px;
+  corner-shape: round;
+}
+
+:where(:root[data-mask="blob"] .lp-mask) {
+  border-radius: var(--blob, 58% 42% 52% 48% / 46% 56% 44% 54%);
+  corner-shape: round;
+}
+
+/* the media edge: one quiet hairline just inside a masked photo, following its shape (a pale photo on
+   a pale ground keeps a crisp silhouette; on a dark ground it reads as a rim light). Shapes drawn by
+   border-radius only — the arch head is an SVG mask, which a box edge cannot follow. */
+:where(.lp-pic:is(.lp-mask, .lp-mask-rounded, .lp-mask-rect, .lp-mask-polaroid, .lp-mask-ticket, .lp-mask-stamp, .lp-mask-circle, .lp-mask-pill, .lp-mask-blob):not(.lp-pic--alpha, .lp-pic--contain, .lp-pic--empty))::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge);
+  pointer-events: none;
+}
+
+:where(:root[data-mask="arch"] .lp-pic.lp-mask)::after {
+  content: none;
+}
+
+/* .lp-keyline (opt-in, on a masked Picture): a hairline drawn just inside the shape, concentric with
+   it — a quiet passe-partout. --kl-d sets the offset (default ≈ 3.4% of the width, 8–14px), --kl-c
+   the color (a light line over the photo). The box becomes a size container (its width must come
+   from its parent — a block or a stretched grid/flex item, which every masked Picture is). */
+:where(.lp-keyline) {
+  container-type: inline-size;
+}
+
+:where(.lp-keyline)::before {
+  --kl-o: var(--kl-d, clamp(0.5rem, 3.4cqi, 0.875rem));
+  content: "";
+  position: absolute;
+  inset: var(--kl-o);
+  /* above the photo layer (positioned, later in the tree) */
+  z-index: 1;
+  border: var(--lp-hairline) solid var(--kl-c, rgb(255 255 255 / 0.62));
+  border-radius: max(0px, calc(var(--lp-sq-media) - var(--kl-o) * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  pointer-events: none;
+}
+
+/* arch: the keyline's head is the half-circle of its own (inset) width — concentric with the arch */
+:where(:is(.lp-keyline.lp-mask-arch, :root[data-mask="arch"] .lp-keyline.lp-mask))::before {
+  --kl-head: calc(50cqi - var(--kl-o));
+  --kl-foot: max(0px, calc(var(--lp-sq-media) - var(--kl-o) * var(--lp-corner-d)));
+  border-radius: var(--kl-head) var(--kl-head) var(--kl-foot) var(--kl-foot) / var(--kl-head) var(--kl-head) var(--kl-foot) var(--kl-foot);
+  corner-shape: round round var(--lp-corner) var(--lp-corner);
+}
+
+:where(:is(.lp-keyline.lp-mask-circle, :root[data-mask="circle"] .lp-keyline.lp-mask))::before {
+  border-radius: 50%;
+  corner-shape: round;
+}
+
+:where(:is(.lp-keyline.lp-mask-pill, :root[data-mask="pill"] .lp-keyline.lp-mask))::before {
+  border-radius: 999px;
+  corner-shape: round;
+}
+
+:where(:is(.lp-keyline.lp-mask-blob, :root[data-mask="blob"] .lp-keyline.lp-mask))::before {
+  border-radius: inherit;
+  corner-shape: round;
+}
+
+/* ==========================================================================
+   12. Product stage — a 2026 studio set: ambient glow in the product's hue,
+       a top-lit backdrop with a 1px rim, a floor pool and a contact shadow
+       sized to the product footprint. Geometry mirrors CUTOUT in
+       ProductStage.tsx (--st-* = backdrop, --pr-* = product box).
+   ========================================================================== */
+:where(.lp-stage) {
+  --stage-max: 38rem;
+  --st-i: 10%;
+  --st-t: 14%;
+  --st-b: 4%;
+  --pr-i: 13%;
+  --pr-t: 2%;
+  --pr-b: 10%;
+  position: relative;
+  isolation: isolate;
+  inline-size: 100%;
+  max-inline-size: var(--stage-max);
+  margin-inline: auto;
+  aspect-ratio: var(--stage-ratio, 4 / 5);
+}
+
+@supports not (aspect-ratio: 1 / 1) {
+  :where(.lp-stage)::before {
+    content: "";
+    display: block;
+    padding-block-start: var(--stage-pad, 125%);
+  }
+}
+
+:where(.lp-stage[data-size="m"]) {
+  --stage-max: 30rem;
+}
+
+:where(.lp-stage[data-size="s"]) {
+  --stage-max: 22rem;
+}
+
+:where(.lp-stage__set) {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* ambient light behind the product, made of its own hue (contrast-solved by the theme) */
+:where(.lp-stage__glow) {
+  position: absolute;
+  inset-block: -4% 6%;
+  inset-inline: -16%;
+  background: var(--lp-stage-glow, radial-gradient(closest-side, var(--mx-tint-2), transparent));
+}
+
+:where(.lp-stage__shape) {
+  position: absolute;
+  inset-block: var(--st-t) var(--st-b);
+  inset-inline: var(--st-i);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-color: var(--mx-stage);
+  /* a soft key light from above, the color deepening toward the floor (a studio sweep) */
+  background-image: linear-gradient(180deg, var(--mx-stage-hi), var(--mx-stage) 46%, var(--mx-stage-lo));
+  /* key light on the top edge (1px, the light source) + a device hairline around the set */
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+}
+
+/* floor pool: where the light lands */
+:where(.lp-stage__floor) {
+  position: absolute;
+  inset-inline: 14%;
+  inset-block-end: calc(var(--pr-b) - 4.5%);
+  block-size: 9%;
+  background: radial-gradient(closest-side, var(--mx-floor), transparent);
+}
+
+/* --- product ------------------------------------------------------------------ */
+:where(.lp-stage__product) {
+  position: absolute;
+  inset-block: var(--pr-t) var(--pr-b);
+  inset-inline: var(--pr-i);
+}
+
+:where(.lp-stage__float) {
+  position: absolute;
+  inset: 0;
+}
+
+:where(.lp-stage__pic) {
+  position: absolute;
+  inset: 0;
+  background: none;
+}
+
+:where(.lp-stage[data-kind="cutout"] .lp-stage__pic) {
+  overflow: visible;
+}
+
+:where(.lp-stage[data-kind="cutout"] .lp-stage__pic .lp-pic__img) {
+  object-fit: contain;
+  object-position: 50% 100%;
+  filter: var(--lp-shadow-product-filter, drop-shadow(0 18px 24px rgb(0 0 0 / 0.18)));
+}
+
+/* contact shadow: a soft ellipse at the product's base, as wide as its footprint */
+:where(.lp-stage__shadow) {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  margin-inline: auto;
+  inline-size: calc(var(--shadow-w, 0.62) * 100%);
+  block-size: 0;
+  padding-block-start: calc(var(--shadow-w, 0.62) * 15%);
+  transform: translateY(48%);
+  /* a tight dark core where the product touches the floor, over the theme's soft penumbra */
+  background-image: radial-gradient(50% 42% at 50% 50%, var(--mx-contact), transparent), var(--lp-shadow-product, radial-gradient(closest-side, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.12) 55%, transparent));
+}
+
+/* --- arch ----------------------------------------------------------------------- */
+:where(.lp-stage[data-stage="arch"] .lp-stage__shape) {
+  border-radius: 50% 50% var(--lp-sq-l) var(--lp-sq-l) / var(--arch-ry, 40%) var(--arch-ry, 40%) var(--lp-sq-l) var(--lp-sq-l);
+  corner-shape: round round var(--lp-corner) var(--lp-corner);
+}
+
+/* --- halo: a square disc (width-based padding keeps it round without aspect-ratio) --- */
+:where(.lp-stage[data-stage="halo"]) {
+  --pr-i: 14%;
+  --pr-t: 5%;
+  --pr-b: 12%;
+}
+
+:where(.lp-stage[data-stage="halo"] .lp-stage__shape),
+:where(.lp-stage__rings) {
+  position: absolute;
+  inset-inline: 8%;
+  inset-block: 5% auto;
+  block-size: 0;
+  padding-block-start: 84%;
+  border-radius: 50%;
+  corner-shape: round;
+}
+
+:where(.lp-stage[data-stage="halo"] .lp-stage__shape) {
+  background-image: radial-gradient(70% 70% at 50% 30%, var(--mx-stage-hi), transparent 75%);
+}
+
+:where(.lp-stage__ring) {
+  position: absolute;
+  inset: -6%;
+  border: var(--lp-hairline) solid var(--mx-line);
+  border-radius: 50%;
+}
+
+:where(.lp-stage__ring + .lp-stage__ring) {
+  inset: -12%;
+  border-color: var(--mx-hair);
+}
+
+/* a bead that orbits the outer ring (lively motion only; still otherwise) */
+:where(.lp-stage__bead) {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+}
+
+:where(.lp-stage__bead)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 0;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  margin: -0.25rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 0.3rem var(--mx-tint-2);
+}
+
+/* rings around other stages (rings prop): centered on the backdrop's upper half */
+:where(.lp-stage:not([data-stage="halo"]) .lp-stage__rings) {
+  inset-inline: 14%;
+  inset-block-start: 6%;
+  padding-block-start: 72%;
+}
+
+/* --- slab: a big rounded panel set at the archetype's tilt ------------------------- */
+:where(.lp-stage[data-stage="slab"]) {
+  --st-i: 8%;
+  --st-t: 15%;
+  --st-b: 5%;
+  --pr-i: 13%;
+  --pr-t: 2%;
+  --pr-b: 11%;
+}
+
+:where(.lp-stage[data-stage="slab"] .lp-stage__shape) {
+  transform: rotate(var(--stage-rot, 0deg));
+  background-image: linear-gradient(160deg, var(--mx-stage-hi), transparent 62%);
+}
+
+/* --- blob: smooth seeded organic radii that slowly morph ---------------------------- */
+:where(.lp-stage[data-stage="blob"]) {
+  --st-i: 4%;
+  --st-t: 8%;
+  --st-b: 5%;
+  --pr-i: 14%;
+  --pr-t: 4%;
+  --pr-b: 13%;
+}
+
+:where(.lp-stage[data-stage="blob"] .lp-stage__shape) {
+  border-radius: var(--blob, 58% 42% 52% 48% / 46% 56% 44% 54%);
+  corner-shape: round;
+  background-image: radial-gradient(90% 80% at 35% 20%, var(--mx-stage-hi), transparent 70%);
+}
+
+/* --- podium: a lit cylinder in front of a niche or panel ---------------------------- */
+:where(.lp-stage[data-stage="podium"]) {
+  --st-i: 9%;
+  --st-t: 6%;
+  --st-b: 24%;
+  --pr-i: 19%;
+  --pr-t: 4%;
+  --pr-b: 19%;
+}
+
+:where(.lp-stage[data-backdrop="niche"] .lp-stage__shape) {
+  border-radius: 50% 50% var(--lp-sq-m) var(--lp-sq-m) / var(--arch-ry, 40%) var(--arch-ry, 40%) var(--lp-sq-m) var(--lp-sq-m);
+  corner-shape: round round var(--lp-corner) var(--lp-corner);
+}
+
+:where(.lp-stage__plinth) {
+  position: absolute;
+  inset-inline: 15%;
+  inset-block-end: 6%;
+  block-size: 15%;
+  border-radius: 0 0 50% 50% / 0 0 28% 28%;
+  background: linear-gradient(90deg, var(--mx-plinth-side), var(--mx-plinth) 36%, var(--mx-plinth) 52%, var(--mx-plinth-side));
+  box-shadow: 0 26px 40px -22px var(--mx-floor);
+}
+
+/* the top face: a lit ellipse with a crisp rim */
+:where(.lp-stage__plinth)::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  block-size: 0;
+  padding-block-start: 22%;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: radial-gradient(80% 90% at 50% 35%, var(--mx-plinth-top), var(--mx-plinth));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 -1px 0 var(--mx-hair);
+}
+
+/* --- frame: a frosted glass panel the product breaks out of ------------------------- */
+:where(.lp-stage[data-stage="frame"]) {
+  --st-i: 8%;
+  --st-t: 17%;
+  --st-b: 6%;
+  --pr-i: 14%;
+  --pr-t: 2%;
+  --pr-b: 13%;
+}
+
+:where(.lp-stage[data-stage="frame"] .lp-stage__shape) {
+  border: var(--lp-hairline) solid var(--sec-glass-border, var(--mx-hair));
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0) 45%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m, 0 10px 30px -12px rgb(0 0 0 / 0.22));
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :where(.lp-stage[data-stage="frame"] .lp-stage__shape) {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+/* --- none: light, floor and shadow only --------------------------------------------- */
+:where(.lp-stage[data-stage="none"]) {
+  --pr-i: 7%;
+  --pr-t: 3%;
+  --pr-b: 6%;
+}
+
+/* --- regular photos: large masked media with a soft shadow ----------------------------- */
+:where(.lp-stage[data-kind="photo"] .lp-stage__product, .lp-stage[data-kind="empty"] .lp-stage__product) {
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-l, 0 24px 56px -24px rgb(0 0 0 / 0.35));
+}
+
+/* the media edge (§11) on the photo window, following its shape */
+:where(.lp-stage[data-kind="photo"] .lp-stage__product)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge);
+  pointer-events: none;
+}
+
+:where(.lp-stage[data-kind="photo"] .lp-stage__glow, .lp-stage[data-kind="empty"] .lp-stage__glow) {
+  inset-block: 6% -6%;
+  inset-inline: -12%;
+  opacity: 0.85;
+}
+
+:where(.lp-stage[data-kind="empty"] .lp-stage__pic) {
+  aspect-ratio: auto;
+}
+
+:where(.lp-stage[data-kind="photo"][data-stage="arch"] .lp-stage__product, .lp-stage[data-kind="empty"][data-stage="arch"] .lp-stage__product) {
+  inset-inline: 6%;
+  border-radius: 50% 50% var(--lp-sq-media) var(--lp-sq-media) / var(--arch-ry, 40%) var(--arch-ry, 40%) var(--lp-sq-media) var(--lp-sq-media);
+  corner-shape: round round var(--lp-corner) var(--lp-corner);
+}
+
+/* the arch window of the quiet-luxury and Moroccan languages carries an inner keyline (§11
+   .lp-keyline): a passe-partout hairline concentric with the arch. The window is absolutely sized,
+   so it can be a size container safely. */
+:where(:root:is([data-arch="maison"], [data-arch="souk"]) .lp-stage[data-kind="photo"][data-stage="arch"] .lp-stage__product) {
+  container-type: inline-size;
+}
+
+:where(:root:is([data-arch="maison"], [data-arch="souk"]) .lp-stage[data-kind="photo"][data-stage="arch"] .lp-stage__product)::before {
+  --kl-o: var(--kl-d, clamp(0.5rem, 3.2cqi, 0.875rem));
+  --kl-head: calc(50cqi - var(--kl-o));
+  --kl-foot: max(0px, calc(var(--lp-sq-media) - var(--kl-o) * var(--lp-corner-d)));
+  content: "";
+  position: absolute;
+  inset: var(--kl-o);
+  /* above the photo layer (positioned, later in the tree) */
+  z-index: 1;
+  border: var(--lp-hairline) solid var(--kl-c, rgb(255 255 255 / 0.62));
+  border-radius: var(--kl-head) var(--kl-head) var(--kl-foot) var(--kl-foot) / var(--kl-head) var(--kl-head) var(--kl-foot) var(--kl-foot);
+  corner-shape: round round var(--lp-corner) var(--lp-corner);
+  pointer-events: none;
+}
+
+:where(.lp-stage[data-kind="photo"][data-stage="halo"] .lp-stage__product, .lp-stage[data-kind="empty"][data-stage="halo"] .lp-stage__product) {
+  inset-inline: 8%;
+  inset-block: 50% auto;
+  block-size: 0;
+  padding-block-start: 84%;
+  border-radius: 50%;
+  corner-shape: round;
+  transform: translateY(-50%);
+}
+
+:where(.lp-stage:is([data-kind="photo"], [data-kind="empty"])[data-stage="halo"] .lp-stage__rings) {
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+}
+
+:where(.lp-stage[data-kind="photo"][data-stage="slab"] .lp-stage__product, .lp-stage[data-kind="empty"][data-stage="slab"] .lp-stage__product) {
+  inset: 3% 5%;
+  border-radius: var(--lp-sq-xl);
+  transform: rotate(var(--stage-rot, 0deg));
+}
+
+:where(.lp-stage[data-kind="photo"][data-stage="blob"] .lp-stage__product, .lp-stage[data-kind="empty"][data-stage="blob"] .lp-stage__product) {
+  inset: 3%;
+  border-radius: var(--blob, 58% 42% 52% 48% / 46% 56% 44% 54%);
+  corner-shape: round;
+}
+
+:where(.lp-stage[data-kind="photo"][data-stage="podium"] .lp-stage__product, .lp-stage[data-kind="empty"][data-stage="podium"] .lp-stage__product) {
+  inset-inline: 4%;
+}
+
+/* glass mat around the photo: an even mat on all four sides (a length — a % inset would be wider
+   top and bottom on a portrait stage) and a photo corner concentric with the mat's */
+:where(.lp-stage[data-kind="photo"][data-stage="frame"], .lp-stage[data-kind="empty"][data-stage="frame"]) {
+  --stage-mat: clamp(0.625rem, 0.3rem + 1.6vw, 1.125rem);
+}
+
+:where(.lp-stage[data-kind="photo"][data-stage="frame"] .lp-stage__shape, .lp-stage[data-kind="empty"][data-stage="frame"] .lp-stage__shape) {
+  inset: 0;
+  border-radius: var(--lp-sq-xl);
+}
+
+:where(.lp-stage[data-kind="photo"][data-stage="frame"] .lp-stage__product, .lp-stage[data-kind="empty"][data-stage="frame"] .lp-stage__product) {
+  inset: var(--stage-mat);
+  border-radius: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - var(--stage-mat) * var(--lp-corner-d)));
+  box-shadow: var(--lp-shadow-s, 0 4px 12px -4px rgb(0 0 0 / 0.2));
+}
+
+/* overlay layer (glass chips, callouts): above the product, clicks pass through the gaps.
+   It is NOT a stacking context (z-index: auto), so its children layer inside the stage's own
+   context: z-index 1 (default) sits over the product, z-index −1 (a giant word) slides between
+   the set (−2) and the product. Give children a position (absolute) for z-index to apply. */
+:where(.lp-stage__over) {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+  pointer-events: none;
+}
+
+:where(.lp-stage__over > *) {
+  z-index: 1;
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   13. Trust row, counter, countdown
+   ========================================================================== */
+:where(.lp-trust) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  font-size: calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+:where(.lp-trust--s) {
+  gap: 0.55rem 1.1rem;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+}
+
+:where(.lp-trust--grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1rem;
+}
+
+@media (min-width: 48rem) {
+  :where(.lp-trust--grid) {
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
+}
+
+:where(.lp-trust--stack) {
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+:where(.lp-trust__item) {
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+  min-inline-size: 0;
+}
+
+/* icon in a soft tinted disc with a hint of light */
+:where(.lp-trust__icon) {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.3em;
+  block-size: 2.3em;
+  border-radius: 50%;
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+  color: var(--sec-accent);
+}
+
+:where(.lp-trust__icon .lp-icon) {
+  inline-size: 1.2em;
+  block-size: 1.2em;
+}
+
+:where(:root[data-radius="none"] .lp-trust__icon, :root[data-radius="subtle"] .lp-trust__icon) {
+  border-radius: calc(max(var(--lp-radius-s), 0.35em) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+}
+
+/* a number with its symbolic affixes reads LTR; word affixes follow the page direction */
+:where(.lp-counter) {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+:where(.lp-counter__fig) {
+  white-space: nowrap;
+}
+
+:where(.lp-counter__affix) {
+  font-size: 0.62em;
+}
+
+:where(.lp-counter__fig .lp-counter__affix) {
+  margin-inline: 0.04em;
+}
+
+:where(.lp-counter > .lp-counter__affix) {
+  margin-inline: 0.4em;
+}
+
+/* clock digits read left→right in every language (days first) */
+:where(.lp-cd) {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  max-inline-size: 100%;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+:where(.lp-cd__unit) {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+}
+
+/* soft tile: big tabular digits on the section's card, top-lit */
+:where(.lp-cd__num) {
+  display: grid;
+  place-items: center;
+  min-inline-size: 1.9em;
+  padding-block: 0.32em 0.28em;
+  padding-inline: 0.22em;
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0) 50%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s, 0 2px 8px -2px rgb(0 0 0 / 0.12)), inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+  color: var(--sec-card-ink);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+:where(.lp-cd__lab) {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.7rem, var(--lp-step--1) * 0.8) * var(--lp-script-scale));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-cd__sep) {
+  padding-block-start: 0.3em;
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  line-height: 1;
+  color: var(--mx-line);
+}
+
+:where(.lp-cd--compact) {
+  align-items: baseline;
+  gap: 0;
+}
+
+:where(.lp-cd--compact .lp-cd__unit) {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+}
+
+/* the days group stands apart from the clock (--cd-gap tunes it; RTL order: §17) */
+:where(.lp-cd--compact .lp-cd__unit[data-unit="d"]) {
+  margin-inline-end: var(--cd-gap, 0.5em);
+}
+
+/* compact = one line in the HOST's face and weight ("02 jours 14:33:05"). Each figure pair sits in
+   a fixed, centered 2ch box and each colon in a fixed slot, so the line never twitches as the
+   seconds tick — even in a face without tabular figures. */
+:where(.lp-cd--compact .lp-cd__num) {
+  display: inline-block;
+  min-inline-size: 2ch;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+  text-align: center;
+}
+
+:where(.lp-cd--compact .lp-cd__lab) {
+  font-family: inherit;
+  font-weight: inherit;
+  font-size: 0.85em;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+}
+
+/* a wide (monospace) colon is centered in its slot and overflows evenly on both sides */
+:where(.lp-cd--compact .lp-cd__sep) {
+  display: inline-flex;
+  justify-content: center;
+  inline-size: 0.45em;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  color: inherit;
+  opacity: 0.5;
+}
+
+:where([data-countdown][data-expired][data-hide-expired]) {
+  display: none;
+}
+
+/* ==========================================================================
+   14. Marquee
+   ========================================================================== */
+:where(.lp-marquee) {
+  --mq-gap: clamp(1.25rem, 0.8rem + 2vw, 2.5rem);
+  position: relative;
+  overflow: hidden;
+  max-inline-size: 100%;
+}
+
+:where(.lp-marquee[data-fade]) {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+:where(.lp-marquee__track) {
+  display: flex;
+  inline-size: max-content;
+}
+
+:where(.lp-marquee__group) {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+:where(.lp-marquee__item) {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--mq-gap);
+  padding-inline-end: var(--mq-gap);
+  white-space: nowrap;
+}
+
+:where(.lp-marquee__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+:where(.lp-marquee__sep) {
+  display: inline-grid;
+  place-items: center;
+  color: var(--sec-accent);
+}
+
+:where(.lp-marquee__sep .lp-ornament) {
+  inline-size: 0.6em;
+  block-size: 0.6em;
+}
+
+/* ==========================================================================
+   15. Form controls — modern filled fields: 56px, a soft fill, a ≥ 3:1
+       boundary (--sec-line-strong), an accent focus glow that eases in.
+       Errors use the section's --sec-danger, valid notes --sec-success.
+   ========================================================================== */
+:where(.lp-field) {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+:where(.lp-field__label) {
+  font-size: calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* optional fields step back: lighter label, so the required path reads first */
+:where(.lp-field--optional .lp-field__label) {
+  font-weight: 500;
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-field__hint) {
+  margin-block-start: -0.15rem;
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+}
+
+:where(.lp-field__control) {
+  position: relative;
+}
+
+/* section-aware status color: AA on the block's bg and cards */
+:where(.lp-field__error) {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--sec-danger);
+}
+
+/* keep the live region in the tree, but take no space while empty */
+:where(.lp-field__error:empty) {
+  margin-block-start: -0.5rem;
+}
+
+:where(.lp-field__error:not(:empty))::before {
+  content: "!";
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.2em;
+  block-size: 1.2em;
+  border-radius: 50%;
+  background: var(--sec-danger);
+  color: var(--sec-bg);
+  font-family: var(--lp-font-body);
+  font-size: 0.8em;
+  font-weight: 800;
+  line-height: 1;
+}
+
+:where(.lp-field__ok) {
+  color: var(--sec-success);
+}
+
+:where(.lp-input, .lp-select, .lp-select__el, .lp-input-group) {
+  --f-h: 3.5rem;
+  /* field corner: the theme's medium radius (never under 12px); continuous where supported (below) */
+  --f-r: calc(max(var(--lp-radius-m), 0.75rem) * var(--f-k, 1));
+  --f-line: var(--sec-line-strong);
+  --f-bg: var(--mx-field);
+  --f-ink: var(--sec-card-ink);
+  --f-ring: var(--sec-accent);
+  --f-glow: var(--mx-tint-2);
+}
+
+/* Continuous field corners (§2b). A large radius (≥ 18px on a 56px field) is nearly a capsule: a
+   squircle there would saturate at half the height and read squarer than the theme means, so it
+   keeps its circular corner. Only where if() exists (else the literal tokens would break the calc);
+   an engine without range style tests drops these values and keeps the circular corner. */
+@supports (corner-shape: squircle) and (corner-shape: if(else: round)) {
+  :where(.lp-input, .lp-select, .lp-select__el, .lp-input-group) {
+    --f-k: if(style(--lp-radius-m >= 18px): 1; else: var(--lp-corner-k));
+    --f-d: if(style(--lp-radius-m >= 18px): 1; else: var(--lp-corner-d));
+    --f-corner: if(style(--lp-radius-m >= 18px): round; else: var(--lp-corner));
+  }
+}
+
+/* on color blocks a field is a crisp sheet of the page's lightest surface (ink AA by the theme) */
+:where([data-bg="accent"], [data-bg="pop"]) :where(.lp-input, .lp-select, .lp-select__el, .lp-input-group) {
+  --f-bg: var(--lp-surface);
+  --f-ink: var(--lp-ink);
+  --f-ph: var(--lp-ink-mute);
+  --f-chip: var(--lp-surface-2);
+}
+
+:where(.lp-input, .lp-select__el) {
+  display: block;
+  inline-size: 100%;
+  min-block-size: var(--f-h);
+  padding-block: 0.8em;
+  padding-inline: 1.05em;
+  border: 1px solid var(--f-line);
+  border-radius: var(--f-r);
+  corner-shape: var(--f-corner, round);
+  background-color: var(--f-bg);
+  color: var(--f-ink);
+  font: inherit;
+  font-size: max(16px, calc(var(--lp-step-0) * var(--lp-script-scale)));
+  line-height: 1.3;
+  caret-color: var(--sec-accent);
+  -webkit-appearance: none;
+  appearance: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition:
+    border-color var(--lp-ui-s) var(--lp-ease),
+    box-shadow var(--lp-ui-m) var(--lp-smooth),
+    background-color var(--lp-ui-s) var(--lp-ease);
+}
+
+:where(:root[data-radius="none"] :is(.lp-input, .lp-select, .lp-select__el, .lp-input-group)) {
+  --f-r: calc(max(var(--lp-radius-s), 0.5rem) * var(--lp-corner-k));
+}
+
+:where(.lp-input)::placeholder {
+  color: var(--f-ph, var(--sec-ink-soft));
+  opacity: 0.85;
+}
+
+@media (hover: hover) {
+  :where(.lp-input:hover, .lp-select__el:hover, .lp-input-group:hover) {
+    --f-line: var(--sec-ink-soft);
+  }
+}
+
+/* focus: the border takes the accent and a soft accent glow eases open around it */
+:where(.lp-input:focus, .lp-select__el:focus) {
+  --f-line: var(--f-ring);
+  box-shadow: 0 0 0 1px var(--f-ring), 0 0 0 5px var(--f-glow);
+}
+
+:where(.lp-input:disabled, .lp-select__el:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+:where(.lp-input:-webkit-autofill) {
+  -webkit-text-fill-color: var(--f-ink);
+  box-shadow: 0 0 0 100px var(--f-bg) inset;
+}
+
+/* invalid (runtime: aria-invalid on the control, data-invalid on the field) */
+:where(.lp-input[aria-invalid="true"], .lp-select__el[aria-invalid="true"], [data-invalid] .lp-input, [data-invalid] .lp-select__el, [data-invalid] .lp-input-group) {
+  --f-line: var(--sec-danger);
+  --f-ring: var(--sec-danger);
+  --f-glow: transparent;
+}
+
+@supports (color: color-mix(in oklab, black 50%, white)) {
+  :where(.lp-input[aria-invalid="true"], .lp-select__el[aria-invalid="true"], [data-invalid] .lp-input, [data-invalid] .lp-select__el, [data-invalid] .lp-input-group) {
+    --f-glow: color-mix(in oklab, var(--sec-danger) 20%, transparent);
+  }
+}
+
+:where(.lp-textarea) {
+  min-block-size: 6.5rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* phone: one filled field holding the country chip and the number, always LTR. The chip sits the
+   same distance from the field's edge on its three sides (--f-in), with a concentric corner. */
+:where(.lp-input-group) {
+  --f-in: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-block-size: var(--f-h);
+  padding-inline-start: calc(var(--f-in) - 1px);
+  border: 1px solid var(--f-line);
+  border-radius: var(--f-r);
+  corner-shape: var(--f-corner, round);
+  background-color: var(--f-bg);
+  color: var(--f-ink);
+  transition:
+    border-color var(--lp-ui-s) var(--lp-ease),
+    box-shadow var(--lp-ui-m) var(--lp-smooth),
+    background-color var(--lp-ui-s) var(--lp-ease);
+}
+
+:where(.lp-input-group:focus-within) {
+  --f-line: var(--f-ring);
+  box-shadow: 0 0 0 1px var(--f-ring), 0 0 0 5px var(--f-glow);
+}
+
+:where(.lp-input-group__prefix) {
+  display: inline-flex;
+  flex: none;
+  align-self: stretch;
+  align-items: center;
+  gap: 0.4em;
+  /* the chip fills the field's height minus the same inset as its start side */
+  margin-block: calc(var(--f-in) - 1px);
+  padding-inline: 0.7em 0.75em;
+  border-radius: max(0.375rem, calc(var(--f-r) - var(--f-in) * var(--f-d, 1)));
+  corner-shape: var(--f-corner, round);
+  background: var(--f-chip, var(--mx-tint));
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+  font-size: calc(var(--lp-step--1) * 1.02);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+:where(.lp-input-group__cc) {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.82em;
+  letter-spacing: 0.06em;
+  opacity: 0.72;
+}
+
+:where(.lp-input-group .lp-input) {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  padding-inline-start: 0.1em;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:where(.lp-input-group .lp-input:focus) {
+  box-shadow: none;
+}
+
+/* select: native list, custom chevron at the inline end */
+:where(.lp-select) {
+  position: relative;
+  display: block;
+}
+
+:where(.lp-select__el) {
+  padding-inline-end: 2.9em;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+:where(.lp-select__el:invalid) {
+  color: var(--f-ph, var(--sec-ink-soft));
+}
+
+:where(.lp-select__el option) {
+  color: initial;
+}
+
+:where(.lp-select__chev) {
+  position: absolute;
+  inset-inline-end: 1em;
+  inset-block-start: 50%;
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  margin-block-start: -0.575rem;
+  color: var(--f-ph, var(--sec-ink-soft));
+  pointer-events: none;
+  transition: rotate var(--lp-ui-m) var(--lp-spring), color var(--lp-ui-s) var(--lp-ease);
+}
+
+:where(.lp-select:focus-within .lp-select__chev) {
+  color: var(--sec-accent);
+  rotate: 180deg;
+}
+
+/* radio & checkbox: real inputs, drawn on top; the accent fill pops in with a spring */
+:where(.lp-radio, .lp-check) {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.4rem;
+  block-size: 1.4rem;
+}
+
+:where(.lp-radio__input, .lp-check__input) {
+  grid-area: 1 / 1;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  border: 1.5px solid var(--sec-line-strong);
+  background-color: var(--mx-field);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition:
+    border-color var(--lp-ui-s) var(--lp-ease),
+    background-color var(--lp-ui-s) var(--lp-ease),
+    box-shadow var(--lp-ui-m) var(--lp-smooth);
+}
+
+:where(.lp-radio__input) {
+  border-radius: 50%;
+}
+
+:where(.lp-check__input) {
+  border-radius: calc(0.42rem * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+}
+
+:where(.lp-radio__input:checked, .lp-check__input:checked) {
+  border-color: var(--sec-accent);
+  background-color: var(--sec-accent);
+  box-shadow: 0 0 0 4px var(--mx-tint-2);
+}
+
+:where(.lp-radio__input:focus-visible, .lp-check__input:focus-visible) {
+  outline: 2px solid var(--sec-accent);
+  outline-offset: 3px;
+}
+
+:where(.lp-radio__dot) {
+  grid-area: 1 / 1;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--sec-accent-ink);
+  pointer-events: none;
+  transform: scale(0);
+  transition: transform var(--lp-ui-m) var(--lp-spring-pop);
+}
+
+:where(.lp-radio__input:checked + .lp-radio__dot) {
+  transform: scale(1);
+}
+
+:where(.lp-check__mark) {
+  grid-area: 1 / 1;
+  inline-size: 1.05rem;
+  block-size: 1.05rem;
+  fill: none;
+  stroke: var(--sec-accent-ink);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  pointer-events: none;
+  transition: stroke-dashoffset var(--lp-ui-m) var(--lp-smooth);
+}
+
+:where(.lp-check__input:checked + .lp-check__mark) {
+  stroke-dashoffset: 0;
+}
+
+/* a choice row: control + label, a full 44px target */
+:where(.lp-choice) {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  min-block-size: 2.75rem;
+  cursor: pointer;
+}
+
+:where(.lp-choice__label) {
+  min-inline-size: 0;
+  line-height: 1.35;
+}
+
+/* hairline fields (orderForm minimal): no fill, a single baseline that lights up on focus */
+:where(.lp-form--line :is(.lp-input, .lp-select__el, .lp-input-group)) {
+  --f-bg: transparent;
+  --f-r: 0px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding-inline: 0.1em;
+}
+
+:where(.lp-form--line .lp-input-group) {
+  padding-inline-start: 0;
+}
+
+:where(.lp-form--line :is(.lp-input:focus, .lp-select__el:focus, .lp-input-group:focus-within)) {
+  box-shadow: 0 1px 0 0 var(--f-ring);
+}
+
+/* floating labels (FieldShell `float`): engines with :has() only; others keep them stacked */
+@supports selector(:has(a)) {
+  :where(.lp-field--float) {
+    gap: 0;
+  }
+
+  :where(.lp-field--float .lp-field__control) {
+    order: -1;
+  }
+
+  :where(.lp-field--float .lp-field__hint) {
+    margin-block-start: 0.4rem;
+  }
+
+  :where(.lp-field--float .lp-field__error:not(:empty)) {
+    margin-block-start: 0.45rem;
+  }
+
+  :where(.lp-field--float .lp-field__error:empty) {
+    margin-block-start: 0;
+  }
+
+  :where(.lp-field--float .lp-field__label) {
+    position: absolute;
+    z-index: 1;
+    inset-inline-start: 1.1em;
+    inset-block-start: 0;
+    display: flex;
+    align-items: center;
+    max-inline-size: calc(100% - 3.5em);
+    block-size: 3.5rem;
+    color: var(--sec-ink-soft);
+    font-size: max(16px, calc(var(--lp-step-0) * var(--lp-script-scale)));
+    font-weight: 500;
+    pointer-events: none;
+    transform-origin: left center;
+    transition: transform var(--lp-ui-m) var(--lp-smooth), color var(--lp-ui-s) var(--lp-ease);
+  }
+
+  :where([dir="rtl"] .lp-field--float .lp-field__label) {
+    transform-origin: right center;
+  }
+
+  :where(.lp-field--float :is(.lp-input, .lp-select__el)) {
+    padding-block: 1.45em 0.35em;
+  }
+
+  :where(.lp-field--float .lp-input)::placeholder {
+    color: transparent;
+    transition: color var(--lp-ui-s) var(--lp-ease);
+  }
+
+  :where(.lp-field--float .lp-input:focus)::placeholder {
+    color: var(--sec-ink-soft);
+  }
+
+  /* floated: focus, filled, a chosen option, or a phone field (its chip is always there) */
+  :where(.lp-field--float:focus-within .lp-field__label),
+  :where(.lp-field--float:has(.lp-input:not(:placeholder-shown)) .lp-field__label),
+  :where(.lp-field--float:has(.lp-select__el:valid) .lp-field__label),
+  :where(.lp-field--float:has(.lp-input-group) .lp-field__label) {
+    transform: translateY(-0.95rem) scale(0.74);
+  }
+
+  :where(.lp-field--float:focus-within .lp-field__label) {
+    color: var(--sec-accent);
+  }
+
+  :where(.lp-field--float:has(.lp-input-group) .lp-field__label) {
+    inset-inline-start: 0.85em;
+  }
+
+  :where(.lp-field--float .lp-input-group) {
+    align-items: flex-end;
+    padding-block-end: 0.45rem;
+  }
+
+  :where(.lp-field--float .lp-input-group .lp-input) {
+    min-block-size: 0;
+    padding-block: 0.25em 0.2em;
+  }
+
+  :where(.lp-field--float .lp-input-group__prefix) {
+    align-self: flex-end;
+    min-block-size: 1.9rem;
+    margin-block: 0;
+  }
+}
+
+/* ==========================================================================
+   16. Icons, rules, motion utilities
+   ========================================================================== */
+:where(.lp-icon) {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+:where(.lp-rule) {
+  block-size: 1px;
+  border: 0;
+  background: var(--mx-line);
+}
+
+:where(.lp-spin) {
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(html) {
+    scroll-behavior: smooth;
+  }
+
+  :where(:root:not([data-motion="off"]) .lp-spin) {
+    animation: lp-spin 18s linear infinite;
+  }
+
+  :where(:root:not([data-motion="off"]) .lp-marquee__track) {
+    animation: lp-marquee var(--mq-dur, 40s) linear infinite;
+  }
+
+  :where([dir="rtl"]:root:not([data-motion="off"]) .lp-marquee__track) {
+    animation-name: lp-marquee-rtl;
+  }
+
+  :where(.lp-marquee[data-reverse] .lp-marquee__track) {
+    animation-direction: reverse;
+  }
+
+  :where(.lp-marquee:is([data-paused], :hover, :focus-within) .lp-marquee__track) {
+    animation-play-state: paused;
+  }
+
+  /* the product hovers gently on its set; its shadow breathes with it */
+  :where(:root[data-motion="lively"] .lp-stage[data-float] .lp-stage__float) {
+    animation: lp-stage-float 7s var(--lp-sway) infinite;
+  }
+
+  :where(:root[data-motion="lively"] .lp-stage[data-float] .lp-stage__shadow) {
+    animation: lp-stage-shadow 7s var(--lp-sway) infinite;
+  }
+
+  :where(:root[data-motion="lively"] .lp-stage__bead) {
+    animation: lp-spin 22s linear infinite;
+  }
+
+  :where(:root[data-motion="lively"] .lp-stage[data-stage="blob"] .lp-stage__shape) {
+    animation: lp-stage-morph 14s var(--lp-sway) infinite;
+  }
+}
+
+@keyframes lp-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* marquee travel uses `transform` (not `translate`): Chrome < 104 has no individual transforms */
+@keyframes lp-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes lp-marquee-rtl {
+  to {
+    transform: translateX(50%);
+  }
+}
+
+/* rest → lifted → rest: a collapsed (QA) animation ends at rest */
+@keyframes lp-stage-float {
+  50% {
+    translate: 0 -1.6%;
+  }
+}
+
+@keyframes lp-stage-shadow {
+  50% {
+    scale: 0.9;
+    opacity: 0.78;
+  }
+}
+
+@keyframes lp-stage-morph {
+  50% {
+    border-radius: var(--blob-2, var(--blob));
+  }
+}
+
+/* ==========================================================================
+   17. Arabic typography (normal specificity — DESIGN.md §2.3, never fought)
+       No letter-spacing, no uppercase, no italics, no faux bold, generous
+       leading, slightly larger sizes.
+   ========================================================================== */
+:root:lang(ar) {
+  --lp-script-scale: 1.08;
+  --lp-script-scale-display: 1.04;
+}
+
+:lang(ar),
+:lang(ar)::before,
+:lang(ar)::after {
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  font-style: normal !important;
+  font-synthesis: none;
+}
+
+:lang(ar) :is(p, li, dd, blockquote, figcaption, .lp-body, .lp-rt, .lp-lead, .lp-small) {
+  line-height: max(1.6, var(--lp-body-lh));
+}
+
+:lang(ar) :is(.lp-display-1, .lp-display-2, .lp-display-3, .lp-display-4, .lp-h1, .lp-h2, .lp-h3, .lp-h4) {
+  line-height: max(1.2, var(--lp-display-lh));
+}
+
+/* Latin small labels lean on caps + tracking to read at 12–13px; Arabic has neither, so its labels
+   step up a size instead (zero specificity: a section's own label size still wins) */
+:where(:lang(ar) .lp-kicker, :lang(ar) .lp-eyebrow, :lang(ar) .lp-label, :lang(ar) .lp-mono-label) {
+  font-size: calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale));
+}
+
+:where(:lang(ar) .lp-badge, :lang(ar) .lp-cd__lab) {
+  font-size: calc(var(--lp-step--1) * 0.94 * var(--lp-script-scale));
+}
+
+/* Compact countdowns on RTL pages: the clock keeps reading left→right, but the days group comes
+   first in reading order — it is the rightmost group, figure before word ("٢ أيام 14:33:05" read
+   from the right). Reading order is correctness, not styling: this rule outranks section rules
+   (sections tune the gap with --cd-gap). */
+html[dir="rtl"] .lp-cd.lp-cd--compact > .lp-cd__unit[data-unit="d"] {
+  order: 1;
+  direction: rtl;
+  flex-direction: row;
+  margin-inline: 0 var(--cd-gap, 0.5em);
+}
+
+/* ==========================================================================
+   18. Accessibility & compatibility utilities (normal specificity)
+   ========================================================================== */
+.lp-visually-hidden {
+  position: absolute !important;
+  inline-size: 1px !important;
+  block-size: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
+/* skip link (SkipLink primitive): the first stop of the keyboard — out of sight until focused, then
+   a crisp ink pill at the top start corner, above every bar (--lp-z-skip) */
+.lp-skip {
+  position: fixed;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+  z-index: var(--lp-z-skip, 100);
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  padding-inline: 1.15rem;
+  border-radius: 999px;
+  background-color: var(--lp-ink);
+  color: var(--lp-bg);
+  box-shadow: var(--lp-shadow-m, 0 10px 24px -12px rgb(0 0 0 / 0.3));
+  font-family: var(--lp-font-body);
+  font-size: calc(0.95rem * var(--lp-script-scale, 1));
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transform: translateY(calc(-100% - 1.5rem));
+  transition: transform var(--lp-ui-m, 280ms) var(--lp-smooth, ease-out);
+}
+
+.lp-skip:focus {
+  transform: none;
+  outline: 2px solid var(--lp-accent);
+  outline-offset: 3px;
+}
+
+/* the skip target takes focus programmatically (tabindex="-1"): no ring around the whole page */
+main[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* honeypot: present for bots, invisible and unreachable for people. Clipped in place rather than
+   pushed off-canvas, so it can never widen the page (an inline-start offset points right in RTL). */
+.lp-hp {
+  position: absolute !important;
+  inline-size: 1px !important;
+  block-size: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* RTL mirroring for directional glyphs (DESIGN.md §9). Uses the individual `scale` property — the
+   same one illustrations.css uses for its .lp-flip-rtl — so the two rules can never compound into a
+   double flip, and `transform` stays free for rotations. An LTR island inside an RTL page resets it. */
+[dir="rtl"] .lp-flip-rtl {
+  scale: -1 1;
+}
+
+[dir="rtl"] [dir="ltr"] .lp-flip-rtl {
+  scale: none;
+}
+
+/* engines without individual transforms (Chrome < 104) still mirror arrows */
+@supports not (scale: 1) {
+  [dir="rtl"] .lp-flip-rtl {
+    transform: scaleX(-1);
+  }
+
+  [dir="rtl"] [dir="ltr"] .lp-flip-rtl {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .lp-price__was {
+    text-decoration: line-through;
+  }
+
+  .lp-price__was::after {
+    display: none;
+  }
+
+  .lp-btn,
+  .lp-input,
+  .lp-select__el,
+  .lp-input-group {
+    border: 1px solid ButtonText;
+  }
+
+  .lp-radio__input,
+  .lp-check__input {
+    -webkit-appearance: auto;
+    appearance: auto;
+  }
+
+  .lp-radio__dot,
+  .lp-check__mark {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   19. Reveal system (normal specificity)
+   The runtime adds html.lp-js, sets [data-in] once an element is visible and
+   writes delays to --d. Hidden initial states exist ONLY under html.lp-js with
+   motion allowed — without JS, with reduced motion or data-motion="off"
+   everything is simply visible. Entrances are keyframe animations with
+   `backwards` fill: once finished the element returns to its own styles, so
+   reveals never clobber a section's transforms, clip-paths or transitions.
+   - "draw" never hides its element: only its strokes start undrawn.
+   - "stamp" is not in the generic hidden state; it owns its pre-state
+     next to its keyframes (a pop starts from nothing).
+   - Headings marked .lp-split reveal word by word (--wi stagger).
+   - Failsafe: if the runtime set lp-js but shows no sign of life 2.5 s later
+     (it died before its observer ran), everything fades in on its own. Signs
+     of life: html[data-rv] (set by the runtime once reveals are bound), any
+     revealed element, or a bundle card it already marked as selected.
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) [data-reveal]:not([data-in], [data-reveal="draw"], [data-reveal="stamp"]) {
+    opacity: 0;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal][data-in] {
+    animation-duration: var(--rv-dur, var(--lp-dur-l));
+    animation-timing-function: var(--rv-ease, var(--lp-smooth));
+    animation-delay: var(--d, 0ms);
+    animation-fill-mode: backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="rise"][data-in] {
+    animation-name: lp-rv-rise;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="fade"][data-in] {
+    --rv-dur: var(--lp-dur-m);
+    animation-name: lp-rv-fade;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="wipe-up"][data-in] {
+    animation-name: lp-rv-wipe-up;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="wipe-side"][data-in] {
+    animation-name: lp-rv-wipe-side;
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"] [data-reveal="wipe-side"][data-in] {
+    animation-name: lp-rv-wipe-side-rtl;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="mask-arch"][data-in] {
+    --rv-dur: calc(var(--lp-dur-l) * 1.15);
+    animation-name: lp-rv-mask-arch;
+  }
+
+  /* media inside an opening mask settles from a slight zoom */
+  html.lp-js:not([data-motion="off"]) :is([data-reveal="mask-arch"], [data-reveal="wipe-up"])[data-in] .lp-pic__img {
+    animation: lp-rv-zoom calc(var(--lp-dur-l) * 1.5) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="stamp"]:not([data-in]) {
+    opacity: 0;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="stamp"][data-in] {
+    --rv-ease: var(--lp-spring-pop);
+    --rv-dur: calc(var(--lp-dur-m) * 1.3);
+    animation-name: lp-rv-stamp;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="count"][data-in] {
+    --rv-dur: var(--lp-dur-m);
+    animation-name: lp-rv-count;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="tilt-in"][data-in] {
+    --rv-ease: var(--lp-spring);
+    --rv-dur: calc(var(--lp-dur-l) * 1.1);
+    animation-name: lp-rv-tilt-in;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="scale-in"][data-in] {
+    animation-name: lp-rv-scale-in;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="blur-in"][data-in] {
+    --rv-dur: calc(var(--lp-dur-l) * 1.1);
+    animation-name: lp-rv-blur-in;
+  }
+
+  /* split headings: the block stays put, its words cascade in */
+  html.lp-js:not([data-motion="off"]) .lp-split[data-reveal][data-in] {
+    animation-name: none;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-split[data-reveal][data-in] .lp-word {
+    animation-duration: var(--rv-dur, var(--lp-dur-l));
+    animation-timing-function: var(--lp-smooth);
+    animation-delay: calc(var(--d, 0ms) + var(--wi, 0) * var(--rv-word-gap, 55ms));
+    animation-fill-mode: backwards;
+    animation-name: lp-rv-word;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-split[data-reveal="blur-in"][data-in] .lp-word {
+    animation-name: lp-rv-word-blur;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-split[data-reveal="fade"][data-in] .lp-word {
+    animation-name: lp-rv-fade;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-split:is([data-reveal="wipe-up"], [data-reveal="mask-arch"])[data-in] .lp-word {
+    animation-name: lp-rv-wipe-up;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-split[data-reveal="tilt-in"][data-in] .lp-word {
+    animation-timing-function: var(--lp-spring);
+    animation-name: lp-rv-word-tilt;
+  }
+
+  /* draw: strokes with class .lp-draw (and pathLength="1") are drawn on; everything else stays put.
+     Targets are matched by class, never by [pathLength]: Chromium does not re-match camelCase SVG
+     attribute selectors when an ancestor's state changes, which would leave strokes hidden. */
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"] :is(.lp-draw, .lp-em__deco > path),
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"].lp-draw {
+    stroke-dasharray: 1 2;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"]:not([data-in]) :is(.lp-draw, .lp-em__deco > path),
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"].lp-draw:not([data-in]) {
+    stroke-dashoffset: 1.02;
+  }
+
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"][data-in] .lp-draw,
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"].lp-draw[data-in] {
+    animation: lp-rv-draw var(--rv-dur, var(--lp-dur-l)) var(--lp-smooth) calc(var(--d, 0ms) + var(--i, 0) * 140ms) backwards;
+  }
+
+  /* swoosh: one continuous stroke — each word's slice draws in its turn (--ef0 / --ef fractions),
+     just after the heading has landed */
+  html.lp-js:not([data-motion="off"]) .lp-em[data-reveal="draw"][data-in] .lp-em__deco > path {
+    animation: lp-rv-draw calc(var(--lp-dur-l) * 1.15 * var(--ef, 1)) linear calc(var(--d, 0ms) + var(--lp-dur-m) * 0.9 + var(--lp-dur-l) * 1.15 * var(--ef0, 0)) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-em:not(.lp-em--multi)[data-reveal="draw"][data-in] .lp-em__deco > path {
+    animation-timing-function: var(--lp-smooth);
+  }
+
+  /* highlight: the marker block wipes in along the reading direction, word after word */
+  html.lp-js:not([data-motion="off"])[data-emphasis="highlight"] .lp-em[data-reveal="draw"]:not([data-in]) .lp-em__w::before {
+    transform: scaleX(0);
+  }
+
+  html.lp-js:not([data-motion="off"])[data-emphasis="highlight"] .lp-em[data-reveal="draw"][data-in] .lp-em__w::before {
+    animation: lp-rv-hl calc(var(--lp-dur-l) * 1.1 * var(--ef, 1)) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-m) * 0.9 + var(--lp-dur-l) * 1.1 * var(--ef0, 0)) backwards;
+  }
+
+  /* reference price: the diagonal strike draws across from the start side */
+  html.lp-js:not([data-motion="off"]) .lp-price__was[data-reveal="draw"]:not([data-in])::after {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"] .lp-price__was[data-reveal="draw"]:not([data-in])::after {
+    clip-path: inset(0 0 0 100%);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-price__was[data-reveal="draw"][data-in]::after {
+    animation: lp-rv-strike var(--lp-dur-m) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-s)) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"] .lp-price__was[data-reveal="draw"][data-in]::after {
+    animation-name: lp-rv-strike-rtl;
+  }
+}
+
+/* failsafe (needs :has(); engines without it rely on the runtime's own fail-open path) */
+@supports selector(:has(a)) {
+  @media (prefers-reduced-motion: no-preference) {
+    html.lp-js:not([data-motion="off"], [data-rv]):not(:has([data-in], [data-bundle-card][data-selected])) [data-reveal]:not([data-in], [data-reveal="draw"]) {
+      animation: lp-rv-failsafe var(--lp-dur-m) var(--lp-smooth) 2.5s forwards;
+    }
+
+    html.lp-js:not([data-motion="off"], [data-rv]):not(:has([data-in], [data-bundle-card][data-selected])) [data-reveal="draw"]:not([data-in]) :is(.lp-draw, .lp-em__deco > path),
+    html.lp-js:not([data-motion="off"], [data-rv]):not(:has([data-in], [data-bundle-card][data-selected])) [data-reveal="draw"].lp-draw:not([data-in]) {
+      animation: lp-rv-failsafe-draw var(--lp-dur-l) var(--lp-smooth) 2.5s forwards;
+    }
+
+    html.lp-js:not([data-motion="off"], [data-rv]):not(:has([data-in], [data-bundle-card][data-selected])) .lp-em[data-reveal="draw"]:not([data-in]) .lp-em__w::before,
+    html.lp-js:not([data-motion="off"], [data-rv]):not(:has([data-in], [data-bundle-card][data-selected])) .lp-price__was[data-reveal="draw"]:not([data-in])::after {
+      animation: lp-rv-failsafe-uncover var(--lp-dur-m) var(--lp-smooth) 2.5s forwards;
+    }
+  }
+}
+
+@keyframes lp-rv-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lp-rv-failsafe-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes lp-rv-failsafe-uncover {
+  to {
+    transform: none;
+    clip-path: inset(0);
+  }
+}
+
+@keyframes lp-rv-rise {
+  from {
+    opacity: 0;
+    translate: 0 var(--lp-reveal-distance, 24px);
+  }
+}
+
+@keyframes lp-rv-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lp-rv-wipe-up {
+  from {
+    clip-path: inset(100% -30% -30% -30%);
+    translate: 0 0.4em;
+  }
+  to {
+    clip-path: inset(-30% -30% -30% -30%);
+    translate: 0 0;
+  }
+}
+
+@keyframes lp-rv-wipe-side {
+  from {
+    clip-path: inset(-30% 100% -30% -30%);
+  }
+  to {
+    clip-path: inset(-30% -30% -30% -30%);
+  }
+}
+
+@keyframes lp-rv-wipe-side-rtl {
+  from {
+    clip-path: inset(-30% -30% -30% 100%);
+  }
+  to {
+    clip-path: inset(-30% -30% -30% -30%);
+  }
+}
+
+@keyframes lp-rv-mask-arch {
+  from {
+    clip-path: inset(100% 0 0 0 round 50% 50% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 0);
+  }
+}
+
+@keyframes lp-rv-zoom {
+  from {
+    scale: 1.08;
+  }
+}
+
+@keyframes lp-rv-stamp {
+  from {
+    opacity: 0;
+    scale: 0.55;
+  }
+  40% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes lp-rv-count {
+  from {
+    opacity: 0;
+    translate: 0 0.3em;
+  }
+}
+
+@keyframes lp-rv-tilt-in {
+  from {
+    opacity: 0;
+    translate: 0 calc(var(--lp-reveal-distance, 24px) * 1.4);
+    rotate: x 16deg;
+    scale: 0.97;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    rotate: x 0deg;
+    scale: 1;
+  }
+}
+
+@keyframes lp-rv-scale-in {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+
+@keyframes lp-rv-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(12px);
+    translate: 0 calc(var(--lp-reveal-distance, 24px) * 0.5);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    translate: 0 0;
+  }
+}
+
+@keyframes lp-rv-word {
+  from {
+    opacity: 0;
+    translate: 0 0.45em;
+  }
+}
+
+@keyframes lp-rv-word-blur {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    translate: 0 0.3em;
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    translate: 0 0;
+  }
+}
+
+@keyframes lp-rv-word-tilt {
+  from {
+    opacity: 0;
+    translate: 0 0.55em;
+    rotate: calc(var(--lp-x, 1) * 4deg);
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+}
+
+@keyframes lp-rv-draw {
+  from {
+    stroke-dashoffset: 1.02;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes lp-rv-hl {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes lp-rv-strike {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes lp-rv-strike-rtl {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+/* reduced motion: no transitions anywhere, marquees and loops still */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  .lp-marquee {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .lp-marquee__group[aria-hidden="true"] {
+    display: none;
+  }
+}
+
+:root[data-motion="off"] .lp-marquee {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+:root[data-motion="off"] .lp-marquee__group[aria-hidden="true"] {
+  display: none;
+}

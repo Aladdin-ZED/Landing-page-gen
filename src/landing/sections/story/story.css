@@ -1,0 +1,297 @@
+/* ==========================================================================
+   story — letter (founder note) · image-text · manifesto (v2 · modern)
+   Tokens only; logical properties; reveals keyed on [data-reveal][data-in]
+   under html.lp-js with motion allowed (static final state otherwise).
+   Scroll-driven moments (photo settle, lit words, progress rule) are
+   progressive: @supports (animation-timeline) + motion allowed + not QA.
+   Rules every variant uses. A variant's own rules live in story.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* light and break-out media may hang past their hosts, never past the page edge */
+.lp-story {
+  --av-l: clamp(4.5rem, 3.9rem + 2.2vw, 5.75rem);
+  --av-gap: clamp(7px, 0.55vw + 4px, 10px);
+  overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  .lp-story {
+    overflow-x: clip;
+  }
+}
+
+/* light stays behind its host's content (the kit places lights at z-index 0) */
+.lp-story .lp-ill:is(.lp-story__glow, .lp-story__backdrop) {
+  z-index: -1;
+}
+
+/* ---------- shared: avatar ------------------------------------------------- */
+.lp-story__avatar {
+  --av: 2.75rem;
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--av);
+  block-size: var(--av);
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--mx-tint);
+  color: var(--sec-accent);
+}
+
+.lp-story__avatar--l {
+  --av: var(--av-l);
+}
+
+.lp-story__avpic {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-story__avatar--logo {
+  padding: 18%;
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+/* monogram: a lit accent disc — soft specular from the top start, a deeper rim at the foot */
+.lp-story__avatar--mono {
+  background-color: var(--sec-accent);
+  background-image:
+    radial-gradient(120% 90% at 28% 12%, var(--mx-on-accent), transparent 58%),
+    radial-gradient(90% 70% at 70% 110%, rgb(0 0 0 / 0.16), transparent 70%);
+  color: var(--sec-accent-ink);
+}
+
+.lp-story__mono {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--av) * 0.38);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+:lang(ar) .lp-story__mono {
+  font-size: calc(var(--av) * 0.46);
+  letter-spacing: 0;
+}
+
+/* large avatar: a bezel in the note's own surface, then a precise accent ring that draws on */
+.lp-story__avwrap {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.lp-story__avwrap .lp-story__avatar {
+  --bezel: 0 0 0 clamp(4px, 0.35vw + 2px, 6px) var(--note-bg, var(--sec-bg));
+  box-shadow: var(--bezel), var(--lp-shadow-m);
+}
+
+.lp-story__avwrap .lp-story__avatar--logo {
+  box-shadow: inset 0 0 0 1px var(--mx-hair), var(--bezel), var(--lp-shadow-m);
+}
+
+/* stroke widths stay in user units (no non-scaling-stroke): the draw-on dash is sized by pathLength
+   in user space, so a scaled stroke would end short of the full ring */
+.lp-story__avring {
+  position: absolute;
+  inset-block-start: calc(var(--av-gap) * -1);
+  inset-inline-start: calc(var(--av-gap) * -1);
+  inline-size: calc(100% + var(--av-gap) * 2);
+  block-size: calc(100% + var(--av-gap) * 2);
+  overflow: visible;
+  fill: none;
+  stroke: var(--sec-accent);
+  stroke-width: 1.15;
+  stroke-opacity: 0.75;
+  pointer-events: none;
+}
+
+/* ---------- shared: signature ---------------------------------------------- */
+.lp-story__sign {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-inline-size: 0;
+}
+
+.lp-story__signtext {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+.lp-story__signame {
+  font-size: var(--lp-step-1);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.lp-story__role {
+  color: var(--sec-ink-soft);
+}
+
+/* note: the name written large in the emphasis face, a pen stroke drawn under it */
+.lp-story__sign--note .lp-story__signtext {
+  justify-items: start;
+  gap: 0.7rem;
+}
+
+.lp-story__sign--note .lp-story__signame {
+  position: relative;
+  display: inline-block;
+  padding-block-end: 0.32em;
+  font-size: calc(var(--lp-step-2) * 1.12);
+  line-height: 1.05;
+}
+
+.lp-story__pen {
+  position: absolute;
+  inset-block-end: -0.06em;
+  inset-inline-start: -0.04em;
+  inline-size: calc(100% + 0.5em);
+  max-inline-size: none;
+  block-size: 0.42em;
+  overflow: visible;
+  pointer-events: none;
+}
+
+:lang(ar) .lp-story__signame {
+  line-height: 1.5;
+}
+
+:lang(ar) .lp-story__sign--note .lp-story__signame {
+  line-height: 1.35;
+}
+
+/* ---------- shared: facts --------------------------------------------------- */
+.lp-story__facts {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin: 0;
+  padding-block-start: clamp(1.1rem, 0.9rem + 0.8vw, 1.5rem);
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-story__fact {
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+  padding-inline: clamp(0.85rem, 2.5cqi, 1.5rem);
+  border-inline-start: 1px solid var(--mx-hair);
+}
+
+.lp-story__fact:first-child {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+
+.lp-story__fval {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  /* three columns share the host: the value scales with it (numbers stay glued by RichText) */
+  font-size: min(
+    calc(var(--lp-step-2) * var(--lp-script-scale-display)),
+    6.4cqi
+  );
+  line-height: 1.05;
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  font-variant-numeric: lining-nums tabular-nums;
+  text-wrap: balance;
+}
+
+/* Arabic display faces ship a hairline space: a number and its unit ("10 ثوانٍ") need a real gap */
+.lp-story__fval:lang(ar) {
+  word-spacing: 0.16em;
+}
+
+.lp-story__flabel {
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  line-height: 1.4;
+}
+
+/* narrow hosts: one fact per row, values in one aligned column (subgrid), labels beside them */
+@container (max-width: 27rem) {
+  .lp-story__facts {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+    column-gap: 1.1rem;
+    row-gap: 0.85rem;
+  }
+
+  .lp-story__fval {
+    font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  }
+
+  .lp-story__fact {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 1.1rem;
+    padding: 0;
+    border: 0;
+  }
+
+  @supports (grid-template-columns: subgrid) {
+    .lp-story__fact {
+      grid-template-columns: subgrid;
+    }
+  }
+}
+
+/* very narrow hosts (320px phones): label under its value */
+@container (max-width: 17rem) {
+  .lp-story__facts,
+  .lp-story__fact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lp-story__fact {
+    row-gap: 0.25rem;
+  }
+}
+
+/* ---------- shared: quote mark, P.S., CTA, body ---------------------------- */
+.lp-story__qmark {
+  inline-size: clamp(2.5rem, 2rem + 1.6vw, 3.25rem);
+  block-size: auto;
+  fill: var(--sec-accent);
+}
+
+.lp-story__ps {
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale));
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.lp-story__pslabel {
+  margin-inline-end: 0.4em;
+  color: var(--sec-accent);
+  font-weight: 600;
+}
+
+.lp-story__cta {
+  display: flex;
+  inline-size: 100%;
+}
+
+@media (min-width: 40rem) {
+  .lp-story__cta {
+    inline-size: auto;
+  }
+}
+
+.lp-story :is(.lp-story__body, .lp-story__mtext).lp-rt {
+  display: grid;
+  gap: 0.95em;
+}

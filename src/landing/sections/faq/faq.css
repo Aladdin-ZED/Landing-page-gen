@@ -1,0 +1,131 @@
+/* ==========================================================================
+   FAQ — accordion · two-col · chat (v2 · modern)
+   Tokens only (--sec-*, --mx-*, --lp-*); logical properties (RTL just works);
+   motion on transform / opacity / filter / clip-path, eased with the theme's
+   springs; scroll timelines and ::details-content as progressive enhancement.
+   Rules every variant uses. A variant's own rules live in faq.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-faq {
+  /* lets <details> ease its height to auto where the engine can */
+  interpolate-size: allow-keywords;
+}
+
+/* ==========================================================================
+   Contact line ("Still a question?")
+   ========================================================================== */
+.lp-faq__help {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem 1rem;
+  padding: clamp(1rem, 0.85rem + 0.8vw, 1.35rem);
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair), var(--lp-shadow-m);
+}
+
+.lp-faq__help-ico {
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 6px 18px -8px var(--mx-btn-2);
+}
+
+.lp-faq__help-copy {
+  display: grid;
+  gap: 0.25rem;
+  min-inline-size: 0;
+}
+
+.lp-faq__help-title {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 0.92 * var(--lp-script-scale-display));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.4);
+  text-transform: var(--lp-display-case);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.lp-faq__help-text {
+  font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+  line-height: 1.5;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-faq__help-btn {
+  grid-column: 1 / -1;
+  inline-size: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 60rem) {
+
+  .lp-faq__toc-n {
+    font-family: var(--lp-font-label, var(--lp-font-body));
+    font-size: 0.82em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    transition: color var(--lp-dur-s) var(--lp-smooth);
+  }
+}
+
+/* thread a shade under the window; on dark blocks the thread steps back and the brand bubbles forward */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-faq {
+    --faq-thread: color-mix(in oklab, var(--sec-bg) 95%, var(--sec-ink));
+  }
+
+  .lp-faq[data-bg="dark"],
+  :root[data-base="dark"] .lp-faq[data-bg="base"],
+  :root[data-base="dark"] .lp-faq[data-bg="soft"],
+  :root[data-base="dark"] .lp-faq[data-bg="surface"] {
+    --faq-thread: color-mix(in oklab, var(--sec-bg) 75%, var(--sec-card));
+    --faq-bub: color-mix(in oklab, var(--sec-card) 90%, var(--sec-card-ink));
+  }
+}
+
+@supports (timeline-scope: --a) and (view-timeline: --a block) and (animation-timeline: --a) {
+  @media (min-width: 60rem) and (prefers-reduced-motion: no-preference) {
+
+    html:not([data-motion="off"]) :is(.lp-faq__toc-t, .lp-faq__toc-n) {
+      animation: lp-faq-spy-ink linear;
+      animation-timeline: var(--faq-tl);
+      animation-range: cover 50vh cover calc(100% - 50vh);
+    }
+
+    html:not([data-motion="off"]) .lp-faq__toc-n {
+      animation-name: lp-faq-spy-n;
+    }
+  }
+}
+
+@keyframes lp-faq-spy-ink {
+  0%,
+  100% {
+    color: var(--sec-ink-soft);
+  }
+  8%,
+  92% {
+    color: var(--sec-ink);
+  }
+}
+
+@keyframes lp-faq-spy-n {
+  0%,
+  100% {
+    color: var(--sec-ink-soft);
+  }
+  8%,
+  92% {
+    color: var(--sec-accent);
+  }
+}

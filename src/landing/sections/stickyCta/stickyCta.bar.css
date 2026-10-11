@@ -1,0 +1,427 @@
+/* stickyCta · bar — rules only this variant renders (inlined after stickyCta.css on pages whose markup
+   carries .lp-stickyCta--bar; the admin preview loads every variant). Shared rules live in stickyCta.css. */
+
+/* the saving: a tinted chip, so the order button stays the only solid accent in the dock */
+.lp-sticky__save {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font: 700 calc(var(--lp-step--1) * 0.8 * var(--lp-script-scale)) / 1.3 var(--lp-font-body);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+/* struck by one crisp diagonal hairline */
+.lp-sticky__was {
+  position: relative;
+  display: inline-block;
+  opacity: 0.7;
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.lp-sticky__was::after {
+  content: "";
+  position: absolute;
+  inset-inline: -0.12em;
+  inset-block-start: 50%;
+  block-size: 1px;
+  background: currentColor;
+  transform: rotate(calc(-11deg * var(--lp-x)));
+}
+
+/* ==========================================================================
+   bar — liquid-glass dock: a specular rim, the button's light pooling in the
+   glass, layered tinted depth
+   ========================================================================== */
+.lp-sticky__dock {
+  --st-pad: 0.4375rem;
+  /* inner corner = the button's corner; the dock's corner is concentric around it */
+  --st-in: var(--lp-radius-btn);
+  --st-tile: 3rem;
+  --st-rim: var(--mx-rim);
+  --st-rim-low: transparent;
+  position: relative;
+  display: grid;
+  /* the price column never drops below one price; a long label wraps (2 lines) instead */
+  grid-template-columns: minmax(6.75rem, 1fr) auto;
+  grid-template-areas:
+    "info cta"
+    "buy cta";
+  align-items: center;
+  column-gap: 0.75rem;
+  inline-size: 100%;
+  max-inline-size: 34rem;
+  padding: var(--st-pad);
+  padding-inline-start: 1.05rem;
+  /* concentric with the order button it holds (the kit draws that one as a continuous corner unless
+     it is a capsule): the button's rendered radius + the gap, in the same corner shape */
+  border-radius: calc(var(--st-in) * var(--lp-corner-k) + var(--st-pad) * var(--lp-corner-d));
+  corner-shape: if(style(--st-in: 999px): round; else: var(--lp-corner));
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  background-image: var(--st-gloss);
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+  box-shadow:
+    inset 0 0 0 1px var(--sec-glass-border, var(--mx-hair)),
+    0 1px 2px var(--mx-floor),
+    0 12px 26px -16px var(--mx-contact),
+    var(--lp-shadow-l, 0 18px 40px -18px var(--mx-contact));
+  transform-origin: 50% 100%;
+  transition: transform var(--lp-dur-m) var(--lp-spring);
+}
+
+/* smoked glass: a quieter rim */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-sticky__dock {
+    --st-rim: color-mix(in oklab, var(--lp-n-50) 90%, transparent);
+    --st-rim-low: color-mix(in oklab, var(--lp-n-50) 32%, transparent);
+  }
+
+  .lp-sticky__dock[data-bg="dark"],
+  :root[data-base="dark"] .lp-sticky__dock:is([data-bg="base"], [data-bg="soft"], [data-bg="surface"]) {
+    --st-rim: color-mix(in oklab, var(--lp-n-50) 34%, transparent);
+    --st-rim-low: color-mix(in oklab, var(--lp-n-50) 8%, transparent);
+  }
+}
+
+/* page copy scrolls right under the dock: a deeper frost than the kit's chips */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-sticky__dock {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: blur(max(28px, var(--lp-glass-blur, 18px))) saturate(170%);
+    backdrop-filter: blur(max(28px, var(--lp-glass-blur, 18px))) saturate(170%);
+  }
+}
+
+/* specular rim: bright where the light hits the top edge, gone on the flanks, a faint return below */
+@supports (mask-composite: exclude) or (-webkit-mask-composite: xor) {
+  .lp-sticky__dock::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(180deg, var(--st-rim), transparent 42%, transparent 70%, var(--st-rim-low));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+.lp-sticky__dock--thumb {
+  grid-template-columns: auto minmax(6.75rem, 1fr) auto;
+  grid-template-areas:
+    "thumb info cta"
+    "thumb buy cta";
+  padding-inline-start: var(--st-pad);
+}
+
+.lp-sticky__dock > .lp-sticky__thumb {
+  grid-area: thumb;
+}
+
+.lp-sticky__info {
+  grid-area: info;
+  display: grid;
+  align-self: end;
+  min-inline-size: 0;
+}
+
+.lp-sticky__name {
+  display: none;
+}
+
+.lp-sticky__buy {
+  grid-area: buy;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: calc(var(--lp-step-1) * 1.04 * var(--lp-script-scale-display));
+}
+
+/* the order button; its ::after stretches over the whole dock (one big tap target). It never moves
+   by itself — a transformed button would shrink that target to its own box under the pointer — so
+   the dock answers hover with the button's glow and press as one object. */
+.lp-sticky__cta {
+  grid-area: cta;
+  position: static;
+  --btn-h: var(--st-tile);
+  --btn-radius: var(--st-in);
+  max-inline-size: 11.5rem;
+}
+
+.lp-sticky__cta:is(:hover, :active) {
+  translate: none;
+  scale: none;
+}
+
+/* the sticky order button is always a filled action, even on outline themes */
+:root[data-btn="outline"] .lp-sticky__cta {
+  --btn-bg: var(--sec-accent);
+  --btn-ink: var(--sec-accent-ink);
+  --btn-line: transparent;
+  --btn-shadow: var(--btn-hl), 0 6px 16px -6px var(--mx-btn-2);
+}
+
+.lp-sticky__cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--st-in) + var(--st-pad));
+}
+
+.lp-sticky__cta .lp-btn__label {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.12;
+}
+
+/* focus rings the whole dock (that is the target), in the glass ink */
+.lp-sticky__cta:focus-visible {
+  outline-color: var(--sec-glass-ink, var(--sec-ink));
+}
+
+@supports selector(:has(*)) {
+  .lp-sticky__cta:focus-visible {
+    outline: none;
+  }
+
+  .lp-sticky__dock:has(.lp-sticky__cta:focus-visible) {
+    outline: 2px solid var(--sec-glass-ink, var(--sec-ink));
+    outline-offset: 3px;
+  }
+}
+
+/* light where color-mix exists: the button's glow pools in the dock's glass; a tinted saving chip;
+   a translucent halo and a finer divider on the capsule */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-sticky__dock {
+    background-image:
+      radial-gradient(14rem 5.5rem at var(--st-end) 50%, color-mix(in oklab, var(--sec-accent) 17%, transparent), transparent),
+      var(--st-gloss);
+  }
+
+  .lp-sticky__save {
+    background: color-mix(in oklab, var(--sec-accent) 18%, transparent);
+    color: color-mix(in oklab, var(--sec-accent) 58%, var(--sec-glass-ink, var(--sec-ink)));
+  }
+}
+
+/* the chip's ink: the accent deepened toward the glass ink DRAINED of its color, so two hues never
+   meet halfway through orange */
+@supports (color: oklch(from red l c h)) {
+  .lp-sticky__save {
+    color: color-mix(in oklab, var(--sec-accent) 58%, oklch(from var(--sec-glass-ink, var(--sec-ink)) l 0 0));
+  }
+}
+
+/* a denser pane on glass engines, so display type passing underneath never competes with the price */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) and (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-sticky__dock {
+    background-color: color-mix(in oklab, var(--sec-glass, var(--sec-card)), var(--sec-glass-solid, var(--sec-card)) 45%);
+  }
+}
+
+/* --- pointer & press ----------------------------------------------------- */
+@media (hover: hover) {
+  .lp-sticky__dock:hover .lp-sticky__thumb[data-kind="photo"] .lp-pic__img {
+    transform: scale(1.08);
+  }
+
+  .lp-sticky__dock:hover .lp-sticky__thumb[data-kind="cutout"] .lp-sticky__pic {
+    transform: translateY(-0.12rem) scale(1.05);
+  }
+}
+
+.lp-sticky__dock:has(.lp-sticky__cta:active) {
+  transform: scale(0.985);
+}
+
+/* ==========================================================================
+   Sizes
+   ========================================================================== */
+/* phones: the price leads; what does not fit beside it (savings, then the reference) wraps onto a
+   clipped second line and stays out of sight instead of colliding with the button */
+@media (max-width: 47.99rem) {
+  .lp-sticky__buy {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    align-self: start;
+    gap: 0.8em 0.45rem;
+    min-inline-size: 0;
+    max-block-size: 1.4em;
+    overflow: hidden;
+  }
+
+  .lp-sticky__buy > .lp-sticky__save {
+    order: 1;
+  }
+
+  .lp-sticky__buy > .lp-sticky__was {
+    order: 2;
+  }
+}
+
+/* phones & tablets: the long "save X" chip yields to the struck reference */
+@media (max-width: 63.99rem) {
+  .lp-sticky__save--amount {
+    display: none;
+  }
+}
+
+/* small phones: tighter tile; label and price come first — arrow and second line step out */
+@media (max-width: 22.49rem) {
+  .lp-sticky__dock {
+    --st-tile: 2.75rem;
+    column-gap: 0.55rem;
+    padding-inline-start: 0.85rem;
+  }
+
+  .lp-sticky__dock--thumb {
+    padding-inline-start: var(--st-pad);
+  }
+
+  .lp-sticky__cta {
+    --btn-px: 1em;
+  }
+
+  .lp-sticky__buy {
+    font-size: calc(var(--lp-step-0) * 1.08 * var(--lp-script-scale-display));
+  }
+
+  .lp-sticky__cta .lp-btn__icon {
+    display: none;
+  }
+}
+@media (min-width: 48rem) {
+
+  .lp-sticky__dock {
+    --st-pad: 0.5rem;
+    --st-tile: 3.25rem;
+    grid-template-columns: minmax(8rem, 1fr) auto auto;
+    grid-template-areas: "info buy cta";
+    column-gap: 1.25rem;
+    max-inline-size: 46rem;
+    padding-inline-start: 1.4rem;
+  }
+
+  .lp-sticky__dock--thumb {
+    grid-template-columns: auto minmax(8rem, 1fr) auto auto;
+    grid-template-areas: "thumb info buy cta";
+    column-gap: 1rem;
+    padding-inline-start: var(--st-pad);
+  }
+
+  .lp-sticky__info {
+    align-self: center;
+    gap: 0.1rem;
+  }
+
+  /* a <bdi>: it takes the name's own direction, so the ellipsis lands at the name's logical end;
+     the box hugs the name and stays on the page's start edge (justify-self follows the dock) */
+  .lp-sticky__name {
+    display: block;
+    justify-self: start;
+    max-inline-size: 100%;
+    overflow: hidden;
+    font-size: calc(var(--lp-step-0) * 0.98 * var(--lp-script-scale));
+    font-weight: var(--lp-strong-weight);
+    line-height: 1.3;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* one hairline opens the purchase cluster */
+  .lp-sticky__buy {
+    gap: 0.6rem;
+    padding-block: 0.3rem;
+    padding-inline-start: 1rem;
+    border-inline-start: 1px solid var(--sec-glass-border, var(--mx-hair));
+    font-size: calc(var(--lp-step-1) * 1.12 * var(--lp-script-scale-display));
+  }
+
+  .lp-sticky__save {
+    font-size: calc(var(--lp-step--1) * 0.86 * var(--lp-script-scale));
+  }
+
+  .lp-sticky__was {
+    font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  }
+
+  .lp-sticky__cta {
+    --btn-px: 1.45em;
+    max-inline-size: 16rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* bar: the dock lands, the tile pops, the copy comes into focus, the button catches the light */
+  .lp-sticky[data-visible] .lp-sticky__dock {
+    --st-from: 0.92;
+    animation: lp-st-pop calc(var(--lp-dur-l) * 1.1) var(--lp-spring) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__dock > .lp-sticky__thumb {
+    animation: lp-st-pop var(--lp-dur-l) var(--st-pop) calc(var(--lp-stagger) * 1.5) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__info {
+    animation: lp-st-in var(--lp-dur-m) var(--lp-smooth) calc(var(--lp-stagger) * 2.5) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__buy {
+    animation: lp-st-in var(--lp-dur-m) var(--lp-smooth) calc(var(--lp-stagger) * 3.5) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__cta {
+    animation: lp-st-in var(--lp-dur-m) var(--lp-smooth) var(--lp-stagger) backwards;
+  }
+
+  :root:not([data-btn="underline"]) .lp-sticky[data-visible] .lp-sticky__cta {
+    background-image: linear-gradient(100deg, transparent 41%, var(--mx-rim) 50%, transparent 59%), var(--btn-sheen);
+    background-repeat: no-repeat;
+    background-size: 260% 100%, auto;
+    background-position: var(--st-start) 0, 0 0;
+    animation:
+      lp-st-in var(--lp-dur-m) var(--lp-smooth) var(--lp-stagger) backwards,
+      lp-st-sheen calc(var(--lp-dur-l) * 2) var(--lp-sway) calc(var(--lp-dur-l) * 1.2) backwards;
+  }
+}
+
+@keyframes lp-st-pop {
+  from {
+    opacity: 0;
+    transform: scale(var(--st-from, 0.4));
+  }
+}
+
+@keyframes lp-st-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+    filter: blur(4px);
+  }
+}
+
+/* one light streak travelling with the reading direction */
+@keyframes lp-st-sheen {
+  from {
+    background-position: var(--st-end) 0, 0 0;
+  }
+
+  to {
+    background-position: var(--st-start) 0, 0 0;
+  }
+}

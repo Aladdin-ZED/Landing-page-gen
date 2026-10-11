@@ -1,0 +1,219 @@
+/* benefits · numbered — rules only this variant renders (inlined after benefits.css on pages whose markup
+   carries .lp-benefits--numbered; the admin preview loads every variant). Shared rules live in benefits.css. */
+
+/* ==========================================================================
+   numbered — editorial index
+   ========================================================================== */
+.lp-benefits__list {
+  display: grid;
+  border-block-end: 1px solid var(--mx-line);
+}
+
+.lp-benefits__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "num aside" "copy copy";
+  align-items: end;
+  gap: 1.1rem 1.25rem;
+  padding-block: clamp(1.6rem, 1rem + 2.4vw, 3rem);
+}
+
+.lp-benefits__rule {
+  position: absolute;
+  inset: 0 0 auto;
+  block-size: 1px;
+  background: var(--mx-line);
+}
+
+/* hover: an accent line runs over the hairline from the reading start */
+.lp-benefits__rule::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--sec-accent);
+  transform: scaleX(0);
+  transform-origin: calc(50% - 50% * var(--lp-x)) 0;
+  transition: transform var(--lp-dur-l) var(--lp-smooth);
+}
+
+.lp-benefits__num {
+  grid-area: num;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: clamp(3.5rem, 2.2rem + 5.6vw, 7.5rem);
+  line-height: 0.8;
+  letter-spacing: -0.045em;
+  font-variant-numeric: lining-nums proportional-nums;
+}
+
+.lp-benefits__numin {
+  display: inline-block;
+  color: var(--sec-accent);
+  transition: translate var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-benefits__copy {
+  grid-area: copy;
+  align-self: start;
+}
+
+.lp-benefits__copy .lp-benefits__t {
+  font-size: calc(var(--lp-step-2) * 0.94 * var(--lp-script-scale-display));
+}
+
+.lp-benefits__thumb {
+  grid-area: aside;
+  position: relative;
+  inline-size: clamp(8rem, 5.5rem + 9vw, 9.5rem);
+}
+
+.lp-benefits__thumbpic {
+  filter: drop-shadow(0 18px 22px var(--mx-floor));
+}
+
+.lp-benefits__thumbpic .lp-pic__img {
+  transition: scale var(--lp-dur-l) var(--lp-smooth);
+}
+
+/* the key figure rides on the photo: over its start edge, a frosted chip */
+.lp-benefits__thumbchip {
+  position: absolute;
+  inset-block-start: 0.9rem;
+  inset-inline-end: calc(100% - 1.5rem);
+  display: grid;
+  gap: 0.15rem;
+  inline-size: max-content;
+  max-inline-size: 9.5rem;
+  padding: 0.55rem 0.8rem 0.65rem;
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-benefits__thumbchip .lp-benefits__fig {
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+}
+
+:is(.lp-benefits__thumbchip, .lp-benefits__chip, .lp-benefits__pchip, .lp-benefits__tchip) .lp-benefits__figlabel {
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  color: inherit;
+  opacity: 0.8;
+}
+
+.lp-benefits__aside {
+  grid-area: aside;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  max-inline-size: 14rem;
+  text-align: end;
+}
+
+.lp-benefits__aside .lp-benefits__fig {
+  font-size: min(calc(var(--lp-step-4) * 0.9 * var(--lp-script-scale-display)), 3.6rem);
+}
+
+.lp-benefits__aside .lp-benefits__figlabel {
+  max-inline-size: 22ch;
+}
+
+@media (hover: hover) {
+  .lp-benefits__row:hover .lp-benefits__rule::after {
+    transform: scaleX(1);
+  }
+
+  .lp-benefits__row:hover .lp-benefits__numin {
+    translate: calc(var(--lp-x) * 0.06em) 0;
+  }
+
+  .lp-benefits__row:hover .lp-benefits__thumbpic .lp-pic__img {
+    scale: 1.06;
+  }
+}
+
+/* signature: each numeral sits as a ghost and fills with the accent from its baseline as the row
+   reaches the reading line (scroll-driven; everywhere else it is simply filled) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"], .lp-qa) .lp-benefits__numin {
+      margin-block: -0.14em;
+      padding-block: 0.14em;
+      color: transparent;
+      background: linear-gradient(to top, var(--sec-accent) 50%, var(--mx-line) 50%) 0 100% / 100% 200% no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: lp-bn-fill linear both;
+      animation-timeline: view();
+      /* done when the numeral reaches ~55% of the viewport height (reading line) */
+      animation-range: entry 40% cover 42%;
+    }
+  }
+}
+
+/* tablet up: one contents-page grid — the rows are subgrids, so the numeral, copy and aside columns
+   hold on every row whatever each row carries (fixed tracks where subgrid is unsupported) */
+@media (min-width: 48rem) {
+  .lp-benefits__list {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .lp-benefits__row {
+    grid-column: 1 / -1;
+    column-gap: clamp(1.5rem, 4vw, 4rem);
+    grid-template-columns: clamp(6.5rem, 2rem + 9vw, 10.5rem) minmax(0, 1fr) clamp(9rem, 4rem + 9vw, 12rem);
+    grid-template-columns: subgrid;
+    grid-template-areas: none;
+    align-items: start;
+  }
+
+  .lp-benefits__num {
+    grid-area: 1 / 1;
+  }
+
+  .lp-benefits__copy {
+    grid-area: 1 / 2;
+    max-inline-size: 42rem;
+    padding-block-start: 0.4em;
+  }
+
+  :is(.lp-benefits__thumb, .lp-benefits__aside) {
+    grid-area: 1 / 3;
+  }
+
+  .lp-benefits__thumb {
+    inline-size: clamp(8.5rem, 3rem + 8vw, 11rem);
+    justify-self: end;
+  }
+
+  .lp-benefits__thumbchip {
+    inset-block: auto 0.75rem;
+    inset-inline: -1.25rem auto;
+  }
+
+  .lp-benefits__aside {
+    justify-self: end;
+    padding-block-start: 0.2em;
+  }
+}
+
+/* wide: a contents page — numeral · title · text · aside, same columns on every row */
+@media (min-width: 72rem) {
+  .lp-benefits__copy {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    column-gap: clamp(2rem, 3.5vw, 3.5rem);
+    max-inline-size: none;
+  }
+
+  .lp-benefits__copy .lp-benefits__p {
+    margin: 0;
+    padding-block-start: 0.3em;
+  }
+}
+
+@keyframes lp-bn-fill {
+  from {
+    background-position: 0 0;
+  }
+}

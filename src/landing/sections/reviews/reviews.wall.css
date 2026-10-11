@@ -1,0 +1,595 @@
+/* reviews · wall — rules only this variant renders (inlined after reviews.css on pages whose markup
+   carries .lp-reviews--wall; the admin preview loads every variant). Shared rules live in reviews.css. */
+
+.lp-rv__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+/* ==========================================================================
+   wall — bento top row (lead quote + score tile) over a bento of wide / narrow cards
+   ========================================================================== */
+.lp-rv__bento {
+  display: grid;
+  gap: var(--rv-gap);
+  margin-block-end: var(--rv-gap);
+}
+
+.lp-rv__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin: 0;
+  /* block / inline padding apart: cards sharing a row keep one block padding, so their stars and
+     signatures line up even where a wide card breathes more at its sides */
+  padding: var(--rv-pad) var(--rv-pad-i, var(--rv-pad));
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+}
+
+/* featured (wide) cards: light in the product hue pooling from the top end corner */
+.lp-rv__card[data-tone="tint"] {
+  overflow: clip;
+  isolation: isolate;
+}
+
+.lp-rv__card[data-tone="tint"]::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -55%;
+  inset-inline-end: -18%;
+  z-index: -1;
+  inline-size: min(34rem, 75%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--rv-glow), transparent);
+  pointer-events: none;
+}
+
+.lp-rv__foot {
+  display: grid;
+  gap: 0.75rem;
+  margin-block-start: auto;
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+@media (hover: hover) {
+  .lp-rv__cell .lp-rv__card:hover {
+    translate: 0 -4px;
+    box-shadow: var(--rv-hl), var(--rv-ring), var(--lp-shadow-m);
+  }
+
+  .lp-rv__card:hover .lp-rv__photo .lp-pic__img {
+    scale: 1.04;
+  }
+}
+
+/* lead: the strongest voice as display type, signature anchored at the bottom */
+.lp-rv__lead {
+  --rv-pad: clamp(1.5rem, 1.05rem + 2vw, 2.75rem);
+  display: grid;
+  grid-template-areas: "head" "quote" "photo" "foot";
+  grid-template-rows: auto 1fr auto auto;
+  gap: clamp(1.25rem, 1rem + 1.2vw, 2rem);
+  overflow: clip;
+  isolation: isolate;
+}
+
+/* soft light in the product hue pooling from the top corner */
+.lp-rv__lead::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -45%;
+  inset-inline-start: -25%;
+  z-index: -1;
+  inline-size: 80%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--rv-glow), transparent);
+  pointer-events: none;
+}
+
+.lp-rv__lead-head {
+  grid-area: head;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lp-rv__lead-qm {
+  display: block;
+  inline-size: clamp(2.6rem, 2.2rem + 1.6vw, 3.6rem);
+  color: var(--sec-accent);
+  line-height: 0;
+}
+
+.lp-rv__lead-qm .lp-rv__qm {
+  inline-size: 100%;
+}
+
+.lp-rv__lead-rate {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+}
+
+/* a tall row (the tile beside it) opens space around the words, never one gap above them */
+.lp-rv__quote--lead {
+  grid-area: quote;
+  align-self: center;
+  max-inline-size: 30ch;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: clamp(1.55rem, 1.05rem + 2vw, 2.65rem);
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1.14;
+}
+
+:lang(ar) .lp-rv__quote--lead {
+  max-inline-size: 34ch;
+  font-family: var(--lp-font-body);
+  font-weight: 500;
+  font-size: clamp(1.3rem, 0.98rem + 1.3vw, 2.05rem);
+  line-height: 1.7;
+}
+
+.lp-rv__lead-photo {
+  grid-area: photo;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--lp-sq-l);
+}
+
+.lp-rv__lead > .lp-rv__foot {
+  grid-area: foot;
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* score tile: a color block with the score and the product in a lit window */
+.lp-rv__tile {
+  --tile-pad: clamp(1.25rem, 1rem + 1.2vw, 2rem);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: var(--tile-pad);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  overflow: hidden;
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), var(--lp-shadow-m);
+}
+
+/* light falling on the block from its top end corner */
+.lp-rv__tile::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -40%;
+  inset-inline-end: -30%;
+  z-index: -1;
+  inline-size: 95%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--mx-tint-2), transparent);
+  pointer-events: none;
+}
+
+.lp-rv__tile-score {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+}
+
+.lp-rv__tile-lab,
+.lp-rv__tile-count {
+  margin: 0;
+  color: var(--sec-ink-soft);
+}
+
+.lp-rv__tile-num {
+  display: flex;
+  align-items: baseline;
+  gap: 0.1em;
+  margin: 0.5rem 0 0.85rem;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: clamp(3.75rem, 2.7rem + 4.4vw, 6.25rem);
+  /* proportional: a tabular comma opens a gap inside a big "4,7" */
+  font-variant-numeric: lining-nums proportional-nums;
+  line-height: 0.82;
+  letter-spacing: -0.03em;
+}
+
+.lp-rv__tile-of {
+  font-size: 0.28em;
+  letter-spacing: 0;
+  color: var(--sec-ink-soft);
+}
+
+.lp-rv__tile-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+
+.lp-rv__tile .lp-stars {
+  --star-on: var(--sec-ink);
+  --star-off: var(--mx-line);
+}
+
+.lp-rv__tile-count {
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * var(--lp-script-scale)));
+}
+
+.lp-rv__tile-media {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* desktop: the product window grows into the tile's free height (never past a portrait frame) */
+@media (min-width: 64rem) {
+  .lp-rv__tile {
+    container-type: inline-size;
+  }
+
+  .lp-rv__tile-media {
+    flex: 1 1 auto;
+    min-block-size: 66cqi;
+    max-block-size: 125cqi;
+  }
+
+  .lp-rv__tile-media > .lp-rv__tile-pic {
+    position: absolute;
+    inset: 0;
+    block-size: 100%;
+    aspect-ratio: auto;
+  }
+
+  /* the name under the window: the window keeps the space above it */
+  .lp-rv__tile-media[data-at="below"] > .lp-rv__tile-pic {
+    inset-block-end: 1.95rem;
+  }
+
+  .lp-rv__tile-media[data-at="below"] > .lp-rv__tile-name {
+    margin-block-start: auto;
+  }
+
+  /* product only (no score): the window is the whole tile */
+  .lp-rv__tile--prod .lp-rv__tile-media {
+    min-block-size: 0;
+    max-block-size: none;
+  }
+
+  /* … unless the photo is landscape: it keeps its proportions at the top of the block and the name
+     closes the block in the display face */
+  .lp-rv__tile--wide .lp-rv__tile-media {
+    flex: 1 1 auto;
+  }
+
+  .lp-rv__tile--wide .lp-rv__tile-media > .lp-rv__tile-pic {
+    position: relative;
+    inset: auto;
+    block-size: auto;
+    aspect-ratio: var(--tile-ar, 4 / 3);
+  }
+
+  .lp-rv__tile--wide .lp-rv__tile-name {
+    max-inline-size: 100%;
+    font-family: var(--lp-font-display);
+    font-weight: var(--lp-display-weight);
+    font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+    letter-spacing: var(--lp-display-tracking);
+    text-transform: var(--lp-display-case);
+    line-height: 1.15;
+    color: var(--sec-ink);
+  }
+
+  .lp-rv__tile--wide .lp-rv__tile-name > .lp-rv__ell {
+    white-space: normal;
+    text-wrap: balance;
+  }
+}
+
+/* the window nests in the tile's corner: concentric with it (outer radius − padding) */
+.lp-rv__tile-pic {
+  border-radius: max(var(--lp-sq-s), calc(var(--lp-sq-xl) - var(--tile-pad) * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-m);
+}
+
+/* a cutout stands in its own pool of light */
+.lp-rv__tile--cutout .lp-rv__tile-pic {
+  box-shadow: none;
+  background: radial-gradient(closest-side, var(--mx-tint-2), transparent);
+}
+
+.lp-rv__tile--cutout .lp-rv__tile-pic .lp-pic__img {
+  filter: var(--lp-shadow-product-filter);
+}
+
+/* the name: a glass chip on the window edge that holds no face and no hands (data-at), else a
+   quiet line under the window */
+.lp-rv__tile-chip,
+.lp-rv__tile-name {
+  display: block;
+  max-inline-size: calc(100% - 1.4rem);
+  font-size: max(calc(0.78rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale)));
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.lp-rv__tile-chip {
+  position: absolute;
+  inset-inline-start: 0.7rem;
+  inset-block-end: 0.7rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--lp-radius-pill);
+}
+
+.lp-rv__tile-media[data-at="top"] > .lp-rv__tile-chip {
+  inset-block: 0.7rem auto;
+}
+
+.lp-rv__tile-name {
+  max-inline-size: 100%;
+  color: var(--sec-ink-soft);
+}
+
+/* bento grid: rows always close (spans set in markup); cards in a row share its height */
+.lp-rv__wall {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--rv-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-rv__cell {
+  display: grid;
+  container-type: inline-size;
+}
+
+.lp-rv__cell .lp-rv__card {
+  gap: 1rem;
+}
+
+.lp-rv__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.lp-rv__cell .lp-rv__quote {
+  font-size: calc(var(--lp-step-0) * 0.97 * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+}
+
+/* the customer's photo nests in the card corner (inner radius = outer − inset) */
+.lp-rv__card-photo {
+  margin-block-start: calc(0.45rem - var(--rv-pad));
+  margin-inline: calc(0.45rem - var(--rv-pad-i, var(--rv-pad)));
+  border-radius: max(var(--lp-sq-xs), calc(var(--lp-sq-l) - 0.45rem * var(--lp-corner-d)));
+}
+
+/* wide cards: a larger pull quote; the photo moves to the end column */
+@container (min-width: 34rem) {
+  .lp-rv__cell .lp-rv__card {
+    --rv-pad-i: clamp(1.5rem, 1.1rem + 1.2vw, 2.25rem);
+  }
+
+  .lp-rv__cell .lp-rv__quote {
+    max-inline-size: 52ch;
+    font-size: calc(var(--lp-step-1) * 0.92 * var(--lp-script-scale));
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .lp-rv__cell .lp-rv__card--photo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 34%);
+    grid-template-rows: 1fr auto;
+    grid-template-areas: "body photo" "foot photo";
+    column-gap: clamp(1.5rem, 4cqi, 2.5rem);
+  }
+
+  .lp-rv__card--photo > .lp-rv__card-photo {
+    grid-area: photo;
+    align-self: stretch;
+    aspect-ratio: auto;
+    min-block-size: 12rem;
+    margin-block: calc(0.45rem - var(--rv-pad));
+    margin-inline: 0 calc(0.45rem - var(--rv-pad-i, var(--rv-pad)));
+  }
+
+  .lp-rv__card--photo > .lp-rv__body {
+    grid-area: body;
+  }
+
+  .lp-rv__card--photo > .lp-rv__foot {
+    grid-area: foot;
+  }
+}
+
+/* a full-row card reads as a line: words | who */
+@container (min-width: 56rem) {
+  .lp-rv__cell .lp-rv__card:not(.lp-rv__card--photo) {
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(2rem, 4cqi, 3.5rem);
+  }
+
+  .lp-rv__cell .lp-rv__card:not(.lp-rv__card--photo) > .lp-rv__body {
+    flex: 1;
+  }
+
+  .lp-rv__cell .lp-rv__card:not(.lp-rv__card--photo) > .lp-rv__foot {
+    flex: none;
+    inline-size: clamp(13rem, 26cqi, 17rem);
+    margin: 0;
+    padding-block: 0.25rem;
+    padding-inline-start: clamp(1.5rem, 3cqi, 2.25rem);
+    border-block-start: 0;
+    border-inline-start: 1px solid var(--mx-hair);
+  }
+}
+
+/* phones and tablets: the score tile leads as a band (score | product) over the full-width lead
+   quote, so the top row never fights the 1- or 2-column grid of cards below it */
+@media (max-width: 63.99rem) {
+  .lp-rv__tile {
+    order: -1;
+  }
+
+  /* no honest score yet (sample reviews): on phones and tablets the product photo would only push
+     the voices down — the reviews lead */
+  .lp-rv__tile--prod {
+    display: none;
+  }
+
+  .lp-rv__bento--tile:has(> .lp-rv__tile--prod) {
+    display: block;
+  }
+
+  .lp-rv__tile--both {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+    align-items: center;
+  }
+
+  .lp-rv__tile--both .lp-rv__tile-chip {
+    display: none;
+  }
+}
+
+/* phones: the cards become a swipe rail with the next card peeking in */
+@media (max-width: 39.99rem) {
+  .lp-rv__wall:not([data-n="1"]) {
+    grid-auto-flow: column;
+    grid-auto-columns: min(84%, 21rem);
+    grid-template-columns: none;
+    gap: 0.75rem;
+    /* room for the cards' shadows inside the scroller (a scroll box clips them), given back outside */
+    margin-block: -0.75rem -2.5rem;
+    margin-inline: calc(var(--lp-gutter) * -1);
+    padding-block: 0.75rem 2.5rem;
+    padding-inline: var(--lp-gutter);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--lp-gutter);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .lp-rv__wall:not([data-n="1"])::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lp-rv__wall:not([data-n="1"]) > .lp-rv__cell {
+    scroll-snap-align: start;
+  }
+}
+
+/* tablets: two columns, an odd last card closes the grid */
+@media (min-width: 40rem) {
+  .lp-rv__wall {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 40rem) and (max-width: 63.99rem) {
+  .lp-rv__cell:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 64rem) {
+  /* the top row sits on the bento's own 3 columns: lead over two, the tile over one */
+  .lp-rv__bento--tile {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lp-rv__bento--tile > .lp-rv__lead {
+    grid-column: span 2;
+  }
+
+  .lp-rv__lead--photo {
+    grid-template-columns: minmax(0, 1fr) clamp(12rem, 18vw, 16rem);
+    grid-template-areas: "head photo" "quote photo" "foot photo";
+    grid-template-rows: auto 1fr auto;
+    column-gap: clamp(1.5rem, 3vw, 2.5rem);
+  }
+
+  .lp-rv__lead--photo .lp-rv__lead-photo {
+    align-self: center;
+    aspect-ratio: 4 / 5;
+  }
+
+  .lp-rv__wall {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lp-rv__cell[data-span="2"] {
+    grid-column: span 2;
+  }
+
+  .lp-rv__cell[data-span="3"] {
+    grid-column: 1 / -1;
+  }
+}
+.lp-rv__quote--lead[data-len="xs"] {
+  max-inline-size: 24ch;
+  font-size: clamp(1.75rem, 1.1rem + 2.6vw, 3.1rem);
+  line-height: 1.08;
+}
+
+:lang(ar) .lp-rv__quote--lead[data-len="xs"] {
+  max-inline-size: 26ch;
+  font-size: clamp(1.5rem, 1.05rem + 1.7vw, 2.4rem);
+  line-height: 1.6;
+}
+
+.lp-rv__quote--lead[data-len="m"] {
+  max-inline-size: 44ch;
+  font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  line-height: 1.3;
+}
+.lp-rv__quote--lead[data-len="l"] {
+  max-inline-size: 60ch;
+  font-family: var(--lp-font-body);
+  font-weight: 500;
+  font-size: clamp(1.1rem, 0.95rem + 0.55vw, 1.35rem);
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+:lang(ar) .lp-rv__quote--lead[data-len="m"] {
+  font-size: clamp(1.15rem, 1rem + 0.6vw, 1.5rem);
+  line-height: 1.75;
+}
+
+:lang(ar) .lp-rv__quote--lead[data-len="l"] {
+  font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem);
+  line-height: 1.8;
+}
+
+[data-arch="kinetic"] .lp-rv__quote--lead,
+[data-arch="garage"] .lp-rv__quote--lead {
+  font-family: var(--lp-font-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

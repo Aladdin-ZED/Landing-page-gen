@@ -1,0 +1,605 @@
+/* ==========================================================================
+   specs — sheet · tabs · accordion · label   (v2 · modern)
+   Hairlines that draw, figures that roll up, a product tile in the page's
+   mask with a glass key figure breaking over its edge, a gliding tab pill,
+   groups that lift into cards, a spec card that tilts in. Raised cards carry
+   their own [data-bg]. Logical properties only (RTL just works).
+   Rules every variant uses. A variant's own rules live in specs.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-specs {
+  /* lets <details> ease its height to auto where the engine can */
+  interpolate-size: allow-keywords;
+}
+
+/* product light may bloom past the column, never past the page */
+@supports (overflow: clip) {
+  .lp-specs {
+    overflow-x: clip;
+  }
+}
+
+.lp-specs .lp-specs__head {
+  margin-block-end: 0;
+}
+
+.lp-specs__chips,
+.lp-specs__dl {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---------- attribute chips: a crisp accent tick disc + label ---------- */
+.lp-specs__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lp-specs__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 2.25rem;
+  padding-block: 0.3em;
+  padding-inline: 0.35em 0.95em;
+  border-radius: 999px;
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  font-size: calc(var(--lp-step--1) * 0.96 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.lp-specs__tick {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 1.5em;
+  block-size: 1.5em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000);
+}
+
+/* ==========================================================================
+   product media — frames, the tile, the key figure
+   ========================================================================== */
+.lp-specs__frame {
+  position: relative;
+}
+
+/* unmasked product media: the theme's media corner, continuous (a masked tile takes the kit's shape) */
+.lp-specs__pic:not([class*="lp-mask"]) {
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+}
+
+/* a landscape photo keeps its proportions on its own backdrop color (the picture placeholder) */
+.lp-specs__frame[data-fit="mat"] .lp-pic {
+  display: grid;
+  align-content: center;
+}
+
+.lp-specs__frame[data-fit="mat"] .lp-pic__img {
+  block-size: auto;
+}
+
+/* cutouts stand on a lit stage */
+.lp-specs__frame[data-fit="cutout"] .lp-pic {
+  padding: 9%;
+  background: radial-gradient(110% 85% at 50% 12%, var(--mx-stage-hi), var(--mx-stage) 82%);
+}
+
+.lp-specs__frame[data-fit="cutout"] .lp-pic__img {
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* ---------- the tile: the kit mask (page mask, or rounded when it would cut a head), a tinted drop
+   shadow that follows it. --tile-r is the frame's proportion (tileRatios() in parts.tsx mirrors it). */
+.lp-specs__visual {
+  --tile-r: 1;
+  position: relative;
+  isolation: isolate;
+  margin: 0;
+}
+
+:root[data-mask="pill"] .lp-specs__visual {
+  --tile-r: 4 / 5;
+}
+
+/* a circle or a blob keeps a square box in every variant */
+:root:is([data-mask="circle"], [data-mask="blob"]) .lp-specs__visual {
+  --tile-r: 1;
+}
+
+.lp-specs__aura {
+  position: absolute;
+  inset: -12%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.lp-specs__visual > .lp-specs__frame {
+  filter: var(--lp-shadow-product-filter, drop-shadow(0 18px 24px rgb(0 0 0 / 0.18)));
+}
+
+/* the shape itself is the kit's (.lp-mask / .lp-mask-rounded on the picture): only the proportion here */
+.lp-specs__visual .lp-specs__pic {
+  aspect-ratio: var(--tile-r);
+}
+
+/* inside a tall tile a landscape photo melts into its backdrop: edges feathered */
+.lp-specs__visual [data-fit="mat"] .lp-pic__img {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16%, #000 84%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 16%, #000 84%, transparent);
+}
+
+/* frosted name tag in the tile's quiet spot (data-at phones · data-at-lg wide; parts.tsx tileSpots):
+   block t · b, inline s · e · c — inside the dome / the foot of curved masks */
+.lp-specs__tag {
+  --fx: 4.5%;
+  --ft: 5%;
+  --fb: 4%;
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+  max-inline-size: calc(100% - 2 * var(--fx));
+  padding-block: 0.5em;
+  padding-inline: 1em;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.lp-specs__visual:is([data-shape="arch"], [data-shape="pill"], [data-shape="circle"], [data-shape="blob"]) :is(.lp-specs__tag, .lp-specs__kf) {
+  --ft: 10%;
+}
+
+.lp-specs__visual:is([data-shape="pill"], [data-shape="circle"], [data-shape="blob"]) .lp-specs__tag {
+  --fb: 9%;
+}
+
+.lp-specs__tag[data-at^="b"] {
+  inset-block-end: var(--fb);
+}
+
+.lp-specs__tag[data-at^="t"] {
+  inset-block-start: var(--ft);
+}
+
+.lp-specs__tag[data-at$="s"] {
+  inset-inline-start: var(--fx);
+}
+
+.lp-specs__tag[data-at$="e"] {
+  inset-inline-end: var(--fx);
+}
+
+.lp-specs__tag[data-at$="c"] {
+  inset-inline: 0;
+  inline-size: fit-content;
+  max-inline-size: calc(100% - 4 * var(--fx));
+  margin-inline: auto;
+}
+
+/* a long name ends in "…" at its own logical end (a Latin name on an Arabic page included) */
+.lp-specs__tagname {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* the key figure: a glass callout that breaks over the tile's edge on wide screens */
+.lp-specs__kf {
+  --kx: clamp(0.75rem, 0.5rem + 1vw, 1.15rem);
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 0.3rem;
+  min-inline-size: 7rem;
+  padding: 0.8rem 1.1rem 0.85rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+}
+
+/* the key figure's spot (data-at phones · data-at-lg wide): up the end side, else the quiet one */
+.lp-specs__kf[data-at^="t"] {
+  inset-block-start: var(--ft, 5%);
+}
+
+.lp-specs__kf[data-at^="m"] {
+  inset-block-start: 50%;
+  translate: 0 -50%;
+}
+
+.lp-specs__kf[data-at$="e"] {
+  inset-inline-end: var(--kx);
+}
+
+.lp-specs__kf[data-at$="s"] {
+  inset-inline-start: var(--kx);
+}
+
+.lp-specs__kfv {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-3) * 0.86 * var(--lp-script-scale-display));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.6);
+  line-height: 0.95;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-specs__kfv .lp-specs__unit {
+  font-size: 0.4em;
+}
+
+.lp-specs__kfl {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.72rem, var(--lp-step--1) * 0.86) * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight, 500);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.3;
+  opacity: 0.78;
+}
+
+/* ==========================================================================
+   spec list
+   ========================================================================== */
+.lp-specs__row {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-specs__k {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75em;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.78rem, var(--lp-step--1) * 0.92) * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight, 500);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.35;
+  color: var(--sec-ink-soft);
+}
+
+/* mono indices on the technical languages */
+.lp-specs__i {
+  display: none;
+  color: var(--sec-accent);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-variant-numeric: tabular-nums;
+}
+
+[data-arch="circuit"] .lp-specs__i,
+[data-arch="editorial"] .lp-specs__i,
+[data-arch="garage"] .lp-specs__i,
+[data-arch="kinetic"] .lp-specs__i {
+  display: inline;
+}
+
+/* values: descriptive text in the text face, figures ("30 ml") large in the display face */
+.lp-specs__v {
+  margin: 0;
+  font-weight: var(--lp-strong-weight, 600);
+  font-size: calc(var(--lp-step-0) * 1.04 * var(--lp-script-scale));
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.lp-specs__fig {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2em;
+}
+
+.lp-specs__unit {
+  font-family: var(--lp-font-body);
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sec-ink-soft);
+}
+
+.lp-specs__row[data-fig] .lp-specs__v {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * 0.92 * var(--lp-script-scale-display));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  line-height: 1.05;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.lp-specs__dl--rows {
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-specs__dl--rows .lp-specs__row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
+  gap: 0.3rem 1.25rem;
+  align-items: baseline;
+  padding-block: clamp(0.9rem, 0.75rem + 0.5vw, 1.25rem);
+}
+
+@container (max-width: 30rem) {
+  /* narrow: the label column is as wide as the longest label (capped), shared by every row */
+  @supports (grid-template-columns: subgrid) {
+    .lp-specs__dl--rows {
+      display: grid;
+      grid-template-columns: fit-content(42%) minmax(0, 1fr);
+    }
+
+    .lp-specs__dl--rows .lp-specs__row {
+      grid-column: 1 / -1;
+      grid-template-columns: subgrid;
+    }
+  }
+
+  /* only a really long value (> 40 characters) leaves the value column; shorter ones wrap in it,
+     so every value keeps one edge down the list */
+  .lp-specs__dl--rows .lp-specs__row[data-long] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (min-width: 30rem) {
+  .lp-specs__dl--rows .lp-specs__row {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    column-gap: 1.5rem;
+  }
+}
+
+.lp-specs__dl--rows .lp-specs__row::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -1px;
+  block-size: 1px;
+  background: var(--mx-line);
+  transform-origin: calc(50% - 50% * var(--lp-x)) 50%;
+}
+
+/* hover: a soft band of tint slides in behind the row */
+.lp-specs__dl--rows .lp-specs__row::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: -0.85rem;
+  z-index: -1;
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+  opacity: 0;
+  scale: 0.97 0.9;
+  transition: opacity var(--lp-dur-m) var(--lp-smooth), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+@media (hover: hover) {
+  .lp-specs__dl--rows .lp-specs__row:hover::before {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* grid: cells, label over value */
+.lp-specs__dl--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  column-gap: clamp(1rem, 0.6rem + 2vw, 2rem);
+}
+
+.lp-specs__dl--grid .lp-specs__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-block: 0.85rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-specs__dl--grid .lp-specs__row[data-long] {
+  grid-column: 1 / -1;
+}
+
+.lp-specs__dl--grid .lp-specs__v {
+  font-size: calc(var(--lp-step-0) * 0.98 * var(--lp-script-scale));
+  text-wrap: balance;
+}
+
+.lp-specs__dl--grid .lp-specs__row[data-fig] .lp-specs__v {
+  font-size: calc(var(--lp-step-1) * 1.08 * var(--lp-script-scale-display));
+}
+
+/* the spec card's key figure */
+.lp-specs__dl--grid .lp-specs__row--hero {
+  grid-column: 1 / -1;
+  flex-direction: column-reverse;
+  gap: 0.4rem;
+  padding-block: 0 1.1rem;
+  border: 0;
+}
+
+.lp-specs__dl--grid .lp-specs__row.lp-specs__row--hero .lp-specs__v {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: max(3.25rem, calc(var(--lp-step-4) * 0.9 * var(--lp-script-scale-display)));
+  letter-spacing: calc(var(--lp-display-tracking) * 1.2);
+  line-height: 0.95;
+  color: var(--sec-accent);
+}
+
+.lp-specs__row--hero .lp-specs__unit {
+  font-size: 0.32em;
+  color: inherit;
+}
+
+.lp-specs__dl--grid .lp-specs__row.lp-specs__row--hero:not([data-fig]) .lp-specs__v {
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  line-height: 1.12;
+}
+
+.lp-specs__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin: 1.25rem 0 0;
+  max-inline-size: 40rem;
+  font-size: calc(var(--lp-step--1) * 0.96 * var(--lp-script-scale));
+  line-height: 1.5;
+  color: var(--sec-ink-soft);
+}
+
+.lp-specs__note .lp-icon {
+  flex: none;
+  margin-block-start: 0.15em;
+  color: var(--sec-accent);
+}
+
+/* group text */
+.lp-specs__body {
+  max-inline-size: 40rem;
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-specs__body > p:first-child {
+  color: var(--sec-ink);
+}
+
+.lp-specs__body--intro {
+  margin-block-end: 1rem;
+}
+
+/* ==========================================================================
+   buy row — the price beside the button; on wide screens a soft tinted bar
+   (its radius nests around the button's)
+   ========================================================================== */
+.lp-specs__buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
+  margin-block-start: clamp(1.75rem, 1.4rem + 1.4vw, 2.5rem);
+}
+
+.lp-specs__price {
+  flex: 1 1 auto;
+}
+
+.lp-specs__buy .lp-btn {
+  flex: 1 1 100%;
+}
+
+/* inside the spec card on phones the button spans the card: slimmer sides keep the label on one
+   line, and on 320px phones the arrow gives its room to the label */
+@media (max-width: 39.99rem) {
+  .lp-specs__buy--line .lp-btn {
+    --btn-px: 1em;
+  }
+}
+
+@media (max-width: 22.5rem) {
+  .lp-specs__buy--line .lp-btn {
+    --btn-px: 0.75em;
+    --btn-fs: calc(var(--lp-step-0) * 0.94);
+  }
+
+  .lp-specs__buy--line .lp-btn__icon {
+    display: none;
+  }
+}
+
+/* the bar wherever its column has room (sheet rows, the accordion's side column, the tabs footer) */
+@container (min-width: 30rem) {
+  .lp-specs__buy--bar {
+    --buy-pad: 0.5rem;
+    flex-wrap: nowrap;
+    padding: var(--buy-pad);
+    padding-inline-start: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+    /* concentric with the button inside it (its corner floor is a quarter of its 48px height) */
+    border-radius: calc(max(var(--lp-radius-btn), 0.75rem) * var(--lp-corner-k) + var(--buy-pad) * var(--lp-corner-d));
+    corner-shape: var(--lp-corner);
+    background: var(--sec-card);
+    color: var(--sec-card-ink);
+    box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair), var(--lp-shadow-m);
+  }
+
+  /* a pill button keeps a pill bar */
+  :root:is([data-btn="pill"], [data-btn="glow"]) .lp-specs__buy--bar {
+    border-radius: 999px;
+  }
+
+  .lp-specs__buy--bar .lp-btn {
+    flex: none;
+  }
+}
+
+/* inside a card: on a hairline */
+.lp-specs__buy--line {
+  margin: 0;
+  padding-block-start: 1.1rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-specs__cod {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  color: var(--sec-ink-soft);
+}
+
+.lp-specs__cod .lp-icon {
+  color: var(--sec-accent);
+}
+
+/* ==========================================================================
+   motion
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  /* sheet: each hairline draws along the reading direction as its row lands */
+  html.lp-js:not([data-motion="off"]) .lp-specs__dl--rows .lp-specs__row[data-reveal]:not([data-in])::after {
+    scale: 0 1;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-specs__dl--rows .lp-specs__row[data-in]::after {
+    animation: lp-specs-draw calc(var(--lp-dur-l) * 1.5) var(--lp-smooth) calc(var(--d, 0ms) + 100ms) backwards;
+  }
+
+  /* the key figure floats a breath above the tile (desktop: gentle, slow) */
+  @media (hover: hover) and (min-width: 60rem) {
+    html.lp-js:not([data-motion="off"]) .lp-specs .lp-specs__kf[data-in] {
+      animation:
+        lp-rv-blur-in calc(var(--lp-dur-l) * 1.1) var(--lp-smooth) var(--d, 0ms) backwards,
+        lp-specs-float 7s var(--lp-sway) calc(var(--d, 0ms) + var(--lp-dur-l) * 1.1) infinite;
+    }
+  }
+}
+
+@keyframes lp-specs-draw {
+  from {
+    scale: 0 1;
+  }
+}
+
+@keyframes lp-specs-float {
+  50% {
+    translate: 0 -6px;
+  }
+}

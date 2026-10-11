@@ -1,0 +1,355 @@
+/* problem · split — rules only this variant renders (inlined after problem.css on pages whose markup
+   carries .lp-problem--split; the admin preview loads every variant). Shared rules live in problem.css. */
+
+/* ---------- split: centered under the panels ------------------------------- */
+@media (min-width: 60rem) {
+  .lp-problem__duo:not(.lp-problem__duo--bare) + .lp-problem__turn {
+    margin-block-start: clamp(4.5rem, 3rem + 3vw, 6rem);
+  }
+}
+
+/* ==========================================================================
+   split — Sans | photo bridge | Avec
+   ========================================================================== */
+.lp-problem__duo {
+  --bw: min(68vw, 18rem);
+  --ov: 2.75rem;
+  --pad: clamp(1.5rem, 1rem + 2.4vw, 2.75rem);
+  display: grid;
+}
+
+.lp-problem__duo--bare {
+  --bw: 0px;
+  --ov: 0px;
+}
+
+.lp-problem__side {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 1.35rem;
+  padding: var(--pad);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+}
+
+/* Sans: recessed — a quiet neutral well with a hairline edge */
+.lp-problem__side--without {
+  padding-block-end: calc(var(--ov) + 1.75rem);
+  background: var(--mx-tint);
+  color: var(--sec-ink-soft);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-problem__side--without {
+    background: color-mix(in oklab, var(--sec-ink) 6%, var(--sec-bg));
+  }
+
+  :root[data-base="dark"] .lp-problem:not([data-bg="accent"], [data-bg="pop"]) .lp-problem__side--without,
+  .lp-problem[data-bg="dark"] .lp-problem__side--without {
+    background: color-mix(in oklab, var(--sec-ink) 8%, var(--sec-bg));
+  }
+}
+
+/* Avec: raised, and lit from the seam as if by the product */
+.lp-problem__side--with {
+  padding-block-start: calc(var(--ov) + 1.75rem);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-problem__side--with {
+    background-image: radial-gradient(130% 70% at 50% 0%, color-mix(in oklab, var(--sec-accent-ink) 14%, transparent), transparent 70%);
+  }
+}
+
+.lp-problem__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25em 0.45em;
+  font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 13vw);
+  line-height: 0.95;
+}
+
+.lp-problem__side--without .lp-problem__label {
+  opacity: 0.72;
+}
+
+:lang(ar) .lp-problem__label {
+  line-height: 1.25;
+}
+
+.lp-problem__name {
+  font-size: calc(max(0.8rem, var(--lp-step--1)) * var(--lp-script-scale));
+  font-weight: 600;
+}
+
+.lp-problem__list {
+  display: grid;
+  gap: 0.95rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-problem__item {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.85rem;
+  font-size: calc(var(--lp-step-0) * 1.04 * var(--lp-script-scale));
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.lp-problem__mark {
+  inline-size: 1.75rem;
+  margin-block-start: -0.12rem;
+}
+
+:lang(ar) .lp-problem__mark {
+  margin-block-start: 0.05rem;
+}
+
+.lp-problem__side--with .lp-problem__item,
+.lp-problem__aside {
+  font-weight: var(--lp-strong-weight);
+}
+
+.lp-problem__aside {
+  margin: 0;
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale));
+  line-height: 1.35;
+}
+
+/* the bridge: one photo, drained on the pains' side, vivid on the fixes' side */
+.lp-problem__bridge {
+  position: relative;
+  z-index: 2;
+  justify-self: center;
+  inline-size: var(--bw);
+  margin-block: calc(var(--ov) * -1);
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  box-shadow: 0 0 0 clamp(4px, 0.5vw, 6px) var(--sec-bg), var(--lp-shadow-l);
+}
+
+.lp-problem__duo--bare .lp-problem__bridge {
+  box-shadow: none;
+}
+
+.lp-problem__duo--cutout .lp-problem__bridge {
+  background: radial-gradient(80% 70% at 50% 40%, var(--mx-stage-hi), var(--mx-stage));
+}
+
+.lp-problem__layer {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  border-radius: inherit;
+}
+
+.lp-problem__layer > .lp-pic {
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+}
+
+/* a wide shot shown whole rests on a soft, blurred fill of itself: the fill is stretched (its edges
+   carry the photo's own edge colors) and the sharp shot, sized to its own aspect, feathers into it */
+.lp-problem__fill .lp-pic__img {
+  object-fit: fill;
+  filter: blur(26px) saturate(1.1);
+  scale: 1.25;
+}
+
+.lp-problem__duo--fill .lp-problem__shot .lp-pic__img {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 50%;
+  block-size: auto;
+  translate: 0 -50%;
+  -webkit-mask-image: linear-gradient(transparent, #000 20%, #000 80%, transparent);
+  mask-image: linear-gradient(transparent, #000 20%, #000 80%, transparent);
+}
+
+.lp-problem__duo--cutout .lp-problem__layer .lp-pic__img {
+  padding: 8% 10% 6%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* the pains' half: drained of color (the frame's fill too) */
+.lp-problem__layer--before {
+  filter: grayscale(1) contrast(0.9) brightness(1.05);
+}
+
+.lp-problem__layer--after {
+  --flood-from: inset(100% 0 0 0);
+  position: absolute;
+  inset: 0;
+  clip-path: inset(50% 0 0 0);
+}
+
+.lp-problem__seam {
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  inset-block-start: calc(50% - 1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 2px;
+  background: var(--lp-dark-ink);
+  box-shadow: 0 0 12px var(--mx-floor);
+}
+
+.lp-problem__duo--bare .lp-problem__seam {
+  background: none;
+  box-shadow: none;
+}
+
+.lp-problem__knob {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 3.25rem;
+  block-size: 3.25rem;
+  border-radius: 50%;
+}
+
+/* phones: the seam runs across, so the arrow points down to the fixes (the RTL mirror keeps it down) */
+.lp-problem__knob .lp-icon {
+  transform: rotate(90deg);
+}
+
+@media (min-width: 60rem) {
+  .lp-problem__duo {
+    --bw: clamp(15rem, 22vw, 19.5rem);
+    --ov: 0px;
+    --inset: clamp(1.25rem, 2.6vw, 2.5rem);
+    grid-template-columns: minmax(0, 0.92fr) var(--bw) minmax(0, 1.08fr);
+    align-items: stretch;
+  }
+
+  .lp-problem__duo--bare {
+    --bw: 0px;
+  }
+
+  /* both panels set their label and list from one top line (the raised panel pads down by the
+     recessed one's inset), so "Sans" and "Avec" and their first lines sit level across the seam */
+  .lp-problem__side {
+    grid-row: 1;
+    align-content: start;
+    min-block-size: calc(var(--bw) * 1.25 - 4rem);
+  }
+
+  /* recessed: inset from the top and bottom, the vivid side stands taller */
+  .lp-problem__side--without {
+    grid-column: 1;
+    margin-block: var(--inset);
+    margin-inline-end: calc(var(--bw) / -2);
+    padding-block-end: var(--pad);
+    padding-inline-end: calc(var(--bw) / 2 + clamp(1.25rem, 3vw, 2.5rem));
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+  }
+
+  .lp-problem__side--with {
+    grid-column: 3;
+    margin-inline-start: calc(var(--bw) / -2);
+    padding-block-start: calc(var(--pad) + var(--inset));
+    padding-inline-start: calc(var(--bw) / 2 + clamp(1.25rem, 3vw, 2.5rem));
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+  }
+
+  @supports (color: color-mix(in oklab, red 50%, blue)) {
+    .lp-problem__side--with {
+      background-image: radial-gradient(70% 120% at 0% 50%, color-mix(in oklab, var(--sec-accent-ink) 16%, transparent), transparent 72%);
+    }
+
+    [dir="rtl"] .lp-problem__side--with {
+      background-image: radial-gradient(70% 120% at 100% 50%, color-mix(in oklab, var(--sec-accent-ink) 16%, transparent), transparent 72%);
+    }
+  }
+
+  /* the photo stands taller than the panels: it crosses their top and bottom edges */
+  .lp-problem__bridge {
+    grid-row: 1;
+    grid-column: 2;
+    align-self: stretch;
+    min-block-size: calc(var(--bw) * 1.2);
+    margin-block: clamp(-3rem, -3vw, -2rem);
+  }
+
+  .lp-problem__duo:not(.lp-problem__duo--bare) .lp-problem__layer {
+    block-size: 100%;
+    aspect-ratio: auto;
+  }
+
+  .lp-problem__duo--bare .lp-problem__bridge {
+    margin: 0;
+  }
+
+  .lp-problem__layer--after {
+    --flood-from: inset(0 0 0 100%);
+    clip-path: inset(0 0 0 50%);
+  }
+
+  [dir="rtl"] .lp-problem__layer--after {
+    --flood-from: inset(0 100% 0 0);
+    clip-path: inset(0 50% 0 0);
+  }
+
+  .lp-problem__seam {
+    inset-block: 0;
+    inset-inline: calc(50% - 1px) auto;
+    inline-size: 2px;
+    block-size: auto;
+  }
+
+  .lp-problem__knob .lp-icon {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* split: the color floods in from the vivid edge up to the seam, the seam rides with it */
+  html.lp-js:not([data-motion="off"]) .lp-problem__bridge[data-in] .lp-problem__layer--after {
+    animation: lp-problem-flood calc(var(--lp-dur-l) * 1.5) var(--lp-smooth) calc(var(--d, 0ms) + 260ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__duo:not(.lp-problem__duo--bare) .lp-problem__bridge[data-in] .lp-problem__seam {
+    --seam-from: 0 calc(var(--bw) * 0.625);
+    animation: lp-problem-seam calc(var(--lp-dur-l) * 1.5) var(--lp-smooth) calc(var(--d, 0ms) + 260ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__bridge[data-in] .lp-problem__knob {
+    animation: lp-rv-stamp calc(var(--lp-dur-m) * 1.3) var(--lp-spring-pop) calc(var(--d, 0ms) + var(--lp-dur-l) * 1.3) backwards;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) and (min-width: 60rem) {
+  html.lp-js:not([data-motion="off"]) .lp-problem__duo:not(.lp-problem__duo--bare) .lp-problem__bridge[data-in] .lp-problem__seam {
+    --seam-from: calc(var(--bw) * 0.5 * var(--lp-x, 1)) 0;
+  }
+}
+
+@keyframes lp-problem-flood {
+  from {
+    clip-path: var(--flood-from);
+  }
+}
+
+@keyframes lp-problem-seam {
+  from {
+    translate: var(--seam-from);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+}

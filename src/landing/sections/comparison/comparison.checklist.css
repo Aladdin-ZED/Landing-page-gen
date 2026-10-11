@@ -1,0 +1,274 @@
+/* comparison · checklist — rules only this variant renders (inlined after comparison.css on pages whose markup
+   carries .lp-comparison--checklist; the admin preview loads every variant). Shared rules live in comparison.css. */
+
+.lp-comparison__cus {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case, none);
+}
+
+.lp-comparison__clabel {
+  font-family: var(--lp-font-label, inherit);
+  letter-spacing: var(--lp-label-tracking, 0);
+  text-transform: var(--lp-label-case, none);
+}
+
+/* Arabic: small labels stay in the body face (the Latin mono label face spaces Arabic too wide),
+   and big answers use the body face in bold (decorative Arabic display faces blur at this size) */
+:lang(ar) .lp-comparison__clabel {
+  font-family: var(--lp-font-body);
+}
+
+@media (hover: hover) {
+  .lp-comparison__check:hover .lp-comparison__mark--yes {
+    scale: 1.12;
+  }
+}
+
+/* ==========================================================================
+   checklist — ours checked, theirs struck through
+   ========================================================================== */
+.lp-comparison__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "head" "figure" "body";
+  row-gap: clamp(2rem, 1.5rem + 2.5vw, 3rem);
+}
+
+.lp-comparison__split--bare {
+  --c-max: min(var(--lp-container), 48rem);
+  grid-template-areas: "head" "body";
+}
+
+.lp-comparison__split > .lp-comparison__head {
+  grid-area: head;
+}
+
+.lp-comparison__body {
+  grid-area: body;
+  min-inline-size: 0;
+}
+
+.lp-comparison__figure {
+  position: relative;
+  isolation: isolate;
+  grid-area: figure;
+  inline-size: min(80%, 21rem);
+  margin: 0 auto 1.25rem;
+}
+
+.lp-comparison__figure--wide {
+  inline-size: 100%;
+}
+
+.lp-comparison__frame .lp-comparison__fpic {
+  box-shadow: var(--lp-shadow-m);
+}
+
+.lp-comparison__chip {
+  position: absolute;
+  inset-block-end: -1.4rem;
+  inset-inline-start: 50%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  inline-size: max-content;
+  max-inline-size: min(24rem, calc(100vw - 2.5rem));
+  padding-block: 0.5rem;
+  padding-inline: 0.5rem 1.15rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  transform: translateX(calc(-50% * var(--lp-x)));
+}
+
+/* the chip crosses the photo's foot on the side where it covers no hand (story/fit.ts) */
+.lp-comparison__chip[data-at="xs"] {
+  inset-inline-start: 5%;
+  transform: none;
+}
+
+.lp-comparison__chip[data-at="xe"] {
+  inset-inline: auto 5%;
+  transform: none;
+}
+
+.lp-comparison__chipmark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.2rem;
+  block-size: 2.2rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: 0 3px 8px var(--mx-btn-1);
+}
+
+.lp-comparison__chiptext {
+  display: grid;
+  min-inline-size: 0;
+  line-height: 1.2;
+}
+
+.lp-comparison__chipus {
+  font-weight: var(--lp-strong-weight, 600);
+}
+
+/* a long name ends in “…” at its own logical end (a Latin name on an Arabic page included) */
+.lp-comparison__chipname {
+  display: block;
+  overflow: hidden;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-comparison__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+}
+
+.lp-comparison__key {
+  --mk: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lp-comparison__key--us {
+  font-weight: var(--lp-strong-weight, 600);
+}
+
+.lp-comparison__key--them {
+  color: var(--sec-ink-soft);
+}
+
+.lp-comparison__keystrike {
+  inline-size: 1.15rem;
+  block-size: 2px;
+  border-radius: 2px;
+  background: var(--sec-accent);
+}
+
+.lp-comparison__checks {
+  display: grid;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-comparison__check {
+  --mk: clamp(1.75rem, 1.45rem + 0.9vw, 2.3rem);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: clamp(0.9rem, 0.6rem + 1vw, 1.4rem);
+  padding-block: clamp(1rem, 0.8rem + 0.8vw, 1.5rem);
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-comparison__check .lp-comparison__mark {
+  margin-block-start: 0.15rem;
+}
+
+.lp-comparison__cbody {
+  display: grid;
+  gap: 0.3rem;
+  min-inline-size: 0;
+}
+
+.lp-comparison__clabel {
+  font-size: max(0.75rem, calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale)));
+  color: var(--sec-ink-soft);
+}
+
+.lp-comparison__cus {
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+:lang(ar) .lp-comparison__cus {
+  font-family: var(--lp-font-body);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.lp-comparison__cthem {
+  --mk: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-block-start: 0.15rem;
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step-0) * 0.92 * var(--lp-script-scale));
+}
+
+.lp-comparison__ctext {
+  min-inline-size: 0;
+}
+
+/* one clean accent line through the alternative; every wrapped line gets its own stroke (clone),
+   all drawn across together */
+.lp-comparison__struck {
+  --sw: max(2px, 0.09em);
+  background-image: linear-gradient(var(--sec-accent), var(--sec-accent));
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 100% var(--sw);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* RTL (Arabic): starts on the right; Arabic letterforms sit higher in the line box */
+[dir="rtl"] .lp-comparison__struck {
+  background-position: 100% 50%;
+}
+
+.lp-comparison__check--partial .lp-comparison__struck {
+  background-image: none;
+}
+
+@media (min-width: 60rem) {
+  .lp-comparison__split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "figure head" "figure body";
+    column-gap: clamp(3rem, 6vw, 6.5rem);
+    row-gap: clamp(1.5rem, 2vw, 2rem);
+  }
+
+  /* a landscape shot needs the wider column to carry the same weight as a portrait one */
+  .lp-comparison__split--wide {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+
+  .lp-comparison__split--bare {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "body";
+  }
+
+  .lp-comparison__figure {
+    position: sticky;
+    inset-block-start: clamp(5rem, 12vh, 7rem);
+    align-self: start;
+    inline-size: 100%;
+    margin: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* strikes run through each alternative once its check has drawn (the line is never hidden
+     outside this animation, so a page without a working runtime still shows it) */
+  html.lp-js:not([data-motion="off"]) .lp-comparison__check[data-reveal][data-in] .lp-comparison__struck {
+    animation: lp-comparison-strike var(--sdur, 700ms) var(--lp-smooth) var(--sd, 0ms) backwards;
+  }
+}
+
+@keyframes lp-comparison-strike {
+  from {
+    background-size: 0% var(--sw);
+  }
+}

@@ -1,0 +1,420 @@
+/* story · image-text — rules only this variant renders (inlined after story.css on pages whose markup
+   carries .lp-story--image-text; the admin preview loads every variant). Shared rules live in story.css. */
+
+/* over glass the label keeps the full AA glass ink */
+.lp-story__card .lp-story__flabel {
+  color: inherit;
+}
+
+.lp-story__body {
+  max-inline-size: 38rem;
+  text-wrap: pretty;
+}
+
+/* media frames: photo a little taller than its frame (parallax slack) — people are framed exactly
+   (a veil touching the photo's top would hide in the slack): their frame drifts instead */
+.lp-story__par {
+  position: absolute;
+  inset: -5% 0;
+  transform-origin: var(--settle-org, 50% 50%);
+}
+
+.lp-story__frame--still .lp-story__par {
+  inset: 0;
+}
+
+.lp-story__pic {
+  inline-size: 100%;
+  block-size: 100%;
+  aspect-ratio: auto;
+}
+
+/* a cutout stands on a lit stage inside the frame */
+.lp-story__frame--cutout {
+  background-color: var(--mx-stage);
+  background-image:
+    radial-gradient(70% 55% at 50% 38%, var(--mx-stage-hi), transparent 72%),
+    radial-gradient(60% 9% at 50% 88%, var(--mx-floor), transparent);
+}
+
+.lp-story__frame--cutout .lp-story__par {
+  inset: 9% 12% 11%;
+}
+
+.lp-story__frame--cutout .lp-pic__img {
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* ==========================================================================
+   image-text — large masked photo + overlapping glass card
+   ========================================================================== */
+.lp-story__it {
+  display: grid;
+  align-items: end;
+}
+
+.lp-story__media {
+  position: relative;
+  isolation: isolate;
+  margin: 0;
+}
+
+.lp-story__frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--ratio, 4 / 5);
+  background-color: var(--mx-tint);
+  box-shadow: var(--lp-shadow-l);
+}
+
+/* glass place chip, in the photo's quiet spot (data-at phones · data-at-lg side by side): block
+   t · m · b, inline s · e · c — the same fractions it was chosen with (story/fit.ts) */
+.lp-story__place {
+  --fx: 4%;
+  --fy: 3.5%;
+  --ft: 3.5%;
+  --fb: 3.5%;
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  min-block-size: 2.25rem;
+  padding-block: 0.4rem;
+  padding-inline: 0.75rem 0.95rem;
+  max-inline-size: calc(100% - 2 * var(--fx));
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.lp-story__it--dome .lp-story__place {
+  --ft: 15%;
+}
+
+/* pills and blobs round their foot too */
+.lp-story__media:is([data-shape="pill"], [data-shape="blob"]) .lp-story__place {
+  --fb: 10%;
+}
+
+.lp-story__place[data-at^="t"] {
+  inset-block-start: var(--ft);
+}
+
+.lp-story__place[data-at^="m"] {
+  inset-block-start: 50%;
+  translate: 0 -50%;
+}
+
+/* phones: the card covers the photo's foot */
+.lp-story__place[data-at^="b"] {
+  inset-block-end: calc(var(--fb) + 16%);
+}
+
+.lp-story__place[data-at$="s"] {
+  inset-inline-start: var(--fx);
+}
+
+.lp-story__place[data-at$="e"] {
+  inset-inline-end: var(--fx);
+}
+
+.lp-story__place:is([data-at="tc"], [data-at="bc"]) {
+  inset-inline-start: 50%;
+  translate: calc(var(--lp-x) * -50%) 0;
+}
+
+.lp-story__it--inset .lp-story__place {
+  max-inline-size: 60%;
+}
+
+.lp-story__placetext {
+  overflow: hidden;
+  min-inline-size: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-story__place .lp-icon {
+  flex: none;
+  color: var(--sec-accent);
+}
+
+/* the lens: a second shot in a frosted glass bezel on the frame's edge, in a seat that covers no
+   face (data-seat phones · data-seat-lg side by side): t crossing the top edge (rounded frames),
+   u / l crossing the side at 30% / 58%; a = inline end, b = start — inside the container, never past
+   the page edge. A crowded photo keeps it off (none). */
+.lp-story__lens {
+  --lx: clamp(-0.75rem, -1.5vw, -0.4rem);
+  position: absolute;
+  z-index: 2;
+  display: block;
+  inline-size: clamp(5.5rem, 26%, 9.75rem);
+  padding: clamp(4px, 0.25vw + 3px, 6px);
+  border-radius: 50%;
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 0 0 1px rgb(255 255 255 / 0.3),
+    var(--lp-shadow-l);
+}
+
+.lp-story__lens[data-seat="none"] {
+  display: none;
+}
+
+.lp-story__lens[data-seat^="t"] {
+  inset-block-start: clamp(-2rem, -5vw, -1.1rem);
+}
+
+.lp-story__lens[data-seat^="u"] {
+  inset-block-start: 30%;
+}
+
+.lp-story__lens[data-seat^="l"] {
+  inset-block-start: 58%;
+}
+
+.lp-story__lens[data-seat="ta"] {
+  inset-inline-end: 5%;
+}
+
+.lp-story__lens[data-seat="tb"] {
+  inset-inline-start: 5%;
+}
+
+.lp-story__lens:is([data-seat="ua"], [data-seat="la"]) {
+  inset-inline-end: var(--lx);
+}
+
+.lp-story__lens:is([data-seat="ub"], [data-seat="lb"]) {
+  inset-inline-start: var(--lx);
+}
+
+/* the bezel is clear frosted glass on every theme (a dark section glass would read as a border) */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-story__lens {
+    background-color: rgb(255 255 255 / 0.26);
+    -webkit-backdrop-filter: blur(14px) saturate(125%) brightness(1.06);
+    backdrop-filter: blur(14px) saturate(125%) brightness(1.06);
+  }
+}
+
+.lp-story__lenspic {
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
+}
+
+/* the glass card overlaps the photo's bottom edge on phones */
+.lp-story__card {
+  position: relative;
+  z-index: 3;
+  container-type: inline-size;
+  display: grid;
+  gap: 1.05rem;
+  justify-items: start;
+  margin-block-start: calc(-1 * clamp(3.5rem, 2rem + 10vw, 6rem));
+  margin-inline: clamp(0.6rem, 3.5vw, 1.5rem);
+  padding: clamp(1.4rem, 1rem + 2.4vw, 2.75rem);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  box-shadow:
+    var(--lp-highlight, 0 0 #0000),
+    var(--lp-shadow-l),
+    0 48px 96px -56px var(--mx-btn-1);
+}
+
+/* body copy sits on this glass over the photo: a denser fill than the chips keeps it AA */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-story__card {
+    background-color: color-mix(in oklab, var(--sec-glass-solid, var(--sec-card)) 80%, transparent);
+  }
+}
+
+.lp-story__it--wide .lp-story__card {
+  margin-block-start: calc(-1 * clamp(2.25rem, 1.5rem + 5vw, 3.5rem));
+}
+
+.lp-story__it--solo {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-story__it--solo .lp-story__card {
+  inline-size: min(100%, 46rem);
+  margin: 0 auto;
+}
+
+.lp-story__card > * {
+  max-inline-size: 100%;
+}
+
+.lp-story__title {
+  max-inline-size: 18ch;
+  margin-block-end: 0.1rem;
+}
+
+/* a long title (over 70 characters) steps down a size, so the card stays a card, not a poster */
+.lp-story__title--long {
+  max-inline-size: 22ch;
+  font-size: calc(var(--lp-step-3) * 0.74 * var(--lp-script-scale-display));
+}
+
+.lp-story__card .lp-story__body {
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+}
+
+.lp-story__card .lp-story__sign {
+  margin-block-start: 0.35rem;
+}
+
+.lp-story__card .lp-story__facts {
+  inline-size: 100%;
+}
+
+/* side by side from tablets up: the photo stays a photo, not a full screen of scroll */
+@media (min-width: 48rem) {
+  .lp-story__it {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(1rem, 2vw, 1.75rem);
+  }
+
+  .lp-story__media {
+    grid-area: 1 / 1 / 2 / 8;
+  }
+
+  /* the card covers two columns of the photo (both sides): the frosted glass reads as a material */
+  .lp-story__card {
+    grid-area: 1 / 6 / 2 / -1;
+    align-self: end;
+    margin: 0 0 clamp(2.5rem, 7vw, 5.5rem);
+  }
+
+  .lp-story__it--flip .lp-story__media {
+    grid-column: 6 / -1;
+  }
+
+  .lp-story__it--flip .lp-story__card {
+    grid-column: 1 / 8;
+  }
+
+  /* the lens and the place chip take their side-by-side seats (data-seat-lg / data-at-lg) */
+  .lp-story__lens[data-seat-lg] {
+    --lx: clamp(-1.25rem, -1.6vw, -0.75rem);
+    display: block;
+    inset: auto;
+  }
+
+  .lp-story__lens[data-seat-lg="none"] {
+    display: none;
+  }
+
+  .lp-story__lens[data-seat-lg^="t"] {
+    inset-block-start: clamp(-2rem, -2.6vw, -1.1rem);
+  }
+
+  .lp-story__lens[data-seat-lg^="u"] {
+    inset-block-start: 30%;
+  }
+
+  .lp-story__lens[data-seat-lg^="l"] {
+    inset-block-start: 58%;
+  }
+
+  .lp-story__lens[data-seat-lg="ta"] {
+    inset-inline-end: 6%;
+  }
+
+  .lp-story__lens[data-seat-lg="tb"] {
+    inset-inline-start: 6%;
+  }
+
+  .lp-story__lens:is([data-seat-lg="ua"], [data-seat-lg="la"]) {
+    inset-inline-end: var(--lx);
+  }
+
+  .lp-story__lens:is([data-seat-lg="ub"], [data-seat-lg="lb"]) {
+    inset-inline-start: var(--lx);
+  }
+
+  .lp-story__place[data-at-lg] {
+    inset: auto;
+    translate: none;
+  }
+
+  .lp-story__place[data-at-lg^="t"] {
+    inset-block-start: var(--ft);
+  }
+
+  .lp-story__place[data-at-lg^="m"] {
+    inset-block-start: 50%;
+    translate: 0 -50%;
+  }
+
+  .lp-story__place[data-at-lg^="b"] {
+    inset-block-end: var(--fb);
+  }
+
+  .lp-story__place[data-at-lg$="s"] {
+    inset-inline-start: var(--fx);
+  }
+
+  .lp-story__place[data-at-lg$="e"] {
+    inset-inline-end: var(--fx);
+  }
+
+  .lp-story__place:is([data-at-lg="tc"], [data-at-lg="bc"]) {
+    inset-inline-start: 50%;
+    translate: calc(var(--lp-x) * -50%) 0;
+  }
+
+  /* landscape photos: wider frame, card centred on its edge */
+  .lp-story__it--wide .lp-story__media {
+    grid-column: 1 / 9;
+    align-self: center;
+  }
+
+  .lp-story__it--wide .lp-story__card {
+    grid-column: 7 / -1;
+    align-self: center;
+    margin: 0;
+  }
+
+  .lp-story__it--wide.lp-story__it--flip .lp-story__media {
+    grid-column: 5 / -1;
+  }
+
+  .lp-story__it--wide.lp-story__it--flip .lp-story__card {
+    grid-column: 1 / 7;
+  }
+
+  .lp-story__it.lp-story__it--solo .lp-story__card {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin: 0;
+  }
+}
+
+/* signature: as the frame travels up the screen, the photo keeps settling into it (1.12 → 1) —
+   composes with the runtime parallax, which writes `translate` on the same layer */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"], .lp-qa) .lp-story__frame > .lp-story__par {
+      animation: lp-story-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 55%;
+    }
+  }
+}
+
+@keyframes lp-story-settle {
+  from {
+    scale: 1.12;
+  }
+  to {
+    scale: 1;
+  }
+}

@@ -1,0 +1,510 @@
+/* offer · tickets — rules only this variant renders (inlined after offer.css on pages whose markup
+   carries .lp-offer--tickets; the admin preview loads every variant). Shared rules live in offer.css. */
+
+.lp-ofr__list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-ofr__li {
+  display: flex;
+  min-inline-size: 0;
+}
+
+@media (hover: hover) {
+  .lp-ofr__card:hover .lp-ofr__go {
+    box-shadow: var(--btn-shadow-hover);
+  }
+
+  .lp-ofr__card:hover .lp-ofr__go.lp-btn--secondary {
+    --btn-line: var(--sec-ink);
+  }
+
+  .lp-ofr__card:hover .lp-ofr__go .lp-btn__icon {
+    translate: calc(var(--lp-x) * 0.2em) 0;
+  }
+}
+.lp-pass__v {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+.lp-pass__brand,
+.lp-pass__label {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.68rem, var(--lp-step--1) * 0.8) * var(--lp-script-scale));
+  line-height: 1.15;
+}
+
+.lp-ofr__go {
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   tickets → wallet passes: full-colour portrait passes. A brand / badge header,
+   the quantity as the primary field beside a thumbnail, labelled fields, an
+   inverse pill action. Phones: one column. From 44rem: a row of passes, the
+   favourite raised. A lone pass sits beside a sticky heading.
+   ========================================================================== */
+.lp-pass-list {
+  max-inline-size: 28rem;
+  margin-inline: auto;
+  gap: 1.1rem;
+}
+
+.lp-pass-list > .lp-ofr__li {
+  container: pass / inline-size;
+}
+
+.lp-pass {
+  --pass-shadow: 0 22px 44px -24px rgb(0 0 0 / 0.42);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr;
+  isolation: isolate;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-bg);
+  /* the pass material: a soft wash of light from the top-start corner */
+  background-image:
+    linear-gradient(160deg, rgb(255 255 255 / 0.13), rgb(255 255 255 / 0) 42%),
+    radial-gradient(90% 55% at 100% 100%, var(--mx-tint), transparent);
+  box-shadow:
+    var(--card-ring, 0 0 #0000),
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    inset 0 0 0 1px rgb(255 255 255 / 0.06),
+    0 1px 2px rgb(0 0 0 / 0.1),
+    var(--pass-shadow);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  /* the drop shadow takes the pass's own colour, deepened */
+  .lp-pass {
+    --pass-shadow: 0 24px 48px -24px color-mix(in oklab, var(--sec-bg) 55%, #000 45%);
+  }
+
+  .lp-pass[data-featured] {
+    --pass-shadow: 0 30px 60px -26px color-mix(in oklab, var(--sec-bg) 70%, #000 30%), 0 10px 24px -14px color-mix(in oklab, var(--sec-bg) 60%, #000 40%);
+  }
+}
+
+/* a sheen sweeps across the pass on hover (its own clip, so the check disc can overhang) */
+.lp-pass__sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.lp-pass__sheen::before {
+  content: "";
+  position: absolute;
+  inset-block: -10%;
+  inset-inline-start: 0;
+  inline-size: 45%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.2) 50%, transparent);
+  transform: translateX(calc(var(--lp-x) * -160%)) skewX(calc(var(--lp-x) * -12deg));
+}
+
+.lp-pass__head {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  min-inline-size: 0;
+  padding: 1rem 1.15rem 0;
+}
+
+.lp-pass__brand,
+.lp-pass__label {
+  font-weight: 600;
+  letter-spacing: max(0.08em, var(--lp-label-tracking));
+  text-transform: uppercase;
+}
+
+:lang(ar) .lp-pass__brand,
+:lang(ar) .lp-pass__label {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.lp-pass__brand {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.86;
+}
+
+.lp-pass__badge {
+  flex: none;
+  max-inline-size: 60%;
+  overflow: hidden;
+  padding: 0.4em 0.8em 0.36em;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  font-size: calc(max(0.68rem, var(--lp-step--1) * 0.8) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* primary field (quantity + pack name) beside the thumbnail */
+.lp-pass__hero {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+  align-items: end;
+  gap: 1rem;
+  padding: 0.9rem 1.15rem 0;
+}
+
+.lp-pass__hero[data-art="none"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lp-pass__primary {
+  display: grid;
+  justify-items: start;
+  align-content: end;
+  gap: 0.35rem;
+  min-inline-size: 0;
+  padding-block-end: 0.2rem;
+}
+
+.lp-pass__label {
+  color: var(--sec-ink-soft);
+}
+
+.lp-pass__x {
+  margin-block: 0.1rem 0.35rem;
+  font-size: calc(var(--lp-step-5) * var(--lp-script-scale-display));
+  font-size: min(max(calc(var(--lp-step-5) * var(--lp-script-scale-display)), 19cqi), 26cqi);
+  letter-spacing: -0.04em;
+  line-height: 0.8;
+}
+
+.lp-pass__thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: max(0.6rem, calc(var(--lp-sq-xl) - 0.6rem * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  box-shadow: inset 0 0 0 1px var(--mx-hair), 0 14px 28px -16px var(--mx-contact);
+}
+
+/* a wide product: a landscape strip, centred on the quantity beside it (fit.ts) */
+.lp-pass__thumb[data-wide] {
+  align-self: center;
+  aspect-ratio: 5 / 4;
+}
+
+.lp-pass__thumb > .lp-pic {
+  position: absolute;
+  inset: 0;
+}
+
+/* a rim of light over the photo */
+.lp-pass__thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 var(--mx-rim);
+  pointer-events: none;
+}
+
+/* cutouts stand on a lit floor inside the thumbnail */
+.lp-pass__hero[data-art="cutout"] .lp-pass__thumb {
+  overflow: visible;
+  background: radial-gradient(70% 55% at 50% 62%, var(--mx-stage-hi), transparent);
+  box-shadow: none;
+}
+
+.lp-pass__hero[data-art="cutout"] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.lp-pass__hero[data-art="cutout"] .lp-ofv--line {
+  inset: -6% -4% 4%;
+}
+
+.lp-pass__body {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.95rem;
+  min-inline-size: 0;
+  padding: 1.15rem 1.15rem 1.15rem;
+}
+
+.lp-pass__fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.85rem 1.75rem;
+  padding-block-start: 0.95rem;
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-pass__f {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 0.35rem;
+  min-inline-size: 0;
+}
+
+.lp-pass__f--total {
+  flex: 1 0 100%;
+}
+
+.lp-pass__f--total .lp-ofr__now {
+  font-size: calc(var(--lp-step-3) * var(--lp-script-scale-display));
+  font-size: min(calc(var(--lp-step-3) * var(--lp-script-scale-display)), 15cqi);
+}
+
+.lp-pass__v {
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+}
+
+.lp-pass__f--save .lp-pass__v {
+  color: var(--sec-accent);
+}
+
+/* on a colour pass the section accent may be the pass itself: the saving takes the ink */
+.lp-pass:is([data-bg="accent"], [data-bg="pop"]) .lp-pass__f--save .lp-pass__v {
+  color: var(--sec-ink);
+}
+
+.lp-pass__sub {
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+}
+
+.lp-pass .lp-ofr__gift {
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-pass .lp-ofr__gift {
+    background: color-mix(in oklab, var(--sec-ink) 6%, transparent);
+  }
+}
+
+/* the action: an inverse pill on every tone (ink on the pass colour, never accent-on-accent) */
+.lp-pass__go {
+  --btn-bg: var(--sec-ink);
+  --btn-ink: var(--sec-bg);
+  --btn-line: transparent;
+  --btn-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0) 58%);
+  --btn-shadow: 0 1px 2px var(--mx-floor), 0 10px 20px -12px var(--mx-contact);
+  --btn-shadow-hover: 0 1px 2px var(--mx-floor), 0 16px 30px -12px var(--mx-contact);
+  inline-size: 100%;
+  margin-block-start: 0.15rem;
+}
+
+:root[data-btn="pill"] .lp-pass__go > .lp-btn__icon {
+  background: var(--mx-hair);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  :root[data-btn="pill"] .lp-pass__go > .lp-btn__icon {
+    background: color-mix(in oklab, var(--sec-bg) 20%, transparent);
+  }
+}
+
+:root[data-btn="underline"] .lp-pass__go {
+  --btn-shadow: none;
+  --btn-shadow-hover: none;
+  border-radius: var(--lp-radius-s);
+}
+
+/* phones: the row of fields reads at a glance */
+@container pass (max-width: 22rem) {
+  .lp-pass__hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr);
+  }
+
+  .lp-pass__fields {
+    column-gap: 1.25rem;
+  }
+}
+
+/* passes side by side */
+@container ofr (min-width: 44rem) {
+  .lp-ofr:not(.lp-ofr--aside) .lp-pass-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: clamp(1.1rem, 2.2cqi, 1.6rem);
+    max-inline-size: none;
+    padding-block-start: 1.25rem;
+  }
+
+  .lp-ofr:not(.lp-ofr--aside) .lp-pass-list > .lp-ofr__li {
+    flex: 1 1 15rem;
+    max-inline-size: 24rem;
+  }
+
+  .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="5"] > .lp-ofr__li {
+    flex-basis: 19rem;
+  }
+
+  .lp-ofr:not(.lp-ofr--aside) .lp-pass[data-featured] {
+    --raise: 1rem;
+  }
+
+  .lp-pass .lp-pass__go {
+    margin-block-start: auto;
+  }
+}
+
+/* one row of passes shares its rows: header, quantity/thumbnail and the field block start on one line
+   across the row (a pass without a subtitle no longer lifts its total), the action rests on the
+   bottom edge. Only when every pass fits on the row — a wrapped row keeps the centred flex layout. */
+@supports (grid-template-rows: subgrid) {
+  @container ofr (min-width: 44rem) {
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] {
+      /* 1% of one pass (the li is no longer a size container: containment would cancel the subgrid) */
+      --pcq: calc(min(24rem, (100cqi - 1 * clamp(1.1rem, 2.2cqi, 1.6rem)) / 2) / 100);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 24rem));
+      grid-template-rows: auto auto 1fr;
+      justify-content: center;
+      row-gap: 0;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] > .lp-ofr__li,
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] > .lp-ofr__li > .lp-pass {
+      display: grid;
+      grid-row: span 3;
+      grid-template-rows: subgrid;
+      row-gap: 0;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] > .lp-ofr__li {
+      container-type: normal;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] .lp-pass__x {
+      font-size: min(max(calc(var(--lp-step-5) * var(--lp-script-scale-display)), calc(19 * var(--pcq))), calc(26 * var(--pcq)));
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] .lp-pass__f--total .lp-ofr__now {
+      font-size: min(calc(var(--lp-step-3) * var(--lp-script-scale-display)), calc(15 * var(--pcq)));
+    }
+  }
+
+  /* passes narrower than 22rem: the same proportions as the pass container query above */
+  @container ofr (min-width: 44rem) and (max-width: 45.6rem) {
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] .lp-pass__hero[data-art="photo"] {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr);
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="2"] .lp-pass__fields {
+      column-gap: 1.25rem;
+    }
+  }
+
+  @container ofr (min-width: 48rem) {
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] {
+      /* 1% of one pass (the li is no longer a size container: containment would cancel the subgrid) */
+      --pcq: calc(min(24rem, (100cqi - 2 * clamp(1.1rem, 2.2cqi, 1.6rem)) / 3) / 100);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 24rem));
+      grid-template-rows: auto auto 1fr;
+      justify-content: center;
+      row-gap: 0;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] > .lp-ofr__li,
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] > .lp-ofr__li > .lp-pass {
+      display: grid;
+      grid-row: span 3;
+      grid-template-rows: subgrid;
+      row-gap: 0;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] > .lp-ofr__li {
+      container-type: normal;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] .lp-pass__x {
+      font-size: min(max(calc(var(--lp-step-5) * var(--lp-script-scale-display)), calc(19 * var(--pcq))), calc(26 * var(--pcq)));
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] .lp-pass__f--total .lp-ofr__now {
+      font-size: min(calc(var(--lp-step-3) * var(--lp-script-scale-display)), calc(15 * var(--pcq)));
+    }
+  }
+
+  /* passes narrower than 22rem: the same proportions as the pass container query above */
+  @container ofr (min-width: 48rem) and (max-width: 69.2rem) {
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] .lp-pass__hero[data-art="photo"] {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr);
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="3"] .lp-pass__fields {
+      column-gap: 1.25rem;
+    }
+  }
+
+  @container ofr (min-width: 64rem) {
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] {
+      /* 1% of one pass (the li is no longer a size container: containment would cancel the subgrid) */
+      --pcq: calc(min(24rem, (100cqi - 3 * clamp(1.1rem, 2.2cqi, 1.6rem)) / 4) / 100);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 24rem));
+      grid-template-rows: auto auto 1fr;
+      justify-content: center;
+      row-gap: 0;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] > .lp-ofr__li,
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] > .lp-ofr__li > .lp-pass {
+      display: grid;
+      grid-row: span 3;
+      grid-template-rows: subgrid;
+      row-gap: 0;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] > .lp-ofr__li {
+      container-type: normal;
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] .lp-pass__x {
+      font-size: min(max(calc(var(--lp-step-5) * var(--lp-script-scale-display)), calc(19 * var(--pcq))), calc(26 * var(--pcq)));
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] .lp-pass__f--total .lp-ofr__now {
+      font-size: min(calc(var(--lp-step-3) * var(--lp-script-scale-display)), calc(15 * var(--pcq)));
+    }
+  }
+
+  /* passes narrower than 22rem: the same proportions as the pass container query above */
+  @container ofr (min-width: 64rem) and (max-width: 92.8rem) {
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] .lp-pass__hero[data-art="photo"] {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr);
+    }
+
+    .lp-ofr:not(.lp-ofr--aside) .lp-pass-list[data-n="4"] .lp-pass__fields {
+      column-gap: 1.25rem;
+    }
+  }
+}

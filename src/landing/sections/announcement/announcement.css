@@ -1,0 +1,501 @@
+/* ==========================================================================
+   Announcement bar — ticker (glass lens) · static (turns over a light seam)
+   · split (glass capsule). A slim band above the header: label type,
+   --sec-* colors only, logical properties; loops run only when the theme
+   and the visitor allow motion.
+   Rules every variant uses. A variant's own rules live in announcement.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+.lp-announcement {
+  --ann-fs: calc(clamp(0.75rem, 0.7rem + 0.2vw, 0.84rem) * var(--lp-script-scale));
+  --ann-h: 2.5rem;
+  --ann-fade: 1.75rem;
+  /* the bar's own end edge lines up with the page container (header CTA, hero grid) */
+  --ann-edge-gap: max(var(--lp-gutter), (100% - var(--lp-container)) / 2);
+  /* capsules follow the page's button shape (pills on round themes, crisp chips on editorial,
+     luxury and workshop pages); nested shapes keep a concentric inner radius */
+  --ann-r: calc(var(--lp-radius-btn, 999px) * var(--lp-corner-k));
+  --ann-r-in: max(0px, var(--ann-r) - 0.25rem * var(--lp-corner-d));
+  /* drawn like the page's buttons: a continuous corner where the engine has squircles (§2b), the
+     inner shapes concentric (gap × d); a pill theme keeps round capsules */
+  --ann-corner: if(style(--lp-radius-btn: 999px): round; else: var(--lp-corner));
+  /* capsule (split): solid chip fallback, tinted veil where color-mix exists */
+  --ann-tint: var(--sec-chip);
+  --ann-edge: var(--mx-hair);
+  --ann-sheen: transparent;
+  --ann-drop: transparent;
+  --ann-seam: var(--sec-accent);
+  --ann-seam-glow: transparent;
+  /* a whisper of top light gives the band some depth on dark and color blocks */
+  --ann-top: transparent;
+  padding-block: 0;
+  background-image: linear-gradient(180deg, var(--ann-top), transparent);
+  font-family: var(--lp-font-label);
+  font-size: var(--ann-fs);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: calc(var(--lp-label-tracking) * 0.5);
+  text-transform: var(--lp-label-case);
+}
+
+/* Shades and tints of a hued color mix toward pure black / white: in oklab that keeps the color's own
+   hue (a crimson darkens to wine, lightens to blush), where a warm-tinted neutral would pull it into
+   the orange band (DESIGN.md: no orange — base.css "No orange") */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-announcement {
+    --ann-tint: color-mix(in oklab, var(--lp-n-50) 10%, transparent);
+    --ann-edge: color-mix(in oklab, var(--sec-ink) 15%, transparent);
+    --ann-sheen: color-mix(in oklab, var(--lp-n-50) 16%, transparent);
+    --ann-drop: color-mix(in oklab, var(--sec-bg) 50%, #000);
+    --ann-seam: color-mix(in oklab, var(--sec-accent) 70%, #fff);
+    --ann-seam-glow: color-mix(in oklab, var(--sec-accent) 34%, transparent);
+    --ann-top: color-mix(in oklab, var(--lp-n-50) 5%, transparent);
+  }
+
+  /* light bands: frosted white capsule with a crisp ink hairline, an accent seam */
+  :root:not([data-base="dark"]) .lp-announcement[data-bg="base"],
+  :root:not([data-base="dark"]) .lp-announcement[data-bg="soft"],
+  :root:not([data-base="dark"]) .lp-announcement[data-bg="surface"] {
+    --ann-tint: color-mix(in oklab, var(--lp-n-50) 62%, transparent);
+    --ann-edge: color-mix(in oklab, var(--sec-ink) 10%, transparent);
+    --ann-sheen: color-mix(in oklab, var(--lp-n-50) 85%, transparent);
+    --ann-drop: color-mix(in oklab, var(--sec-ink) 26%, transparent);
+    --ann-seam: color-mix(in oklab, var(--sec-accent) 60%, transparent);
+    --ann-seam-glow: color-mix(in oklab, var(--sec-accent) 16%, transparent);
+    --ann-top: transparent;
+  }
+}
+
+/* Arabic: the body face (a Latin mono label face would set its own wide spaces between Arabic words) */
+.lp-announcement:lang(ar) {
+  font-family: var(--lp-font-body);
+}
+
+.lp-announcement:lang(ar),
+.lp-announcement:lang(ar) * {
+  letter-spacing: 0;
+}
+
+@media (min-width: 48rem) {
+  .lp-announcement {
+    --ann-h: 2.75rem;
+    --ann-fade: 3.5rem;
+  }
+}
+
+/* sport & workshop speak in the condensed display face, a touch bigger (every variant) */
+:root:is([data-arch="kinetic"], [data-arch="garage"]) .lp-announcement__text {
+  font-family: var(--lp-font-display);
+  font-size: 1.14em;
+  font-weight: var(--lp-display-weight);
+  letter-spacing: 0.04em;
+  text-transform: var(--lp-display-case);
+}
+
+:root:is([data-arch="kinetic"], [data-arch="garage"]) .lp-announcement:lang(ar) .lp-announcement__text {
+  letter-spacing: 0;
+}
+
+/* ---------- message: icon + text --------------------------------------- */
+.lp-announcement__msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  min-inline-size: 0;
+}
+
+.lp-announcement__icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--sec-accent);
+}
+
+.lp-announcement__text {
+  min-inline-size: 0;
+}
+
+/* *emphasis* in a slim bar: the accent color only, whatever the page's emphasis style */
+.lp-announcement .lp-em {
+  padding: 0;
+  background: none;
+  color: var(--sec-accent);
+  font-family: inherit;
+  font-style: normal;
+  text-decoration: none;
+}
+
+/* glossy tinted disc (single line) */
+.lp-announcement__icon--disc {
+  position: relative;
+  inline-size: 1.9em;
+  block-size: 1.9em;
+  border-radius: 50%;
+  background-color: var(--sec-chip);
+  color: var(--sec-chip-ink);
+}
+
+/* solid accent disc, concentric with the capsule (split) */
+.lp-announcement__icon--solid {
+  inline-size: 2em;
+  block-size: 2em;
+  border-radius: min(50%, var(--ann-r-in));
+  background-color: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-announcement__icon--disc .lp-icon,
+.lp-announcement__icon--solid .lp-icon {
+  inline-size: 1.05em;
+  block-size: 1.05em;
+}
+
+/* turn progress: starts at 12 o'clock, runs clockwise (counter-clockwise on RTL pages); empty at rest */
+.lp-announcement__ring {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.lp-announcement__ring circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-announcement__icon--disc {
+    background-color: color-mix(in oklab, var(--sec-accent) 16%, transparent);
+    background-image: radial-gradient(120% 120% at 30% 12%, var(--ann-sheen), transparent 58%);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-accent) 28%, transparent);
+    color: var(--sec-accent);
+  }
+
+  .lp-announcement__icon--solid {
+    background-image: linear-gradient(180deg, color-mix(in oklab, var(--lp-n-50) 24%, transparent), transparent 62%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--lp-n-50) 32%, transparent),
+      inset 0 -1px 0 color-mix(in oklab, var(--lp-n-950) 10%, transparent),
+      0 0.3em 0.7em -0.35em color-mix(in oklab, var(--sec-accent) 80%, #000);
+  }
+}
+
+/* ---------- live countdown capsule (glass) ----------------------------- */
+/* The theme's section glass: its ink is contrast-solved over black, white and the band itself,
+   so the digits stay AA even while ticker text slides underneath. */
+.lp-announcement__pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 1.75rem;
+  padding-inline: 0.6rem 0.7rem;
+  border-radius: var(--ann-r);
+  corner-shape: var(--ann-corner);
+  background-color: var(--sec-glass-solid, var(--sec-chip));
+  box-shadow:
+    inset 0 1px 0 var(--ann-sheen),
+    inset 0 0 0 1px var(--sec-glass-border, var(--ann-edge)),
+    0 0.45rem 1.1rem -0.7rem var(--ann-drop);
+  color: var(--sec-glass-ink, var(--sec-chip-ink));
+  font-size: 0.94em;
+  white-space: nowrap;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-announcement__pill {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-chip)));
+    -webkit-backdrop-filter: blur(9px) saturate(160%);
+    backdrop-filter: blur(9px) saturate(160%);
+  }
+}
+
+/* the runtime hides an expired countdown: its capsule goes with it */
+.lp-announcement__pill:has(> [data-expired]) {
+  display: none;
+}
+
+.lp-announcement__pill-label {
+  display: none;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.lp-announcement__cd {
+  align-items: baseline;
+  gap: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* digits in the bar's own face (the kit tiles use the display face), each pair in a fixed box so
+   the capsule never twitches as the seconds tick, even in a face without tabular figures */
+.lp-announcement__cd .lp-cd__num {
+  display: inline-block;
+  min-inline-size: 2ch;
+  font-family: inherit;
+  font-weight: inherit;
+  text-align: center;
+}
+
+/* colons: quiet, optically raised to the figures, one width in every face (a wide mono colon is
+   centered in that box by flex, overflowing evenly on both sides) */
+.lp-announcement__cd .lp-cd__sep {
+  display: inline-flex;
+  justify-content: center;
+  inline-size: 0.42em;
+  font-weight: 500;
+  opacity: 0.42;
+  translate: 0 -0.06em;
+}
+
+.lp-announcement__cd .lp-cd__lab {
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Arabic pages: the clock still reads left→right, but the days come first in reading order
+   (rightmost), figure before word — "٢ أيام 08:26:09" reads naturally from the right */
+[dir="rtl"] .lp-announcement__cd .lp-cd__unit[data-unit="d"] {
+  order: 1;
+  flex-direction: row-reverse;
+  margin-inline: 0.5em 0;
+}
+
+.lp-announcement__live {
+  position: relative;
+  flex: none;
+  inline-size: 0.42rem;
+  block-size: 0.42rem;
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+}
+
+.lp-announcement__live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: inherit;
+  opacity: 0;
+}
+
+@media (min-width: 48rem) {
+  .lp-announcement__pill {
+    gap: 0.55em;
+    min-block-size: 1.95rem;
+    padding-inline: 0.75rem 0.85rem;
+    font-size: 1em;
+  }
+
+  .lp-announcement__pill-label {
+    display: inline;
+  }
+}
+
+/* ---------- motion ------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="off"]) .lp-announcement__live::after {
+    animation: lp-ann-ping 2.2s var(--lp-smooth) infinite;
+  }
+
+  /* calm pages: the live light breathes slowly instead of pinging — information, not alarm */
+  :root[data-motion="calm"] .lp-announcement__live::after {
+    animation-name: lp-ann-breathe;
+    animation-duration: 3.6s;
+  }
+}
+
+@keyframes lp-ann-breathe {
+  0% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@keyframes lp-ann-ping {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}
+
+/* one message's turn = 1/n of the cycle: rise in (~0.6s) · hold · lift out (~0.45s, ease-in) · wait */
+@keyframes lp-ann-rot2 {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75em);
+    filter: blur(4px);
+  }
+
+  7.5% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+
+  44% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0);
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+    transform: translateY(-0.6em);
+    filter: blur(4px);
+  }
+}
+
+@keyframes lp-ann-rot3 {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75em);
+    filter: blur(4px);
+  }
+
+  5% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+
+  29.5% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0);
+  }
+
+  33.33%,
+  100% {
+    opacity: 0;
+    transform: translateY(-0.6em);
+    filter: blur(4px);
+  }
+}
+
+@keyframes lp-ann-rot4 {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75em);
+    filter: blur(4px);
+  }
+
+  3.75% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+
+  22% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0);
+  }
+
+  25%,
+  100% {
+    opacity: 0;
+    transform: translateY(-0.6em);
+    filter: blur(4px);
+  }
+}
+
+@keyframes lp-ann-rot5 {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75em);
+    filter: blur(4px);
+  }
+
+  3% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+
+  17.6% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0);
+  }
+
+  20%,
+  100% {
+    opacity: 0;
+    transform: translateY(-0.6em);
+    filter: blur(4px);
+  }
+}
+
+/* ring: empty while the message rises in, full just as it lifts out */
+@keyframes lp-ann-ring2 {
+  0%,
+  7.5% {
+    stroke-dashoffset: 1;
+  }
+
+  44%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes lp-ann-ring3 {
+  0%,
+  5% {
+    stroke-dashoffset: 1;
+  }
+
+  29.5%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes lp-ann-ring4 {
+  0%,
+  3.75% {
+    stroke-dashoffset: 1;
+  }
+
+  22%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes lp-ann-ring5 {
+  0%,
+  3% {
+    stroke-dashoffset: 1;
+  }
+
+  17.6%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}

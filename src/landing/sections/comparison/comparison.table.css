@@ -1,0 +1,441 @@
+/* comparison · table — rules only this variant renders (inlined after comparison.css on pages whose markup
+   carries .lp-comparison--table; the admin preview loads every variant). Shared rules live in comparison.css. */
+
+/* ---------- type (shared) ---------------------------------------------------- */
+.lp-comparison__colname {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case, none);
+}
+
+@media (hover: hover) {
+  .lp-comparison__row:hover .lp-comparison__mark--yes {
+    scale: 1.12;
+  }
+}
+
+/* ==========================================================================
+   table — criteria · ours (one raised, lit card) · theirs
+   ========================================================================== */
+.lp-comparison__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lp-comparison__stage {
+  margin-block-start: clamp(2rem, 1.25rem + 3vw, 3.25rem);
+}
+
+.lp-comparison__board {
+  /* column widths: criteria · ours · theirs (the rest) */
+  --w1: 29%;
+  --w2: 39%;
+  /* product tile: inset inside our column, height/width, share standing above the card */
+  --tin: 0.4rem;
+  --tr: 0.82;
+  --rise: 0.42;
+  /* where the card starts. Margin percentages resolve against the board's width, so the card's
+     top edge always crosses the tile at the same height, whatever the board size */
+  --lift: calc((var(--w2) - 2 * var(--tin)) * var(--tr) * var(--rise));
+  --over: clamp(0.75rem, 0.5rem + 1vw, 1.25rem);
+  --py: 0.95rem;
+  --px: 0.45rem;
+  position: relative;
+  isolation: isolate;
+  padding-block-end: var(--over);
+}
+
+.lp-comparison__board--cutout {
+  --tr: 0.9;
+  --rise: 0.55;
+}
+
+/* no photo at all: an accent seal stands on the card's top edge instead of the tile */
+.lp-comparison__board--bare {
+  --seal: clamp(2.75rem, 2.2rem + 2vw, 3.75rem);
+  --lift: calc(var(--seal) * 0.5);
+}
+
+.lp-comparison__col,
+.lp-comparison__halo {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--w1);
+  inline-size: var(--w2);
+  margin-block-start: var(--lift);
+}
+
+/* the column's light, kept in its own layer under the card */
+.lp-comparison__halo {
+  z-index: -1;
+}
+
+.lp-comparison__col {
+  overflow: hidden;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  /* lit from above, where the product stands */
+  background: radial-gradient(120% 12rem at 50% 0, var(--lp-aurora-1, var(--mx-tint)), transparent) var(--sec-card);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-glow, 0 0 #0000), var(--lp-shadow-l);
+  transform-origin: 50% 0;
+}
+
+/* one sheen of light sweeps across the card when it lands (motion only; parked off-card) */
+.lp-comparison__col::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 32%, var(--mx-rim) 50%, transparent 68%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lp-comparison__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--w1) var(--w2) minmax(0, 1fr);
+}
+
+.lp-comparison__label,
+.lp-comparison__cell,
+.lp-comparison__corner,
+.lp-comparison__us,
+.lp-comparison__them {
+  display: flex;
+  min-inline-size: 0;
+  padding: var(--py) var(--px);
+}
+
+/* hairlines run across the grid and pass behind the raised column */
+.lp-comparison__tbody .lp-comparison__label,
+.lp-comparison__tbody .lp-comparison__cell--them {
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-comparison__tbody .lp-comparison__cell--us {
+  position: relative;
+}
+
+.lp-comparison__tbody .lp-comparison__cell--us::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 12%;
+  block-size: 1px;
+  background: var(--mx-hair);
+}
+
+/* hover: a soft band slides in behind the row (and behind the raised column) */
+.lp-comparison__tbody .lp-comparison__row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--lp-sq-s);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-hair);
+  opacity: 0;
+  transition: opacity var(--lp-dur-s) var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-comparison__tbody .lp-comparison__row:hover::after {
+    opacity: 1;
+  }
+}
+
+.lp-comparison__label {
+  align-items: center;
+  padding-inline-start: 0;
+  font-weight: var(--lp-strong-weight, 600);
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  /* a long word ("Vérification") hyphenates properly before it is ever cut mid-letter */
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 11 4 4;
+}
+
+/* phones: mark over text, centered in each column */
+.lp-comparison__cell,
+.lp-comparison__us,
+.lp-comparison__them {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.lp-comparison__cell {
+  --mk: 1.55rem;
+}
+
+.lp-comparison__val {
+  font-size: calc(var(--lp-step--1) * 0.94 * var(--lp-script-scale));
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 11 4 4;
+}
+
+.lp-comparison__cell--us {
+  color: var(--sec-card-ink);
+  font-weight: 500;
+}
+
+.lp-comparison__cell--them {
+  color: var(--sec-ink-soft);
+}
+
+/* header: the product tile tops our column, the names share one baseline */
+.lp-comparison__row--head .lp-comparison__us {
+  justify-content: flex-start;
+  gap: clamp(0.6rem, 0.45rem + 0.6vw, 0.95rem);
+  padding-block-start: 0;
+  padding-inline: var(--tin);
+}
+
+.lp-comparison__row--head .lp-comparison__them {
+  justify-content: flex-end;
+}
+
+/* concentric with the column card: inner = outer − inset × the corner factor (§2b) */
+.lp-comparison__tile {
+  --tile-r: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - var(--tin) * var(--lp-corner-d)));
+  --bd: clamp(1.45rem, 1.2rem + 0.9vw, 2.05rem);
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 1 / var(--tr);
+  border-radius: var(--tile-r);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-m);
+}
+
+.lp-comparison__tilepic {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+}
+
+/* Safari 14 (no aspect-ratio): the padding box gives the tile its height */
+@supports not (aspect-ratio: 1 / 1) {
+  .lp-comparison__tile::before {
+    content: "";
+    display: block;
+    padding-block-start: calc(var(--tr) * 100%);
+  }
+}
+
+/* a 1px inner light along the photo's edge */
+.lp-comparison__tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+  pointer-events: none;
+}
+
+.lp-comparison__tile--cutout {
+  box-shadow: none;
+  /* a lit floor under the cutout */
+  background: radial-gradient(closest-side, var(--mx-stage-hi), transparent) 50% 92% / 92% 34% no-repeat;
+}
+
+.lp-comparison__tile--cutout::after {
+  content: none;
+}
+
+.lp-comparison__tile--cutout .lp-pic__img {
+  padding: 3%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* check badge pinned to the tile's corner: ties the product to the checks below */
+.lp-comparison__badge {
+  position: absolute;
+  z-index: 1;
+  inset-block-end: calc(var(--bd) * -0.32);
+  inset-inline-end: calc(var(--bd) * -0.18);
+  display: grid;
+  place-items: center;
+  inline-size: var(--bd);
+  block-size: var(--bd);
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font-size: calc(var(--bd) * 0.5);
+  box-shadow: 0 0 0 3px var(--sec-card), 0 4px 12px var(--mx-btn-1);
+}
+
+.lp-comparison__seal {
+  display: grid;
+  place-items: center;
+  inline-size: var(--seal);
+  block-size: var(--seal);
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font-size: calc(var(--seal) * 0.42);
+  box-shadow: 0 0 0 clamp(3px, 0.5vw, 5px) var(--sec-card), var(--lp-shadow-m);
+}
+
+.lp-comparison__colname {
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale-display));
+  /* narrow boards (320px phones): the column names shrink with the board before a word breaks */
+  font-size: min(calc(var(--lp-step-0) * var(--lp-script-scale-display)), 5cqi);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 11 4 4;
+}
+
+.lp-comparison__us .lp-comparison__colname {
+  color: var(--sec-card-ink);
+}
+
+.lp-comparison__them .lp-comparison__colname {
+  color: var(--sec-ink-soft);
+}
+
+/* roomy boards: mark beside text, start-aligned, bigger type, a wider tile */
+@container (min-width: 34rem) {
+  .lp-comparison__board {
+    --w1: 27%;
+    --w2: 39%;
+    --tin: 0.6rem;
+    --tr: 0.7;
+    --py: 1.15rem;
+    --px: clamp(0.9rem, 3cqi, 1.6rem);
+  }
+
+  .lp-comparison__board--cutout {
+    --tr: 0.82;
+  }
+
+  .lp-comparison__cell {
+    --mk: 1.75rem;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.8rem;
+    text-align: start;
+  }
+
+  .lp-comparison__label,
+  .lp-comparison__val {
+    font-size: calc(var(--lp-step-0) * 0.96 * var(--lp-script-scale));
+  }
+
+  .lp-comparison__row--head .lp-comparison__them {
+    align-items: flex-start;
+    text-align: start;
+  }
+
+  .lp-comparison__colname {
+    font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  }
+}
+
+/* desktop: heading + button hold the start column, the board the end column */
+@media (min-width: 62rem) {
+  .lp-comparison__layout {
+    grid-template-columns: minmax(0, 0.74fr) minmax(0, 1.26fr);
+    grid-template-rows: 1fr auto auto 1fr;
+    column-gap: clamp(3rem, 5vw, 5.5rem);
+  }
+
+  .lp-comparison__layout > .lp-comparison__head {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .lp-comparison__layout > .lp-comparison__stage {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    margin-block-start: 0;
+  }
+
+  .lp-comparison__layout > .lp-comparison__foot {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+/* ==========================================================================
+   motion (progressive: only with JS, motion allowed and no reduced motion)
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  /* the raised column rises out of the grid on a spring, then one sheen crosses it */
+  html.lp-js:not([data-motion="off"]) .lp-comparison__col[data-reveal][data-in] {
+    --rv-dur: calc(var(--lp-dur-l) * 1.25);
+    --rv-ease: var(--lp-spring);
+    animation-name: lp-comparison-col;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-comparison__col[data-in]::after {
+    animation: lp-comparison-sheen calc(var(--lp-dur-l) * 2) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-l)) both;
+  }
+
+  /* the product tile settles into place from inside the card */
+  html.lp-js:not([data-motion="off"]) .lp-comparison__tile[data-reveal][data-in] {
+    --rv-dur: calc(var(--lp-dur-l) * 1.2);
+    --rv-ease: var(--lp-spring);
+    animation-name: lp-comparison-tile;
+  }
+}
+
+/* scroll-linked depth (progressive): the column's light swells as the board comes in; the VS disc
+   rolls upright as the duel reaches the middle of the screen */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-motion="off"]) .lp-comparison__halo > .lp-comparison__glow {
+      animation: lp-comparison-swell linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 45%;
+    }
+  }
+}
+
+@keyframes lp-comparison-swell {
+  from {
+    opacity: 0.3;
+    scale: 0.7;
+  }
+}
+
+@keyframes lp-comparison-col {
+  from {
+    opacity: 0;
+    translate: 0 1.75rem;
+    scale: 1 0.9;
+  }
+}
+
+@keyframes lp-comparison-tile {
+  from {
+    opacity: 0;
+    translate: 0 1.25rem;
+    scale: 0.9;
+  }
+}
+
+/* transform (not translate) so engines without individual transforms never park the sheen mid-card */
+@keyframes lp-comparison-sheen {
+  from {
+    opacity: 1;
+    transform: translateX(calc(-100% * var(--lp-x)));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(calc(100% * var(--lp-x)));
+  }
+}

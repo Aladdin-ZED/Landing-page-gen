@@ -1,0 +1,438 @@
+/* ==========================================================================
+   guarantee — seal (badge) · split · letter (promise card) — v2 · modern
+   Tokens only; logical properties; mobile first, layout switches on the
+   wrap's container width. Reveals are keyed on [data-reveal][data-in] by the
+   kit (static final state without JS / with reduced motion).
+   Rules every variant uses. A variant's own rules live in guarantee.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* light and overlaps may hang past their hosts, never past the page edge */
+.lp-guarantee {
+  --g-tint: var(--sec-chip);
+  --g-ring: var(--mx-line);
+  --g-thread: var(--sec-accent);
+  --g-sheen: transparent;
+  --g-gap: clamp(2rem, 1.4rem + 2.6vw, 3.5rem);
+  --g-pad: clamp(1.35rem, 0.9rem + 2vw, 2.5rem);
+  /* raised surfaces draw continuous corners (base.css §2b): the pre-scaled radius + corner-shape */
+  --g-radius: var(--lp-sq-xl);
+  --g-ico: 3rem;
+  overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  .lp-guarantee {
+    overflow-x: clip;
+  }
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-guarantee {
+    /* a soft top light on raised surfaces (strong on dark cards, a breath on light ones) */
+    --g-sheen: color-mix(in oklab, var(--mx-rim) 24%, transparent);
+  }
+}
+
+/* No orange: the icon discs, rings and the thread sit on the card, so their tints mix the accent into
+   the card drained of color (same lightness) — a crimson stays blush on a cream card, never peach. */
+@supports (color: oklch(from red l c h)) {
+  .lp-guarantee,
+  .lp-guarantee [data-bg] {
+    --g-of: var(--sec-accent);
+    --g-ground: oklch(from var(--sec-card) l 0 0);
+    --g-tint: color-mix(in oklab, var(--g-of) 12%, var(--g-ground));
+    --g-ring: color-mix(in oklab, var(--g-of) 28%, var(--g-ground));
+    --g-thread: color-mix(in oklab, var(--g-of) 72%, var(--g-ground));
+  }
+
+  /* color blocks: tone on tone — the card's own ink into the card (its second color never bleeds in) */
+  .lp-guarantee:is([data-bg="accent"], [data-bg="pop"]),
+  .lp-guarantee :is([data-bg="accent"], [data-bg="pop"]) {
+    --g-of: var(--sec-card-ink);
+    --g-ground: var(--sec-card);
+  }
+}
+
+.lp-guarantee__wrap {
+  position: relative;
+  isolation: isolate;
+}
+
+/* ---------- promise list (seal, split) ---------------------------------------- */
+.lp-guarantee__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-guarantee__item {
+  --ig: clamp(0.9rem, 0.7rem + 0.8vw, 1.25rem);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ig);
+  align-items: start;
+  align-content: start;
+  padding-block: clamp(1.05rem, 0.85rem + 0.7vw, 1.45rem);
+}
+
+.lp-guarantee__item:first-child {
+  padding-block-start: 0;
+}
+
+.lp-guarantee__item:last-child {
+  padding-block-end: 0;
+}
+
+/* separators start at the text column (the icon column stays open) */
+.lp-guarantee__item + .lp-guarantee__item::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: calc(var(--g-ico) + var(--ig)) 0;
+  block-size: 1px;
+  background: var(--mx-hair);
+}
+
+/* the icon in a lit disc: tinted fill, accent hairline, a top light */
+.lp-guarantee__ico {
+  display: grid;
+  place-items: center;
+  inline-size: var(--g-ico);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: var(--g-tint);
+  background-image: linear-gradient(to bottom, var(--g-sheen), transparent 70%);
+  color: var(--sec-accent);
+  box-shadow: inset 0 0 0 1px var(--g-ring), var(--lp-highlight, 0 0 #0000);
+  transition: scale var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+[data-arch="circuit"] .lp-guarantee__ico,
+[data-arch="editorial"] .lp-guarantee__ico,
+[data-arch="garage"] .lp-guarantee__ico,
+[data-arch="kinetic"] .lp-guarantee__ico {
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-guarantee__ph {
+  margin: 0;
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step-0) * 1.06 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 650);
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+/* a real promise title speaks in the display face */
+h3.lp-guarantee__ph {
+  padding-block-start: 0.2em;
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  font-weight: var(--lp-display-weight);
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case, none);
+  line-height: 1.15;
+}
+
+/* Arabic display faces are cut for headlines: small promise titles stay in the body face */
+:lang(ar) h3.lp-guarantee__ph {
+  padding-block-start: 0;
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step-1) * 0.94 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 700);
+  line-height: 1.45;
+}
+
+/* a sentence-only promise (generated copy) reads as text, not as a shout */
+p.lp-guarantee__ph {
+  font-weight: 500;
+}
+
+p.lp-guarantee__ph {
+  padding-block-start: 0.35em;
+}
+
+.lp-guarantee__pb {
+  max-inline-size: 46ch;
+  margin: 0.45rem 0 0;
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step-0) * 0.96 * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  text-wrap: pretty;
+}
+
+@media (hover: hover) {
+  .lp-guarantee__item:hover .lp-guarantee__ico {
+    scale: 1.07;
+    box-shadow: inset 0 0 0 1px var(--sec-accent), 0 12px 24px -12px var(--mx-btn-2), var(--lp-highlight, 0 0 #0000);
+  }
+}
+
+/* smallest phones: a slimmer disc leaves the words more room */
+@container (max-width: 22rem) {
+  .lp-guarantee__wrap {
+    --g-ico: 2.6rem;
+  }
+
+  .lp-guarantee__item {
+    --ig: 0.8rem;
+  }
+
+  .lp-guarantee__ico .lp-icon {
+    inline-size: 1.3rem;
+    block-size: 1.3rem;
+  }
+}
+
+/* ---------- foot: order button + policy link ---------------------------------- */
+.lp-guarantee__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  margin-block-start: clamp(1.6rem, 1.1rem + 1.6vw, 2.4rem);
+}
+
+.lp-guarantee__foot .lp-btn {
+  inline-size: 100%;
+}
+
+/* full width on phones, where the label is centred anyway: slimmer side padding keeps
+   "Je commande maintenant" on one line inside the inset panels */
+@media (max-width: 39.99rem) {
+  .lp-guarantee__foot .lp-btn {
+    --btn-px: 1em;
+  }
+}
+
+/* 320px phones: the arrow gives its room to the label (it only repeats what the button says) */
+@media (max-width: 22.5rem) {
+  .lp-guarantee__foot .lp-btn {
+    --btn-px: 0.75em;
+    --btn-fs: calc(var(--lp-step-0) * 0.94);
+  }
+
+  .lp-guarantee__foot .lp-btn__icon {
+    display: none;
+  }
+}
+
+@media (min-width: 40rem) {
+  .lp-guarantee__foot .lp-btn {
+    inline-size: auto;
+  }
+}
+
+.lp-guarantee__policy {
+  display: inline-flex;
+  gap: 0.4em;
+  align-items: center;
+  min-block-size: 44px;
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--mx-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
+  transition: color var(--lp-dur-s) var(--lp-smooth), text-decoration-color var(--lp-dur-s) var(--lp-smooth), opacity var(--lp-dur-s) var(--lp-smooth), translate var(--lp-dur-s) var(--lp-smooth);
+}
+
+/* a click never leaves a ring on the link (Chromium keeps base.css's :focus ring); keyboard does */
+.lp-guarantee__policy:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* pressed: the link dips a pixel and dims, like the buttons beside it */
+.lp-guarantee__policy:active {
+  color: var(--sec-ink);
+  opacity: 0.72;
+  translate: 0 1px;
+}
+
+.lp-guarantee__policy-ico {
+  flex: none;
+  transition: translate var(--lp-dur-m) var(--lp-spring);
+}
+
+[dir="rtl"] .lp-guarantee__policy-ico {
+  scale: -1 1;
+}
+
+@media (hover: hover) {
+  .lp-guarantee__policy:hover {
+    color: var(--sec-ink);
+    text-decoration-color: currentColor;
+  }
+
+  .lp-guarantee__policy:hover .lp-guarantee__policy-ico {
+    translate: calc(2px * var(--lp-x)) -2px;
+  }
+}
+
+/* ---------- the badge ------------------------------------------------------- */
+/* --u: 1% of the badge (it is always --seal wide), so the center scales with it everywhere */
+.lp-guarantee__badge {
+  --u: calc(var(--seal, 16rem) / 100);
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.lp-guarantee__badge .lp-ringbadge {
+  display: block;
+  inline-size: 100%;
+}
+
+/* Arabic ring text in the body face: display Kufi cuts blur at ring sizes */
+:lang(ar) .lp-guarantee__badge .lp-ringbadge__t {
+  font-family: var(--lp-font-body);
+  font-weight: var(--lp-strong-weight, 700);
+}
+
+/* solid: a lit dome — top light, a shade at the foot, a hairline bevel, an accent-tinted drop */
+.lp-guarantee__badge[data-look="solid"] .lp-ringbadge {
+  background-image:
+    radial-gradient(80% 58% at 34% 6%, rgb(255 255 255 / 0.2), transparent 70%),
+    radial-gradient(70% 50% at 66% 104%, rgb(0 0 0 / 0.14), transparent 72%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 34px 64px -30px var(--mx-btn-2),
+    0 12px 26px -16px var(--mx-contact);
+}
+
+/* outline: a card-colored disc ringed in hairline, resting on a soft shadow */
+.lp-guarantee__badge[data-look="outline"] .lp-ringbadge {
+  background-color: var(--sec-card);
+  background-image: linear-gradient(to bottom, var(--g-sheen), transparent 60%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 24px 48px -24px rgb(0 0 0 / 0.28));
+}
+
+/* glass: frosted disc with a crisp accent rim and a top light */
+.lp-guarantee__badge[data-look="glass"] .lp-ringbadge {
+  background-image: linear-gradient(to bottom, var(--g-sheen), transparent 55%);
+  box-shadow: inset 0 0 0 1px var(--g-ring), var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 24px 48px -24px rgb(0 0 0 / 0.28));
+}
+
+/* the center: a giant numeral, the currency set small at its shoulder, “d'avance” under it */
+.lp-guarantee__core {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: calc(var(--u) * 3.2);
+  padding-block-start: calc(var(--u) * 2);
+  color: var(--sec-accent-ink);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.lp-guarantee__badge[data-look="outline"] .lp-guarantee__core {
+  color: var(--sec-card-ink);
+}
+
+.lp-guarantee__badge[data-look="glass"] .lp-guarantee__core {
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+}
+
+/* the numeral sits on the badge's axis; the currency hangs at its shoulder (optical centering) */
+.lp-guarantee__amount {
+  position: relative;
+  display: block;
+}
+
+.lp-guarantee__zero {
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--u) * 40);
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 0.78;
+}
+
+.lp-guarantee__cur,
+.lp-guarantee__upfront {
+  font-family: var(--lp-font-body);
+  font-weight: var(--lp-strong-weight, 650);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lp-guarantee__cur {
+  position: absolute;
+  inset-block-start: calc(var(--u) * 0.5);
+  inset-inline-start: calc(100% + var(--u) * 1.6);
+  font-size: calc(var(--u) * 8.5);
+  letter-spacing: 0.04em;
+}
+
+/* “€0”: the symbol hangs before the numeral */
+.lp-guarantee__cur:first-child {
+  inset-inline: auto calc(100% + var(--u) * 1.6);
+}
+
+/* longer codes (“MAD”, “درهم”) stay inside the inner rule */
+.lp-guarantee__cur[data-long] {
+  font-size: calc(var(--u) * 6.2);
+}
+
+.lp-guarantee__upfront {
+  font-size: calc(var(--u) * 5.4);
+  letter-spacing: 0.18em;
+  opacity: 0.8;
+}
+
+:lang(ar) .lp-guarantee__cur,
+:lang(ar) .lp-guarantee__upfront {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:lang(ar) .lp-guarantee__cur {
+  inset-block-start: calc(var(--u) * 1.5);
+  font-size: calc(var(--u) * 9);
+}
+
+:lang(ar) .lp-guarantee__cur[data-long] {
+  font-size: calc(var(--u) * 7.6);
+}
+
+:lang(ar) .lp-guarantee__upfront {
+  font-size: calc(var(--u) * 7);
+}
+
+/* ==========================================================================
+   Motion — springs on the signature pieces (kit reveals do the entrances)
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+
+  /* seal: the numeral settles a beat after the badge lands */
+  html.lp-js:not([data-motion="off"]) .lp-guarantee__badge[data-in] .lp-guarantee__core {
+    animation: lp-g-settle var(--lp-dur-l) var(--lp-spring) calc(var(--d, 0ms) + var(--lp-dur-s)) backwards;
+  }
+}
+
+/* reduced motion: hover states switch instantly */
+@media (prefers-reduced-motion: reduce) {
+  .lp-guarantee__ico,
+  .lp-guarantee__policy,
+  .lp-guarantee__policy-ico {
+    transition: none;
+  }
+}
+
+@keyframes lp-g-settle {
+  from {
+    opacity: 0;
+    scale: 0.82;
+    filter: blur(6px);
+  }
+}

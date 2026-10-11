@@ -1,0 +1,290 @@
+/* showcase · exploded — rules only this variant renders (inlined after showcase.css on pages whose markup
+   carries .lp-showcase--exploded; the admin preview loads every variant). Shared rules live in showcase.css. */
+
+:is(.lp-showcase__notes, .lp-showcase__xlist, .lp-showcase__tiles) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:is(.lp-showcase__pin, .lp-showcase__badge, .lp-showcase__xpin) {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font-family: var(--lp-font-label);
+  font-weight: var(--lp-strong-weight, 600);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+:is(.lp-showcase__pin, .lp-showcase__xpin)::after {
+  content: "";
+  position: absolute;
+  inset: -0.4rem;
+  border: 1.5px solid var(--sec-accent);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion="lively"] :is(.lp-showcase__pin, .lp-showcase__xpin)::after {
+    animation: lp-sc-sonar 3.2s var(--lp-smooth) infinite;
+  }
+
+  :root[data-motion="lively"] :is(.lp-showcase__pin, .lp-showcase__xpin):nth-of-type(even)::after {
+    animation-delay: 1.6s;
+  }
+}
+@media (hover: hover) and (min-width: 60rem) {
+  @supports selector(:has(a)) {
+    :is(
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="1"]:hover) [data-k="1"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="2"]:hover) [data-k="2"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="3"]:hover) [data-k="3"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="4"]:hover) [data-k="4"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="5"]:hover) [data-k="5"],
+        :is(.lp-showcase__hs, .lp-showcase__ex):has([data-k="6"]:hover) [data-k="6"]
+      ) {
+      --on: 1;
+      --pair: var(--sec-accent);
+    }
+
+    .lp-showcase__ex:has([data-k]:hover) :is(.lp-showcase__xpin, .lp-showcase__xleaders g, .lp-showcase__xcall > *) {
+      opacity: calc(0.36 + var(--on, 0) * 0.64);
+    }
+
+    .lp-showcase__xpin {
+      scale: calc(1 + var(--on, 0) * 0.4);
+    }
+
+    .lp-showcase__xray {
+      stroke-width: calc(0.11 + var(--on, 0) * 0.07);
+    }
+
+    .lp-showcase__xcall > .lp-showcase__xbody {
+      translate: 0 calc(var(--on, 0) * -2px);
+    }
+  }
+}
+
+/* ==========================================================================
+   exploded — the product on its set; each callout hangs under a hairline that
+   swings, in one stroke, onto the exact detail it describes
+   ========================================================================== */
+.lp-showcase__ex {
+  --ray: var(--sec-line-strong);
+  display: grid;
+  gap: clamp(2.25rem, 1.6rem + 3vw, 3.25rem);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-showcase__ex {
+    --ray: color-mix(in oklab, var(--sec-ink) 46%, transparent);
+  }
+}
+
+.lp-showcase__exstage {
+  position: relative;
+  inline-size: min(100%, 24rem);
+  margin-inline: auto;
+}
+
+.lp-showcase__exstage > .lp-stage {
+  --stage-max: none;
+}
+
+/* anchors live beside the set (not inside its stacking context) so they sit above the strokes */
+.lp-showcase__xpins {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.lp-showcase__xpin {
+  position: absolute;
+  inset-block-start: var(--y);
+  inset-inline-start: var(--x);
+  inline-size: 1.6rem;
+  block-size: 1.6rem;
+  margin: -0.8rem;
+  font-size: 0.72rem;
+  box-shadow: 0 0 0 3px var(--mx-rim), 0 8px 18px -6px var(--mx-btn-2);
+  transition: scale var(--lp-dur-m) var(--lp-spring), opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-showcase__xleaders {
+  display: none;
+}
+
+/* phones & tablets: numeral beside the copy, a hairline over each detail */
+.lp-showcase__xlist {
+  display: grid;
+  column-gap: clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.lp-showcase__xcall {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr);
+  align-items: baseline;
+  padding-block: 1.15rem 1.4rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-showcase__xnum {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * 0.92);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  /* editorial index, not a column of figures: proportional digits keep Didones tight */
+  font-variant-numeric: lining-nums proportional-nums;
+  color: var(--sec-accent);
+}
+
+.lp-showcase__xbody {
+  min-inline-size: 0;
+}
+
+@media (min-width: 36rem) {
+  .lp-showcase__xlist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 60rem) {
+  /* the diagram keeps its solved proportions (padding box: works without aspect-ratio) */
+  .lp-showcase__ex {
+    position: relative;
+    display: block;
+  }
+
+  .lp-showcase__ex::before {
+    content: "";
+    display: block;
+    padding-block-start: calc(100% / var(--ex-ratio, 1));
+  }
+
+  .lp-showcase__exstage {
+    position: absolute;
+    inset-block-start: var(--st);
+    inset-inline-start: 31%;
+    inline-size: 38%;
+    margin: 0;
+  }
+
+  /* desktop anchor: a small lit bead with a sonar ring — the stroke carries the link */
+  .lp-showcase__xpin {
+    inline-size: 0.95rem;
+    block-size: 0.95rem;
+    margin: -0.475rem;
+    font-size: 0;
+    color: transparent;
+    box-shadow: 0 0 0 3px var(--mx-rim), 0 0 0 4px var(--mx-hair), 0 6px 14px -4px var(--mx-btn-2);
+  }
+
+  .lp-showcase__xleaders {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    pointer-events: none;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .lp-showcase__xleaders g {
+    transition: opacity var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  /* a soft casing in the section color keeps the stroke legible where it crosses the photo */
+  .lp-showcase__xcase {
+    stroke: var(--sec-bg);
+    stroke-width: 0.36;
+    opacity: 0.5;
+  }
+
+  .lp-showcase__xray {
+    stroke: var(--pair, var(--ray));
+    stroke-width: 0.11;
+    transition: stroke var(--lp-dur-m) var(--lp-smooth), stroke-width var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  /* callouts hang from their solved hairline level; the stroke is their top rule */
+  .lp-showcase__xlist {
+    position: absolute;
+    inset: 0;
+    display: block;
+    direction: ltr;
+    pointer-events: none;
+  }
+
+  .lp-showcase__xcall {
+    position: absolute;
+    inset-block-start: var(--ly);
+    display: block;
+    inline-size: 25%;
+    padding: 1.1rem 0 0;
+    border: 0;
+    pointer-events: auto;
+  }
+
+  /* the diagram is physical (its sides are the photo's sides): each callout reads in the page
+     direction (dir on the li), so its side is set physically — a logical inset would resolve
+     against the callout's own direction and swap the columns on RTL pages */
+  .lp-showcase__xcall[data-side="l"] {
+    left: 0;
+  }
+
+  .lp-showcase__xcall[data-side="r"] {
+    right: 0;
+  }
+
+  .lp-showcase__xcall > * {
+    transition: opacity var(--lp-dur-m) var(--lp-smooth), translate var(--lp-dur-m) var(--lp-spring);
+  }
+
+  .lp-showcase__xnum {
+    display: block;
+    margin-block-end: 0.7rem;
+    font-size: calc(var(--lp-step-3) * 0.78);
+  }
+
+  .lp-showcase__xcall .lp-showcase__text {
+    font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-showcase :is(.lp-showcase__pin, .lp-showcase__card, .lp-showcase__tile, .lp-showcase__art, .lp-showcase__ray, .lp-showcase__leaders g, .lp-showcase__xpin, .lp-showcase__xray, .lp-showcase__xleaders g, .lp-showcase__xcall > *) {
+    transition: none;
+  }
+
+  .lp-showcase :is(.lp-showcase__tile:hover, .lp-showcase__card, .lp-showcase__xbody) {
+    translate: none;
+  }
+
+  .lp-showcase :is(.lp-showcase__pin, .lp-showcase__xpin, .lp-showcase__badge, .lp-showcase__art) {
+    scale: none;
+  }
+}
+
+@keyframes lp-sc-sonar {
+  0% {
+    opacity: 0.8;
+    scale: 0.65;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    scale: 1.65;
+  }
+}

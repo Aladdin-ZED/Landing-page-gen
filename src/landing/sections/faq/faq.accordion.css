@@ -1,0 +1,390 @@
+/* faq · accordion — rules only this variant renders (inlined after faq.css on pages whose markup
+   carries .lp-faq--accordion; the admin preview loads every variant). Shared rules live in faq.css. */
+
+/* a mouse/tap focus never rings (Chromium can keep base.css's :focus ring after a click on a
+   summary or link); keyboard focus keeps its ring below */
+.lp-faq__sum:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.lp-faq__n {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.75rem, var(--lp-step--1) * 0.86) * var(--lp-script-scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--sec-ink-soft);
+}
+
+/* answers: body text a step softer than the questions (AA on bg and card) */
+.lp-faq__a {
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  text-wrap: pretty;
+  color: var(--sec-ink-soft);
+}
+
+/* ==========================================================================
+   accordion — hairline list; the open item lifts into a raised, lit card
+   ========================================================================== */
+.lp-faq__acc {
+  /* rows stay within reach of their +/− on wide screens */
+  --c-max: min(var(--lp-container), 70rem);
+  container-type: inline-size;
+}
+
+.lp-faq__list {
+  /* the open card bleeds past the hairlines, never more than half the page gutter */
+  --bleed: min(clamp(0.75rem, 0.4rem + 1.4vw, 1.75rem), calc(var(--lp-gutter, 1.25rem) * 0.55));
+  --pm: 2.75rem;
+  --n: 2.6rem;
+  --gap: clamp(0.75rem, 0.4rem + 1.5vw, 1.75rem);
+  /* where the card's light comes from: the +/− disc, at the inline end of the first row */
+  --lx: calc(100% - var(--bleed) - var(--pm) / 2);
+  --ly: 2.75rem;
+  position: relative;
+  display: grid;
+}
+
+[dir="rtl"] .lp-faq__list {
+  --lx: calc(var(--bleed) + var(--pm) / 2);
+}
+
+/* closing hairline under the last question */
+.lp-faq__list::after {
+  content: "";
+  block-size: 1px;
+  background: var(--mx-line);
+  transition: opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-faq__item {
+  position: relative;
+  isolation: isolate;
+  color: var(--sec-ink);
+  transition: color var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* hairline above each question, drawn across on reveal */
+.lp-faq__item::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  block-size: 1px;
+  background: var(--mx-line);
+  transform-origin: 0 50%;
+  transition: opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+[dir="rtl"] .lp-faq__item::before {
+  transform-origin: 100% 50%;
+}
+
+/* the card the open item lifts into: a refined layered shadow and a soft pool of accent light
+   spilling from the +/− disc (bleeds past the list, never past the gutter) */
+.lp-faq__item::after {
+  content: "";
+  position: absolute;
+  inset: 0 calc(-1 * var(--bleed));
+  z-index: -1;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  background-image: var(--faq-light, none);
+  box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair), var(--lp-shadow-m);
+  opacity: 0;
+  scale: 0.97;
+  transition: opacity var(--lp-dur-m) var(--lp-smooth), scale var(--lp-dur-l) var(--lp-spring);
+  pointer-events: none;
+}
+
+/* The light is a pastel of the accent on light cards (a tint of a dark accent would read as a
+   smudge, not light) and the accent itself, faint, on dark ones. Without relative colors: no light.
+   No orange: the pastel is the accent mixed into the card drained of color (hue-true), its chroma
+   capped by the kit's --mx-safe — a brown or a gold accent lights as a soft sand, never a peach. */
+@supports (color: oklch(from red l c h)) {
+  .lp-faq__list {
+    --faq-glow: oklch(from color-mix(in oklab, var(--sec-accent) 34%, oklch(from var(--sec-card) l 0 0)) 0.92 var(--mx-safe, c) h / 0.75);
+    --faq-light: radial-gradient(62% 9rem at var(--lx) var(--ly), var(--faq-glow), 34%, transparent);
+  }
+
+  .lp-faq[data-bg="dark"] .lp-faq__list,
+  :root[data-base="dark"] .lp-faq:is([data-bg="base"], [data-bg="soft"], [data-bg="surface"]) .lp-faq__list {
+    --faq-glow: oklch(from var(--sec-accent) l c h / 0.17);
+  }
+}
+
+.lp-faq__item[open] {
+  color: var(--sec-card-ink);
+}
+
+.lp-faq__item[open]::after {
+  opacity: 1;
+  scale: 1;
+}
+
+/* the hairlines touching the open (or hovered) card step aside */
+.lp-faq__item[open]::before,
+.lp-faq__item[open] + .lp-faq__item::before {
+  opacity: 0;
+}
+
+@supports selector(:has(a)) {
+  .lp-faq__list:has(> .lp-faq__item:last-of-type[open])::after {
+    opacity: 0;
+  }
+
+  /* keyboard focus rings the whole card, not just the question text */
+  .lp-faq__sum:focus-visible {
+    outline: none;
+  }
+
+  .lp-faq__item:has(> .lp-faq__sum:focus-visible)::after {
+    opacity: 1;
+    scale: 1;
+    outline: 2px solid var(--sec-accent);
+    outline-offset: 2px;
+  }
+}
+
+.lp-faq__sum {
+  display: grid;
+  grid-template-columns: var(--n) minmax(0, 1fr) var(--pm);
+  align-items: baseline;
+  column-gap: var(--gap);
+  padding-block: clamp(1.15rem, 0.95rem + 0.8vw, 1.65rem);
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+  list-style: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lp-faq__sum::-webkit-details-marker {
+  display: none;
+}
+
+.lp-faq__q {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 1.08 * var(--lp-script-scale-display));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case);
+  line-height: 1.22;
+  text-wrap: pretty;
+}
+
+.lp-faq__sum .lp-faq__n {
+  transition: color var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-faq__item[open] .lp-faq__n {
+  color: var(--sec-accent);
+}
+
+/* +/−: a soft disc; opening fills it with the accent while the vertical bar folds flat */
+.lp-faq__pm {
+  position: relative;
+  align-self: center;
+  justify-self: end;
+  inline-size: var(--pm);
+  block-size: var(--pm);
+  border-radius: 50%;
+  background: var(--mx-tint);
+  color: var(--sec-accent);
+  transition: background-color var(--lp-dur-m) var(--lp-smooth), color var(--lp-dur-m) var(--lp-smooth), box-shadow var(--lp-dur-m) var(--lp-smooth), scale var(--lp-dur-m) var(--lp-spring), rotate var(--lp-dur-l) var(--lp-spring);
+}
+
+.lp-faq__pm::before,
+.lp-faq__pm::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  inline-size: 0.875rem;
+  block-size: 2px;
+  margin: auto;
+  border-radius: 2px;
+  background: currentColor;
+  transition: rotate var(--lp-dur-l) var(--lp-spring), scale var(--lp-dur-l) var(--lp-spring);
+}
+
+.lp-faq__pm::after {
+  rotate: 90deg;
+}
+
+/* quiet archetypes: a hairline ring instead of a tinted disc */
+:root:is([data-arch="maison"], [data-arch="editorial"], [data-arch="circuit"], [data-arch="garage"]) .lp-faq__pm {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-ink);
+}
+
+.lp-faq__item[open] .lp-faq__pm {
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 0 0 5px var(--mx-tint), 0 8px 20px -10px var(--mx-btn-2);
+  rotate: 180deg;
+}
+
+.lp-faq__item[open] .lp-faq__pm::after {
+  rotate: 0deg;
+  scale: 0.2 1;
+}
+
+@media (hover: hover) {
+  .lp-faq__item:not([open]):hover::after {
+    opacity: 0.55;
+    scale: 0.99;
+  }
+
+  .lp-faq__item:not([open]):hover::before,
+  .lp-faq__item:not([open]):hover + .lp-faq__item::before {
+    opacity: 0;
+  }
+
+  .lp-faq__item:not([open]):hover .lp-faq__n {
+    color: var(--sec-accent);
+  }
+
+  .lp-faq__item:not([open]):hover .lp-faq__pm {
+    background: var(--mx-tint-2);
+    box-shadow: none;
+    scale: 1.08;
+  }
+
+  /* quiet archetypes keep the ring: it just firms up to the ink */
+  :root:is([data-arch="maison"], [data-arch="editorial"], [data-arch="circuit"], [data-arch="garage"]) .lp-faq__item:not([open]):hover .lp-faq__pm {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--sec-ink);
+  }
+}
+
+.lp-faq__sum:active .lp-faq__pm {
+  scale: 0.92;
+}
+
+/* the answer sits under the question text, at a reading measure */
+.lp-faq__body {
+  padding-block-end: clamp(1.35rem, 1.1rem + 0.9vw, 1.9rem);
+  padding-inline: calc(var(--n) + var(--gap)) calc(var(--pm) + var(--gap));
+}
+
+.lp-faq__a {
+  max-inline-size: 42rem;
+}
+
+.lp-faq__item[open] .lp-faq__a {
+  color: var(--sec-ink-soft);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-faq__item[open] .lp-faq__a {
+    color: color-mix(in oklab, var(--sec-card-ink) 78%, var(--sec-card));
+  }
+}
+
+/* phones: the number rides above the question; the answer takes the full width */
+@container (max-width: 34rem) {
+  .lp-faq__list {
+    --pm: 2.5rem;
+    --ly: 3rem;
+    --lx: calc(100% - var(--bleed) - 0.375rem - var(--pm) / 2);
+  }
+
+  [dir="rtl"] .lp-faq__list {
+    --lx: calc(var(--bleed) + 0.375rem + var(--pm) / 2);
+  }
+
+  /* a small inset so the lifted card keeps breathing room inside a phone gutter */
+  .lp-faq__item {
+    padding-inline: 0.375rem;
+  }
+
+  .lp-faq__sum {
+    grid-template-columns: minmax(0, 1fr) var(--pm);
+    grid-template-areas: "n pm" "q pm";
+    row-gap: 0.55rem;
+    align-items: start;
+  }
+
+  .lp-faq__sum .lp-faq__n {
+    grid-area: n;
+  }
+
+  .lp-faq__q {
+    grid-area: q;
+  }
+
+  .lp-faq__pm {
+    grid-area: pm;
+  }
+
+  .lp-faq__body {
+    padding-inline: 0;
+  }
+}
+
+.lp-faq__help--bar {
+  margin-block-start: clamp(2rem, 1.4rem + 2.5vw, 3.25rem);
+}
+
+@container (min-width: 40rem) {
+  .lp-faq__help--bar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 1.25rem;
+    padding: 0.75rem;
+    /* concentric with the button inside it: a capsule for pill buttons, a soft slab for square ones */
+    border-radius: calc(var(--lp-radius-btn, 999px) + 0.75rem);
+  }
+
+  .lp-faq__help--bar .lp-faq__help-btn {
+    grid-column: auto;
+    inline-size: auto;
+  }
+}
+
+/* ==========================================================================
+   Motion (progressive; none with reduced motion or data-motion="off")
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  /* accordion: each hairline draws across as its question rises in */
+  html.lp-js:not([data-motion="off"]) .lp-faq__item[data-reveal][data-in]::before {
+    animation: lp-faq-line calc(var(--lp-dur-l) * 1.4) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  /* opening: the answer settles in from a soft focus while the height eases open */
+  html:not([data-motion="off"]) .lp-faq__item[open] .lp-faq__a {
+    animation: lp-faq-in var(--lp-dur-l) var(--lp-smooth) 40ms backwards;
+  }
+}
+
+/* ::details-content (Chrome 131+): the open/close itself is eased, both ways */
+@supports selector(::details-content) {
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-motion="off"]) .lp-faq__item::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition: block-size var(--lp-dur-l) var(--lp-smooth), content-visibility var(--lp-dur-l) allow-discrete;
+    }
+
+    html:not([data-motion="off"]) .lp-faq__item[open]::details-content {
+      block-size: auto;
+    }
+  }
+}
+
+@keyframes lp-faq-line {
+  from {
+    scale: 0 1;
+  }
+}
+
+@keyframes lp-faq-in {
+  from {
+    opacity: 0;
+    translate: 0 0.6rem;
+    filter: blur(5px);
+  }
+}

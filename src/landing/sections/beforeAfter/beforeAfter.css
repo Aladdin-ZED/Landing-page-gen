@@ -1,0 +1,293 @@
+/* ==========================================================================
+   beforeAfter — slider · cards · timeline (v2 · modern)
+   The customer's photos are the focal point: large frames (an arch on arch/pill pages), a line of
+   light with a frosted knob, glass tags, a progress line the photos rise from. Everything follows
+   --sec-* (any data-bg); overlays on photos use the page's lightest / darkest neutrals so they read
+   on any photo. State (cut position, tilts, centering) uses `transform`; motion uses the individual
+   translate / scale properties (kit convention, base.css header).
+   Rules every variant uses. A variant's own rules live in beforeAfter.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-beforeAfter {
+  --ba-gap: clamp(2rem, 1.25rem + 3vw, 3.5rem);
+  --ba-r: var(--lp-radius-media, 24px);
+  /* tags sit this far in from the frame edge; their radius stays concentric with the frame's */
+  --ba-in: clamp(0.625rem, 3.5%, 0.875rem);
+  /* light and shade drawn over photos */
+  --ba-on: var(--lp-n-50, #fff);
+  --ba-shade: var(--lp-n-950, #111);
+  --ba-drop: rgb(0 0 0 / 0.3);
+  --ba-drop-s: rgb(0 0 0 / 0.14);
+  --ba-on-soft: var(--ba-on);
+  /* the result's light: a shadow tinted by the accent */
+  --ba-lit: var(--ba-drop);
+  overflow: hidden;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-beforeAfter {
+    --ba-drop: color-mix(in oklab, var(--ba-shade) 34%, transparent);
+    --ba-drop-s: color-mix(in oklab, var(--ba-shade) 16%, transparent);
+    --ba-on-soft: color-mix(in oklab, var(--ba-on) 62%, transparent);
+    --ba-lit: color-mix(in oklab, var(--sec-accent) 46%, transparent);
+  }
+}
+
+/* pillowy home pages: rounder frames */
+:root[data-mask="circle"] .lp-beforeAfter {
+  --ba-r: max(var(--lp-radius-media, 24px), 2rem);
+}
+
+/* glows overhang their frames: clip at the section's sides only */
+@supports (overflow: clip) {
+  .lp-beforeAfter {
+    overflow: visible;
+    overflow-x: clip;
+  }
+}
+
+.lp-beforeAfter__results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-beforeAfter__head {
+  margin-block-end: var(--ba-gap);
+}
+
+/* --- photo of a moment ---------------------------------------------------------- */
+.lp-beforeAfter__media {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  /* continuous corners (shape system): --ba-r stays a circular radius for the concentric math */
+  border-radius: calc(var(--ba-r) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background-color: var(--mx-tint);
+}
+
+.lp-beforeAfter__media .lp-beforeAfter__pic {
+  position: absolute;
+  inset: 0;
+  block-size: 100%;
+  aspect-ratio: auto;
+}
+
+/* a crisp 1px light edge on every frame */
+.lp-beforeAfter__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--mx-hair),
+    var(--lp-highlight, inset 0 0 0 0 transparent);
+  pointer-events: none;
+}
+
+/* sample stand-in: the product photo, graded (real customer photos are never touched) */
+.lp-beforeAfter__media[data-grade="before"] .lp-pic__img {
+  filter: grayscale(0.92) brightness(0.88) contrast(0.9);
+}
+
+.lp-beforeAfter__media[data-grade="mid"] .lp-pic__img {
+  filter: grayscale(0.45) brightness(0.95) contrast(0.95);
+}
+
+/* a moment without a photo: its words as a note on a softly lit card, an accent bar above */
+.lp-beforeAfter__media--type {
+  display: grid;
+  align-content: end;
+  gap: 0.9rem;
+  aspect-ratio: var(--ratio, 4 / 5);
+  padding: clamp(1.1rem, 8%, 1.75rem);
+  background-image: radial-gradient(
+    110% 80% at 0% 0%,
+    var(--mx-tint-2),
+    transparent 70%
+  );
+}
+
+.lp-beforeAfter__media--type::before {
+  content: "";
+  inline-size: 2rem;
+  block-size: 3px;
+  border-radius: 3px;
+  background-color: var(--sec-accent);
+}
+
+/* the words set as a small display line (the stage's "photo" is its sentence) */
+.lp-beforeAfter__typecap {
+  margin: 0;
+  max-inline-size: 22ch;
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--lp-step-1) * 0.92 * var(--lp-script-scale-display));
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking, -0.01em);
+  line-height: 1.22;
+  text-wrap: balance;
+}
+
+:lang(ar) .lp-beforeAfter__typecap {
+  letter-spacing: 0;
+  line-height: 1.6;
+}
+
+.lp-beforeAfter__cap {
+  margin: 0;
+  max-inline-size: 38ch;
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale)));
+  line-height: 1.5;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+/* --- result points: soft pills, a check in an accent disc -------------------------- */
+.lp-beforeAfter__results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lp-beforeAfter__result {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  min-block-size: 2.5rem;
+  padding-block: 0.4em;
+  padding-inline: 0.45em 1.05em;
+  border-radius: 999px;
+  background-color: var(--mx-tint);
+  box-shadow:
+    inset 0 0 0 1px var(--mx-hair),
+    var(--lp-highlight, inset 0 0 0 0 transparent);
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale)));
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.25;
+}
+
+.lp-beforeAfter__check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.75em;
+  block-size: 1.75em;
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font-size: 0.85em;
+  box-shadow: inset 0 1px 0 var(--mx-on-accent);
+}
+
+/* --- credit: initials disc + "Photos de" over "Salma B. · Casablanca" ------------------ */
+.lp-beforeAfter__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.lp-beforeAfter__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(
+    150deg,
+    var(--mx-on-accent),
+    transparent 55%
+  );
+  color: var(--sec-accent-ink);
+  /* initials in the display face (it always carries the page's script; label faces may be mono) */
+  font-family: var(--lp-font-display);
+  font-size: calc(0.875rem * var(--lp-script-scale-display));
+  font-weight: var(--lp-display-weight);
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 var(--mx-on-accent),
+    0 6px 16px -8px var(--ba-lit);
+}
+
+.lp-beforeAfter__whob {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.lp-beforeAfter__whol {
+  font-size: calc(0.75rem * var(--lp-script-scale));
+  font-weight: 500;
+  color: var(--sec-ink-soft);
+}
+
+.lp-beforeAfter__whot {
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale)));
+}
+
+.lp-beforeAfter__whon {
+  font-weight: var(--lp-strong-weight, 600);
+}
+
+.lp-beforeAfter__whop {
+  color: var(--sec-ink-soft);
+}
+
+/* --- foot: honesty note + button ---------------------------------------------------- */
+.lp-beforeAfter__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+}
+
+.lp-beforeAfter__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin: 0;
+  max-inline-size: 52ch;
+  font-size: max(calc(0.78rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale)));
+  line-height: 1.5;
+  color: var(--sec-ink-soft);
+}
+
+.lp-beforeAfter__note .lp-icon {
+  flex: none;
+  margin-block-start: 0.18em;
+  opacity: 0.8;
+}
+
+.lp-beforeAfter__card .lp-pic__img {
+  transition: scale calc(var(--lp-dur-l) * 1.4) var(--lp-smooth);
+}
+
+/* base row: credit + result points; then the foot under a hairline */
+.lp-beforeAfter__base {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.lp-beforeAfter__wrap > .lp-beforeAfter__base {
+  margin-block-start: var(--ba-gap);
+}
+
+.lp-beforeAfter__wrap > .lp-beforeAfter__foot {
+  margin-block-start: clamp(1.75rem, 3vw, 2.5rem);
+  padding-block-start: 1.25rem;
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-beforeAfter .lp-pic__img {
+    transition: none;
+  }
+}

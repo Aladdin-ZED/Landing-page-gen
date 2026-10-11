@@ -1,0 +1,253 @@
+/* ==========================================================================
+   stats — big-numbers · rings · ticker (v2 · modern)
+   Numbers as the focal point: display numerals, precise hairlines, product light.
+   Rules every variant uses. A variant's own rules live in stats.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+/* light and the ticker strip overhang their columns: clip them at the section's sides
+   (nothing in this section crosses its own edges; dividers are siblings) */
+.lp-stats {
+  --st-gap: clamp(2rem, 1.3rem + 3vw, 3.5rem);
+  /* media drop: always a shade (a light-ink block would otherwise turn it into a halo) */
+  --st-drop: rgb(0 0 0 / 0.3);
+  overflow: hidden;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-stats {
+    --st-drop: color-mix(in oklab, var(--lp-n-950, #000) 34%, transparent);
+  }
+}
+
+@supports (overflow: clip) {
+  .lp-stats {
+    overflow: visible;
+    overflow-x: clip;
+  }
+}
+
+/* One accent per block. On a nested accent / pop block (the lead panel, the ticker band) the theme's
+   --sec-accent is the brand's second hue: figures, meters, separators and marks there take the block's
+   own ink instead, so no block ever carries two loud colors. */
+.lp-stats :is([data-bg="accent"], [data-bg="pop"]) {
+  --sec-accent: var(--sec-ink);
+  --sec-accent-ink: var(--sec-bg);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-stats :is([data-bg="accent"], [data-bg="pop"]) {
+    --mx-on-accent: color-mix(in oklab, var(--sec-ink) 16%, transparent);
+    --mx-btn-1: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 30%, transparent);
+    --mx-btn-2: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 45%, transparent);
+  }
+}
+
+.lp-stats__head {
+  margin-block-end: var(--st-gap);
+}
+
+.lp-stats :is(.lp-stats__grid, .lp-stats__keys, .lp-stats__board) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* --- figures ------------------------------------------------------------------
+   Display numerals, tight and proportional (tabular widths open holes around "1" and the
+   comma at this size). Symbolic affixes (%, +, /5) are set small and raised; word units
+   (h, j, dB) small on the baseline. */
+.lp-stats .lp-stats__fig {
+  display: inline-block;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums proportional-nums;
+  letter-spacing: -0.035em;
+  line-height: 0.86;
+  white-space: nowrap;
+}
+
+:root[data-arch="circuit"] .lp-stats .lp-stats__fig {
+  letter-spacing: -0.05em;
+}
+
+.lp-stats__fig .lp-counter {
+  font-variant-numeric: inherit;
+}
+
+.lp-stats .lp-stats__fig :is(.lp-counter__fig),
+.lp-stats .lp-stats__fig--static {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.lp-stats__fig .lp-counter__affix {
+  align-self: flex-start;
+  margin-block-start: 0.1em;
+  margin-inline: 0.03em;
+  font-size: 0.48em;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+/* units keep their case (h, dB) and sit small on the baseline, in the body face (a mono label face would open a wide space) */
+.lp-stats__fig > .lp-counter > .lp-counter__affix,
+.lp-stats__fig > .lp-counter__affix[data-word] {
+  align-self: auto;
+  margin-inline: 0.12em 0;
+  font-family: var(--lp-font-body);
+  font-size: max(0.8rem, 0.3em);
+  font-weight: var(--lp-strong-weight, 600);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* affixes wait for their number (only once the runtime is alive, so nothing can stay hidden) */
+@media (prefers-reduced-motion: no-preference) {
+  .lp-stats__fig .lp-counter__affix {
+    transition: opacity var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  html.lp-js:not([data-motion="off"]):has([data-in]) .lp-stats__fig .lp-counter:has(.lp-counter__num:not([data-in])) .lp-counter__affix {
+    opacity: 0;
+  }
+}
+
+/* a figure that fits its column: as large as --fs allows for --len characters */
+.lp-stats .lp-stats__fit {
+  margin: 0;
+  container-type: inline-size;
+  line-height: 0.86;
+}
+
+.lp-stats__fit > .lp-stats__fig {
+  font-size: var(--fs);
+  font-size: min(var(--fs), calc(100cqi / (var(--len, 3) * var(--g, 0.6))));
+}
+
+/* --- captions, index, source -------------------------------------------------- */
+.lp-stats__label {
+  margin: 0;
+  max-inline-size: 30ch;
+  font-size: calc(var(--lp-step-0) * 0.98 * var(--lp-script-scale));
+  line-height: 1.45;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-stats__mark,
+.lp-stats__srcmark {
+  font-weight: 700;
+  color: var(--sec-accent);
+}
+
+.lp-stats__mark {
+  margin-inline-start: 0.12em;
+  font-size: 0.85em;
+}
+
+.lp-stats__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+  margin-block-start: var(--st-gap);
+}
+
+.lp-stats__source {
+  display: flex;
+  gap: 0.45em;
+  margin: 0;
+  max-inline-size: 60ch;
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  line-height: 1.5;
+  color: var(--sec-ink-soft);
+}
+
+/* --- meter: a slim bar whose fill brightens toward a soft point of light -------- */
+.lp-stats__meter {
+  --mh: 5px;
+  --mc: var(--sec-accent);
+  display: grid;
+  gap: 0.6rem;
+}
+
+.lp-stats__bar {
+  position: relative;
+  display: block;
+  block-size: var(--mh);
+  border-radius: 999px;
+  background-color: var(--mx-hair);
+}
+
+/* the fill box overhangs the bar so the reveal wipe never crops its light */
+.lp-stats__meterfill {
+  --rv-dur: calc(var(--lp-dur-l) * 1.8);
+  position: absolute;
+  inset-block: calc(var(--mh) * -2.5);
+  inset-inline-start: 0;
+  inline-size: calc(var(--f, 0) * 100%);
+  min-inline-size: var(--mh);
+}
+
+.lp-stats__meterfill::before,
+.lp-stats__meterfill::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background-color: var(--mc);
+}
+
+.lp-stats__meterfill::before {
+  inset-inline: 0;
+  inset-block: calc(var(--mh) * 2.5);
+}
+
+/* the tip: a bead a touch wider than the bar, in its own soft light */
+.lp-stats__meterfill::after {
+  inset-block-start: 50%;
+  inset-inline-end: calc(var(--mh) * -0.3);
+  inline-size: calc(var(--mh) * 1.6);
+  block-size: calc(var(--mh) * 1.6);
+  translate: 0 -50%;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-stats__meterfill::before {
+    background-image: linear-gradient(calc(90deg * var(--lp-x, 1)), color-mix(in oklab, var(--mc) 30%, transparent), var(--mc) 70%);
+    background-color: transparent;
+  }
+
+  .lp-stats__meterfill::after {
+    box-shadow:
+      0 0 0 calc(var(--mh) * 0.45) color-mix(in oklab, var(--mc) 22%, transparent),
+      0 0 calc(var(--mh) * 3.2) calc(var(--mh) * 0.4) color-mix(in oklab, var(--mc) 45%, transparent);
+  }
+}
+
+/* the scale: both ends of the whole, set like an axis */
+.lp-stats__scale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.7rem;
+  font-weight: var(--lp-strong-weight, 600);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--sec-ink-soft);
+}
+
+/* --- product visual: a photo in a mask with a soft drop, or a cutout in its own light --- */
+.lp-stats__vis {
+  position: relative;
+  display: block;
+}
+
+.lp-stats__vis[data-kind="photo"] {
+  filter: drop-shadow(0 1.25rem 1.5rem var(--st-drop));
+}
+
+.lp-stats__vis[data-kind="cutout"] .lp-pic__img {
+  filter: var(--lp-shadow-product-filter, drop-shadow(0 1rem 1.25rem var(--st-drop)));
+}

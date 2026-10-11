@@ -1,0 +1,268 @@
+/* story · manifesto — rules only this variant renders (inlined after story.css on pages whose markup
+   carries .lp-story--manifesto; the admin preview loads every variant). Shared rules live in story.css. */
+
+/* ==========================================================================
+   manifesto — giant statement, words lit by scroll
+   ========================================================================== */
+.lp-story__mani {
+  position: relative;
+  isolation: isolate;
+}
+
+/* the lead light rises from behind the statement's opening, inside the field — never cut by the
+   section's top edge */
+.lp-story__glow--lead {
+  translate: 0 34%;
+}
+
+.lp-story__mhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin-block-end: clamp(1.75rem, 1.25rem + 2.5vw, 3.25rem);
+}
+
+.lp-story__mhead .lp-kicker {
+  margin: 0;
+}
+
+.lp-story__mrule {
+  flex: 0 0 clamp(2rem, 5vw, 3.5rem);
+  block-size: 1px;
+  background: var(--mx-line);
+}
+
+.lp-story__mtitle {
+  margin: 0;
+  color: var(--sec-ink-soft);
+  font-family: var(--lp-font-body);
+  font-weight: 500;
+  font-size: calc(var(--lp-step-0) * 1.06 * var(--lp-script-scale));
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.lp-story__say {
+  max-inline-size: 22ch;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+:lang(ar) .lp-story__say {
+  max-inline-size: 20ch;
+  line-height: 1.55;
+}
+
+/* a long statement (e.g. the story's first paragraph standing in) steps down one size */
+.lp-story__say--long {
+  max-inline-size: 26ch;
+  font-size: calc(var(--lp-step-4) * var(--lp-script-scale-display));
+}
+
+:lang(ar) .lp-story__say--long {
+  max-inline-size: 24ch;
+}
+
+/* short statements go one step bigger on wide screens */
+@media (min-width: 64rem) {
+  .lp-story__say--short {
+    /* step 5, capped at 7.5vw — but never below the display-3 size it replaces */
+    font-size: min(
+      calc(var(--lp-step-5) * var(--lp-script-scale-display)),
+      max(7.5vw, calc(var(--lp-step-4) * var(--lp-script-scale-display)))
+    );
+    line-height: calc(var(--lp-display-lh) * 0.98);
+  }
+}
+
+/* the leading photo pill sits on the first line like a word */
+.lp-story__pill {
+  position: relative;
+  display: inline-block;
+  inline-size: 1.8em;
+  block-size: 0.86em;
+  margin-inline-end: 0.22em;
+  overflow: hidden;
+  vertical-align: -0.06em;
+  border-radius: 999px;
+  background-color: var(--mx-tint);
+  box-shadow: var(--lp-shadow-m);
+}
+
+/* a crisp inner rim over the photo */
+.lp-story__pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  pointer-events: none;
+}
+
+:lang(ar) .lp-story__pill {
+  vertical-align: -0.16em;
+}
+
+.lp-story__pill--cutout {
+  background-color: var(--mx-stage);
+}
+
+.lp-story__pillpic {
+  inline-size: 100%;
+  block-size: 100%;
+  aspect-ratio: auto;
+}
+
+/* words stay inline in the statement: inline-block word boxes would let the punctuation after an
+   emphasis wrap onto its own line */
+.lp-story__words .lp-word {
+  display: inline;
+}
+
+/* plain emphasis here: the accent alone in the statement (its words already light up on scroll),
+   ink in the quiet title */
+.lp-story :is(.lp-story__words, .lp-story__mtitle) .lp-em {
+  padding: 0;
+  background: none;
+  color: var(--sec-accent);
+  text-decoration: none;
+}
+
+.lp-story .lp-story__mtitle .lp-em {
+  color: var(--sec-ink);
+}
+
+.lp-story__mfoot {
+  position: relative;
+  container-type: inline-size;
+  display: grid;
+  gap: 1.5rem;
+  margin-block-start: clamp(2.5rem, 1.75rem + 3.5vw, 4.75rem);
+  padding-block-start: clamp(1.4rem, 1rem + 1.5vw, 2rem);
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+/* the progress rule only exists where it can follow the reading (below) */
+.lp-story__mprog {
+  display: none;
+}
+
+.lp-story__mtext {
+  max-inline-size: 40rem;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+@media (min-width: 56rem) {
+  .lp-story__mfoot {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: clamp(2rem, 5vw, 5rem);
+    align-items: start;
+  }
+
+  .lp-story__mfoot .lp-story__cta {
+    grid-column: 2;
+  }
+}
+
+/* entrance of the pill (engines without scroll timelines): it pops onto the line with the words */
+@supports not (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    html.lp-js:not([data-motion="off"])
+      .lp-story__say:has(.lp-story__words[data-in])
+      .lp-story__pill {
+      animation: lp-story-pill calc(var(--lp-dur-l) * 1.1) var(--lp-spring)
+        backwards;
+    }
+  }
+}
+
+/* signature: words light up in reading order as the statement crosses the reading line
+   (~60% down the screen) while the accent rule fills in step. The block's own reveal never hides
+   it then; without scroll timelines the kit's blur-to-sharp word cascade plays on reveal instead. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"], .lp-qa) .lp-story__say {
+      view-timeline: --lp-story-say block;
+    }
+
+    html:not([data-motion="off"], .lp-qa)
+      .lp-story
+      .lp-story__words.lp-split[data-reveal] {
+      opacity: 1;
+    }
+
+    :root:not([data-motion="off"], .lp-qa) .lp-story .lp-story__words .lp-word,
+    html.lp-js:not([data-motion="off"], .lp-qa)
+      .lp-story
+      .lp-story__words.lp-split[data-reveal][data-in]
+      .lp-word {
+      --wp: calc(var(--wi, 0) / var(--wn, 1));
+      animation: lp-story-lit linear both;
+      animation-timeline: --lp-story-say;
+      animation-range: cover calc(18% + var(--wp) * 38%) cover
+        calc(27% + var(--wp) * 38%);
+    }
+
+    :root:not([data-motion="off"], .lp-qa) .lp-story__pill {
+      animation: lp-story-pill linear both;
+      animation-timeline: --lp-story-say;
+      animation-range: cover 6% cover 20%;
+    }
+  }
+}
+
+/* the rule is a sibling of the statement: the named timeline is hoisted to the shared container */
+@supports (animation-timeline: view()) and (timeline-scope: none) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"], .lp-qa) .lp-story__mani {
+      timeline-scope: --lp-story-say;
+    }
+
+    :root:not([data-motion="off"], .lp-qa) .lp-story__mprog {
+      position: absolute;
+      inset-block-start: -1px;
+      inset-inline: 0;
+      display: block;
+      block-size: 1px;
+      background: var(--sec-accent);
+      transform-origin: 0 50%;
+      animation: lp-story-prog linear both;
+      animation-timeline: --lp-story-say;
+      animation-range: cover 18% cover 65%;
+    }
+
+    :root[dir="rtl"]:not([data-motion="off"], .lp-qa) .lp-story__mprog {
+      transform-origin: 100% 50%;
+    }
+  }
+}
+
+@keyframes lp-story-pill {
+  from {
+    opacity: 0;
+    scale: 0.4;
+    rotate: calc(var(--lp-x) * -8deg);
+  }
+}
+
+@keyframes lp-story-lit {
+  from {
+    opacity: 0.16;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lp-story-prog {
+  from {
+    scale: 0 1;
+  }
+  to {
+    scale: 1 1;
+  }
+}

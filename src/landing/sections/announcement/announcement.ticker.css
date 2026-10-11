@@ -1,0 +1,111 @@
+/* announcement · ticker — rules only this variant renders (inlined after announcement.css on pages whose markup
+   carries .lp-announcement--ticker; the admin preview loads every variant). Shared rules live in announcement.css. */
+
+/* ---------- ticker: promises glide under a glass lens ------------------ */
+.lp-announcement__band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  min-block-size: var(--ann-h);
+}
+
+/* track and lens share one cell: the text keeps running beneath the countdown */
+.lp-announcement__band:not([data-solo]) > * {
+  grid-area: 1 / 1;
+}
+
+/* both edges of the track dissolve into the band */
+.lp-announcement__track {
+  --ann-dir: 90deg;
+  --ann-out: var(--ann-fade);
+  --ann-gone: 0px;
+  min-inline-size: 0;
+  -webkit-mask-image: linear-gradient(var(--ann-dir), transparent, #000 var(--ann-fade), #000 calc(100% - var(--ann-out)), transparent calc(100% - var(--ann-gone)));
+  mask-image: linear-gradient(var(--ann-dir), transparent, #000 var(--ann-fade), #000 calc(100% - var(--ann-out)), transparent calc(100% - var(--ann-gone)));
+}
+
+/* with the lens: the text slips under it, blurs, and has dissolved before its far edge, so nothing
+   peeks out in the strip between the lens and the screen edge */
+.lp-announcement__band[data-timed] > .lp-announcement__track {
+  --ann-out: calc(var(--ann-edge-gap) + 4.5rem);
+  --ann-gone: calc(var(--ann-edge-gap) + 0.75rem);
+}
+
+[dir="rtl"] .lp-announcement__track {
+  --ann-dir: 270deg;
+}
+
+.lp-announcement__marquee {
+  --mq-gap: clamp(1.1rem, 0.7rem + 1.6vw, 2.1rem);
+  padding-block: 0.55rem;
+}
+
+.lp-announcement__band:not([data-solo]) > .lp-announcement__pill {
+  position: relative;
+  z-index: 1;
+  justify-self: end;
+  margin-inline-end: var(--ann-edge-gap);
+}
+
+/* a single promise rests, centered in the container (the countdown at its end edge) */
+.lp-announcement__band[data-solo] {
+  gap: 0.75rem;
+  padding-block: 0.45rem;
+  padding-inline: var(--ann-edge-gap);
+}
+
+.lp-announcement__band[data-solo][data-timed] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.lp-announcement__solo {
+  justify-self: center;
+  min-inline-size: 0;
+}
+
+.lp-announcement__band[data-timed] > .lp-announcement__solo {
+  justify-self: start;
+}
+
+@media (min-width: 48rem) {
+  .lp-announcement__band[data-solo][data-timed] {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .lp-announcement__band[data-solo][data-timed] > .lp-announcement__solo {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .lp-announcement__band[data-solo][data-timed] > .lp-announcement__pill {
+    grid-column: 3;
+    justify-self: end;
+  }
+}
+
+.lp-announcement__glyph {
+  display: block;
+  color: var(--sec-accent);
+}
+
+.lp-announcement__slash {
+  display: block;
+  inline-size: 1px;
+  block-size: 1em;
+  background-color: currentColor;
+  opacity: 0.38;
+  transform: rotate(20deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* the sparkle separators turn slowly on themselves */
+  :root:not([data-motion="off"]) .lp-announcement__glyph[data-ornament="spark"] {
+    animation: lp-ann-turn 16s linear infinite;
+  }
+}
+
+@keyframes lp-ann-turn {
+  to {
+    transform: rotate(1turn);
+  }
+}

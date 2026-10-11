@@ -1,0 +1,296 @@
+/* ==========================================================================
+   reviews — wall (bento) · carousel (big quote) · summary (score module) · notes (card stack)
+   Colors through --sec-* / --mx-* only, so every layout works on any data-bg.
+   Rules every variant uses. A variant's own rules live in reviews.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-reviews {
+  --rv-gap: clamp(0.875rem, 0.55rem + 1.3vw, 1.5rem);
+  --rv-pad: clamp(1.25rem, 1rem + 0.8vw, 1.65rem);
+  --rv-muted: var(--sec-ink-soft);
+  --rv-pill: var(--mx-tint);
+  /* light pooling on raised surfaces and the tinted score panel: pale tints from the accent scale on
+     light blocks (a mix toward a dark accent would read as grey), the accent glow on dark ones */
+  --rv-glow: var(--lp-a-100, var(--mx-tint));
+  --rv-panel: var(--lp-a-50, var(--mx-tint));
+  /* inner highlight + hairline ring shared by every raised surface */
+  --rv-hl: var(--lp-highlight, 0 0 #0000);
+  --rv-ring: 0 0 0 1px var(--mx-hair);
+  /* decorative light never widens the page (flush sections do not clip on their own) */
+  overflow-x: clip;
+}
+
+:is([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])).lp-reviews {
+  --rv-glow: var(--mx-tint-2);
+  --rv-panel: var(--mx-tint);
+}
+
+/* on a color block the section itself is the color moment */
+.lp-reviews:is([data-bg="accent"], [data-bg="pop"]) {
+  --rv-glow: transparent;
+  --rv-panel: var(--mx-tint);
+}
+
+.lp-rv__sh {
+  margin-block-end: clamp(2rem, 1.3rem + 2.8vw, 3.5rem);
+}
+
+/* ---- score capsule (headers) ---------------------------------------------- */
+.lp-rv__cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0.4rem 0 0;
+  padding-block: 0.45rem;
+  padding-inline: 0.45rem 1.15rem;
+  border-radius: var(--lp-radius-pill);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--rv-hl), var(--rv-ring), var(--lp-shadow-s);
+}
+
+.lp-rv__cap-num {
+  display: grid;
+  place-items: center;
+  min-inline-size: 3.25rem;
+  block-size: 3.25rem;
+  padding-inline: 0.55rem;
+  border-radius: var(--lp-radius-pill);
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: 1.3rem;
+  font-variant-numeric: lining-nums proportional-nums;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.lp-rv__cap-meta {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.lp-rv__cap-count {
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * var(--lp-script-scale)));
+  line-height: 1.3;
+  color: var(--rv-muted);
+}
+
+.lp-rv__ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32em;
+  padding-block: 0.3em;
+  padding-inline: 0.45em 0.7em;
+  border-radius: var(--lp-radius-pill);
+  background: var(--rv-pill);
+  color: var(--sec-success);
+  font-size: calc(0.75rem * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.lp-rv__ok-ic {
+  inline-size: 1.1em;
+  block-size: 1.1em;
+  flex: none;
+}
+
+.lp-rv__title {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 0.86 * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+/* Arabic display faces are drawn for headline sizes: small titles read cleaner in the body face */
+:lang(ar) .lp-rv__title {
+  font-family: var(--lp-font-body);
+  font-weight: var(--lp-strong-weight, 700);
+  line-height: 1.5;
+}
+
+.lp-rv__quote {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.lp-rv__quote > p {
+  margin: 0;
+}
+
+/* customer-written text keeps its own direction (a French review on an Arabic page and vice versa) */
+.lp-rv__quote > p,
+.lp-rv__title,
+.lp-rv__name,
+.lp-rv__meta {
+  unicode-bidi: plaintext;
+}
+
+.lp-rv__by {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-inline-size: 0;
+}
+
+/* initials disc: one of four tints per name, lit from the top like a sphere */
+.lp-rv__av {
+  --av: var(--sec-accent);
+  --av-ink: var(--sec-accent-ink);
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 50%;
+  background-color: var(--av);
+  background-image: radial-gradient(110% 90% at 32% 12%, rgb(255 255 255 / 0.24), transparent 58%);
+  color: var(--av-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 0 0 1px var(--mx-hair);
+  font-family: var(--lp-font-body);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: box-shadow var(--lp-dur-m) var(--lp-smooth), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-rv__av[data-tone="1"] {
+  --av: var(--lp-pop);
+  --av-ink: var(--lp-pop-ink);
+}
+
+.lp-rv__av[data-tone="2"] {
+  --av: var(--sec-ink);
+  --av-ink: var(--sec-bg);
+}
+
+.lp-rv__av[data-tone="3"] {
+  --av: var(--mx-tint-2);
+  --av-ink: var(--sec-ink);
+}
+
+.lp-rv__who {
+  display: grid;
+  min-inline-size: 0;
+  line-height: 1.3;
+}
+
+.lp-rv__name {
+  font-weight: var(--lp-strong-weight, 600);
+  font-size: calc(0.95rem * var(--lp-script-scale));
+}
+
+.lp-rv__meta {
+  font-size: max(calc(0.78rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale)));
+  color: var(--rv-muted);
+  overflow-wrap: anywhere;
+}
+
+.lp-rv__by--l .lp-rv__av {
+  inline-size: 3rem;
+  block-size: 3rem;
+  font-size: 1.1rem;
+}
+
+.lp-rv__detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: max(calc(0.78rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale)));
+  color: var(--rv-muted);
+}
+
+.lp-rv__detail-ic {
+  flex: none;
+}
+
+/* customer photos: continuous corners (shape system) with the kit's one-hairline media edge */
+.lp-rv__photo {
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-rv__photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge, var(--mx-hair));
+  pointer-events: none;
+}
+
+.lp-rv__photo .lp-pic__img {
+  transition: scale var(--lp-dur-l) var(--lp-smooth);
+}
+
+/* one line of merchant text cut with an ellipsis at ITS end: an isolate in its own direction (a Latin
+   product name on an Arabic page loses "…Dentelle", never "Abaya…") */
+.lp-rv__ell {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-rv__count {
+  font-family: var(--lp-font-label);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--rv-muted);
+}
+
+.lp-rv__count-of {
+  opacity: 0.6;
+}
+
+.lp-rv__cta {
+  display: flex;
+  justify-content: center;
+  margin-block-start: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+}
+
+.lp-rv__qm {
+  inline-size: 44%;
+  block-size: auto;
+  fill: currentColor;
+}
+
+[dir="rtl"] .lp-rv__qm {
+  scale: -1 1;
+}
+
+.lp-rv__bar-n {
+  text-align: end;
+  color: var(--sec-ink-soft);
+}
+
+.lp-rv__note-title {
+  font-size: calc(var(--lp-step-2) * 0.92 * var(--lp-script-scale-display));
+  line-height: 1.1;
+}
+
+/* ---- archetype voice ------------------------------------------------------- */
+/* sport / industrial / tech / editorial: wider-tracked counters; big quotes in the sturdier body face */
+[data-arch="kinetic"] .lp-rv__count,
+[data-arch="garage"] .lp-rv__count,
+[data-arch="circuit"] .lp-rv__count,
+[data-arch="editorial"] .lp-rv__count {
+  letter-spacing: 0.12em;
+}
+
+/* soft, friendly archetypes: rounder free-standing photo frames (nested photos keep their inset radius) */
+:is([data-arch="playground"], [data-arch="hearth"], [data-arch="bloom"]) .lp-rv__photo:not(.lp-rv__card-photo) {
+  border-radius: var(--lp-sq-l);
+}

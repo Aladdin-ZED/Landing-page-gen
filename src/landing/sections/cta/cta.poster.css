@@ -1,0 +1,221 @@
+/* cta · poster — rules only this variant renders (inlined after cta.css on pages whose markup
+   carries .lp-cta--poster; the admin preview loads every variant). Shared rules live in cta.css. */
+
+/* poster-size type: every emphasis becomes accent ink — a swoosh or a marker block that tall reads
+   as a bar cutting through the next line */
+:root:is([data-emphasis="color"], [data-emphasis="swoosh"], [data-emphasis="highlight"]) .lp-cta__giant :is(.lp-em, .lp-em__w) {
+  color: var(--sec-accent);
+  text-decoration: none;
+}
+
+.lp-cta__giant .lp-em__deco,
+:root[data-emphasis="highlight"] .lp-cta__giant .lp-em__w::before {
+  display: none;
+}
+.lp-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.lp-cta--poster [data-align="center"] .lp-cta__points {
+  display: grid;
+  justify-content: center;
+  justify-items: start;
+}
+
+@container (min-width: 40rem) {
+  .lp-cta--poster [data-align="center"] .lp-cta__points {
+    display: flex;
+  }
+}
+
+/* ==========================================================================
+   poster — giant headline with the product inline, on an aurora field
+   ========================================================================== */
+.lp-cta--poster .lp-cta__wrap {
+  display: grid;
+  gap: clamp(1.75rem, 1rem + 3.2vw, 3.75rem);
+}
+
+.lp-cta__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lp-cta__giant {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 10vw);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: calc(var(--lp-display-tracking) * 1.3);
+  text-transform: var(--lp-display-case);
+  line-height: max(1.02, var(--lp-display-lh));
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.lp-cta__giant--xl {
+  font-size: min(calc(var(--lp-step-6) * 1.24 * var(--lp-script-scale-display)), 15vw);
+}
+
+.lp-cta__giant--l {
+  font-size: min(calc(var(--lp-step-5) * 1.08 * var(--lp-script-scale-display)), 12vw);
+}
+
+@supports (font-size: 1cqi) {
+  .lp-cta__giant--xl {
+    font-size: min(calc(var(--lp-step-6) * 1.24 * var(--lp-script-scale-display)), 14.5cqi);
+  }
+
+  .lp-cta__giant--l {
+    font-size: min(calc(var(--lp-step-5) * 1.08 * var(--lp-script-scale-display)), 11.5cqi);
+  }
+}
+
+:lang(ar) .lp-cta__giant {
+  letter-spacing: 0;
+  line-height: max(1.3, var(--lp-display-lh));
+}
+
+/* the product, set inline between the words as a rounded pill */
+.lp-cta__pill {
+  position: relative;
+  display: inline-block;
+  inline-size: 1.72em;
+  block-size: 0.8em;
+  overflow: hidden;
+  vertical-align: -0.04em;
+  border-radius: 999px;
+  background-color: var(--mx-tint-2);
+  box-shadow: var(--lp-highlight), var(--lp-shadow-m);
+}
+
+.lp-cta__pill .lp-pic {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* phones: the type steps down, the pill grows so the product still reads at a glance — at the same
+   aspect (2.15), the one its crop is fitted to (cta/fit.ts POSTER_PILL) */
+@container (max-width: 29.99rem) {
+  .lp-cta__pill {
+    inline-size: 1.94em;
+    block-size: 0.9em;
+    vertical-align: -0.08em;
+  }
+}
+
+/* a crisp rim over the photo, like the lens of the stamp's disc */
+.lp-cta__pill[data-media="photo"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18), inset 0 1.5px 0 rgb(255 255 255 / 0.24);
+  pointer-events: none;
+}
+
+/* a cutout stands in its pill and peeks out of the top */
+.lp-cta__pill[data-media="cutout"] {
+  overflow: visible;
+}
+
+.lp-cta__pill[data-media="cutout"] .lp-pic {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0.05em;
+  block-size: 128%;
+}
+
+.lp-cta__pill[data-media="cutout"] .lp-pic__img {
+  object-position: 50% 100%;
+  filter: var(--lp-shadow-product-filter);
+}
+
+.lp-cta__base {
+  display: grid;
+  gap: var(--c-gap);
+  align-items: end;
+}
+
+.lp-cta__say {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.lp-cta__lead {
+  max-inline-size: 34rem;
+  color: var(--sec-ink-soft);
+}
+
+.lp-cta--poster [data-align="center"] {
+  text-align: center;
+}
+
+.lp-cta--poster [data-align="center"] .lp-cta__meta,
+.lp-cta--poster [data-align="center"] .lp-cta__actions {
+  justify-content: center;
+}
+
+.lp-cta--poster [data-align="center"] .lp-cta__base,
+.lp-cta--poster [data-align="center"] .lp-cta__say {
+  justify-items: center;
+}
+
+.lp-cta--poster [data-align="center"] .lp-cta__giant {
+  max-inline-size: 15ch;
+  margin-inline: auto;
+}
+
+:lang(ar) .lp-cta--poster [data-align="center"] .lp-cta__giant {
+  max-inline-size: 18ch;
+}
+
+@container (min-width: 52rem) {
+  /* the lead keeps a real measure; a long button label wraps inside its own column */
+  .lp-cta--poster [data-align="start"] .lp-cta__base {
+    grid-template-columns: minmax(min(100%, 20rem), 1fr) auto;
+    column-gap: clamp(2rem, 6cqi, 6rem);
+  }
+
+  .lp-cta--poster [data-align="start"] .lp-cta__actions {
+    justify-content: flex-end;
+  }
+
+  /* a short label stays on one line beside its price: the column grows to fit it (a long merchant
+     label keeps its own two-row layout, capped at 30rem by .lp-cta__btn--long) */
+  .lp-cta--poster [data-align="start"] .lp-cta__btn:not(.lp-cta__btn--long) .lp-btn__label {
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) .lp-cta__giant[data-in] .lp-cta__pill {
+    animation: lp-cta-pill calc(var(--lp-dur-l) * 1.25) var(--lp-smooth) var(--pill-d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-cta__giant[data-in] .lp-cta__pill .lp-pic__img {
+    animation: lp-cta-settle calc(var(--lp-dur-l) * 1.8) var(--lp-smooth) var(--pill-d, 0ms) backwards;
+  }
+}
+
+/* the pill opens from its center as the words land; the photo settles inside it */
+@keyframes lp-cta-pill {
+  from {
+    clip-path: inset(0 50% round 999px);
+  }
+
+  to {
+    clip-path: inset(0 0 round 999px);
+  }
+}
+
+@keyframes lp-cta-settle {
+  from {
+    scale: 1.3;
+  }
+}

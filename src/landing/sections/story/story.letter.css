@@ -1,0 +1,278 @@
+/* story · letter — rules only this variant renders (inlined after story.css on pages whose markup
+   carries .lp-story--letter; the admin preview loads every variant). Shared rules live in story.css. */
+
+.lp-story__body {
+  max-inline-size: 38rem;
+  text-wrap: pretty;
+}
+.lp-story__par {
+  position: absolute;
+  inset: -5% 0;
+  transform-origin: var(--settle-org, 50% 50%);
+}
+
+/* people are framed exactly: a veil touching the photo's top would hide in the parallax slack */
+.lp-story__frame--still .lp-story__par {
+  inset: 0;
+}
+
+.lp-story__pic {
+  inline-size: 100%;
+  block-size: 100%;
+  aspect-ratio: auto;
+}
+.lp-story__frame--cutout {
+  background-color: var(--mx-stage);
+  background-image:
+    radial-gradient(70% 55% at 50% 38%, var(--mx-stage-hi), transparent 72%),
+    radial-gradient(60% 9% at 50% 88%, var(--mx-floor), transparent);
+}
+
+.lp-story__frame--cutout .lp-story__par {
+  inset: 9% 12% 11%;
+}
+
+.lp-story__frame--cutout .lp-pic__img {
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* ==========================================================================
+   letter — founder note
+   phones: title · photo · the note rising over the photo's foot (avatar on the seam)
+   desktop: title over a large photo (start) · the note overlapping the photo's side (end)
+   ========================================================================== */
+.lp-story__letter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lp-story__lhead {
+  margin-block-end: clamp(1.75rem, 1.1rem + 2.6vw, 2.75rem);
+}
+
+/* the head's spacing is the grid's: the kit header's own bottom margin would double it */
+.lp-story__lhead .lp-sh {
+  margin-block-end: 0;
+}
+
+/* a long title (over 70 characters) steps down a size beside the photo */
+.lp-story__lhead--long .lp-sh__title {
+  font-size: calc(var(--lp-step-3) * 0.74 * var(--lp-script-scale-display));
+}
+
+.lp-story__lmedia {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-story__lpic {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background-color: var(--mx-tint);
+  box-shadow: var(--lp-shadow-m);
+}
+
+.lp-story__lbody {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: clamp(1.5rem, 1rem + 2vw, 2.25rem);
+  justify-items: start;
+  margin-block-start: calc(-1 * clamp(2.25rem, 1.5rem + 3vw, 3.5rem));
+  padding-inline: clamp(0.5rem, 2.4vw, 1rem);
+}
+
+.lp-story__letter--solo .lp-story__lbody {
+  margin-block-start: 0;
+  padding-block-start: calc(var(--av-l) * 0.5 + var(--av-gap));
+  padding-inline: 0;
+}
+
+/* the note: a luminous raised sheet — top-lit, inner highlight, layered shadows tinted by the
+   section with a faint accent bloom underneath */
+.lp-story__note {
+  --pad: clamp(1.4rem, 0.9rem + 2.6vw, 3.25rem);
+  --note-bg: var(--sec-card);
+  --sheen: transparent;
+  container-type: inline-size;
+  display: grid;
+  gap: clamp(1.4rem, 1.1rem + 1.2vw, 2rem);
+  inline-size: 100%;
+  padding: var(--pad);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-image: linear-gradient(180deg, var(--sheen), transparent 42%);
+  box-shadow:
+    var(--lp-highlight, 0 0 #0000),
+    var(--lp-shadow-l),
+    0 48px 96px -56px var(--mx-btn-1);
+}
+
+.lp-story__note[data-fam="light"] {
+  --sheen: rgb(255 255 255 / 0.4);
+}
+
+.lp-story__note:is([data-fam="dark"], [data-fam="accent"], [data-fam="pop"]) {
+  --sheen: rgb(255 255 255 / 0.045);
+}
+
+:root[data-card="glass"] .lp-story__note {
+  --note-bg: var(--sec-glass-solid, var(--sec-card));
+}
+
+:root[data-card="outlined"] .lp-story__note {
+  box-shadow:
+    var(--lp-highlight, 0 0 #0000),
+    var(--lp-shadow-m);
+}
+
+/* the avatar breaks out of the card's top edge; the quote mark hangs in the end corner */
+.lp-story__notehead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-start: calc(var(--pad) * -1 - var(--av-l) * 0.5);
+}
+
+/* the quote mark hangs a step into the note (its top clear of the card's edge, level with the bezel) */
+.lp-story__notehead .lp-story__qmark {
+  margin-block-end: calc(-1 * clamp(0.6rem, 0.4rem + 0.8vw, 1rem));
+}
+
+.lp-story__fig {
+  display: grid;
+  gap: clamp(1.6rem, 1.2rem + 1.4vw, 2.5rem);
+  margin: 0;
+}
+
+.lp-story__quote {
+  display: grid;
+  gap: 1.15rem;
+  margin: 0;
+}
+
+.lp-story__note .lp-story__body {
+  font-size: calc(var(--lp-step-0) * 1.04 * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+}
+
+.lp-story__note :is(.lp-story__body > p:not(:first-child)) {
+  color: var(--sec-ink-soft);
+}
+
+/* the opening paragraph is the lede, in the display face */
+.lp-story__note :is(p.lp-story__body, .lp-story__body > p:first-child) {
+  font-family: var(--lp-font-display);
+  /* a paragraph, not a headline: heavy display weights are capped */
+  font-weight: min(var(--lp-display-weight), 560);
+  font-size: calc(var(--lp-step-1) * 1.1 * var(--lp-script-scale-display));
+  /* the note's own width sets it on narrow phones (320px), so the lede never runs to ten lines */
+  font-size: clamp(calc(var(--lp-step-0) * 1.06 * var(--lp-script-scale-display)), 7.8cqi, calc(var(--lp-step-1) * 1.1 * var(--lp-script-scale-display)));
+  line-height: max(1.3, calc(var(--lp-display-lh) + 0.16));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.4);
+  text-wrap: pretty;
+}
+
+/* condensed sport / industrial display faces are headline-only: their lede stays in the body face */
+:root:is([data-arch="kinetic"], [data-arch="garage"])
+  .lp-story__note
+  :is(p.lp-story__body, .lp-story__body > p:first-child) {
+  font-family: var(--lp-font-body);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+/* Arabic display faces are too ornate for a paragraph: the lede stays in the body face */
+:lang(ar)
+  .lp-story__note
+  :is(p.lp-story__body, .lp-story__body > p:first-child) {
+  font-family: var(--lp-font-body);
+  font-weight: 500;
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale));
+  line-height: 1.75;
+  letter-spacing: 0;
+}
+
+/* a long opening paragraph (a whole story typed as one block) is not a lede: it reads at text size,
+   in full ink and the body face, so the note never turns into a wall of display type */
+.lp-story__note[data-lede="long"] :is(p.lp-story__body, .lp-story__body > p:first-child) {
+  font-family: var(--lp-font-body);
+  font-weight: 500;
+  font-size: calc(var(--lp-step-0) * 1.08 * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  letter-spacing: 0;
+}
+
+.lp-story__caption {
+  display: grid;
+}
+
+.lp-story__note .lp-story__cta {
+  margin-block-start: 0.25rem;
+}
+
+@media (min-width: 40rem) and (max-width: 59.99rem) {
+  .lp-story__lmedia,
+  .lp-story__lbody {
+    inline-size: min(100%, 42rem);
+  }
+}
+
+@media (min-width: 60rem) {
+  .lp-story__letter {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: auto 1fr;
+    column-gap: clamp(1rem, 2vw, 1.75rem);
+    align-items: start;
+  }
+
+  .lp-story__lhead {
+    grid-area: 1 / 1 / 2 / 6;
+    margin-block-end: clamp(2rem, 1rem + 2.5vw, 3.25rem);
+    padding-block-start: calc(var(--av-l) * 0.5);
+  }
+
+  .lp-story__lmedia {
+    grid-area: 2 / 1 / 3 / 7;
+  }
+
+  .lp-story__lpic {
+    aspect-ratio: var(--ratio, 4 / 5);
+    box-shadow: var(--lp-shadow-l);
+  }
+
+  /* the note covers the photo's last column: one layered composition, not two blocks */
+  .lp-story__lbody {
+    grid-area: 1 / 6 / 3 / -1;
+    align-self: center;
+    margin: 0;
+    padding: calc(var(--av-l) * 0.5 + var(--av-gap)) 0 0;
+  }
+
+  .lp-story__letter--solo .lp-story__lhead {
+    grid-row: 1 / 3;
+  }
+
+  /* a landscape photo: the head takes its own width, the photo widens under the note */
+  .lp-story__letter--wide .lp-story__lmedia {
+    grid-column: 1 / 8;
+  }
+
+  .lp-story__letter--wide .lp-story__lbody {
+    grid-column: 7 / -1;
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .lp-story__note {
+    transition:
+      translate var(--lp-dur-l) var(--lp-spring),
+      box-shadow var(--lp-dur-l) var(--lp-smooth);
+  }
+
+  .lp-story__note:hover {
+    translate: 0 -3px;
+  }
+}

@@ -1,0 +1,1221 @@
+@import "./pv.css";
+@import "./packs.css";
+
+/* ==========================================================================
+   Order form — card · split · minimal · bold
+   Two blocks inside the form: .lp-of__steps (packs → options → details) and .lp-of__checkout
+   (receipt line, add-on, live summary, submit, reassurances). Each block is its own size
+   container (`of`), so every inner layout answers to the width it really has.
+   Signature shared by all variants: a step's numeral morphs into a drawn tick once the step is
+   complete (CSS :has(:invalid), no script) and the step rail / hairline fills with the accent.
+   Rules every variant uses. A variant's own rules live in orderForm.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-orderForm {
+  --of-gap: clamp(1.9rem, 1.3rem + 2vw, 2.6rem);
+  --of-gap-s: clamp(1rem, 0.85rem + 0.6vw, 1.3rem);
+  /* small labels: Latin leans on caps + tracking, Arabic (neither) steps up a size instead */
+  --of-lab: max(0.68rem, var(--lp-step--1) * 0.76);
+  /* receipt tint: the card surface warmed by the product hue */
+  --of-receipt: var(--mx-field);
+  /* top offset of the sticky desktop columns (card receipt, split panel, bold heading) */
+  --of-stick: 1.5rem;
+}
+
+/* …clearing the page's sticky header: its stuck bar is 5.125rem tall from 60rem up (header.css) */
+:root:has(.lp-header--sticky) .lp-orderForm {
+  --of-stick: 6.5rem;
+}
+
+@supports (color: oklch(from red l c h)) {
+  .lp-orderForm {
+    /* the accent into the card drained of its color (same lightness): a blush, never a peach */
+    --of-receipt: color-mix(in oklab, var(--sec-accent) 7%, oklch(from var(--sec-card) l 0 0));
+  }
+}
+
+:lang(ar) .lp-orderForm {
+  --of-lab: calc(var(--lp-step--1) * 0.9);
+}
+
+.lp-of__wrap {
+  position: relative;
+  display: grid;
+  gap: clamp(1.75rem, 1.2rem + 2.4vw, 3rem);
+}
+
+.lp-of__head {
+  display: grid;
+  justify-items: start;
+  gap: 0.9rem;
+  max-inline-size: 40rem;
+}
+
+.lp-of__title {
+  max-inline-size: 18ch;
+  text-wrap: balance;
+}
+
+:lang(ar) .lp-of__title {
+  max-inline-size: 21ch;
+}
+
+/* room for the emphasis stroke under a line, even with tight display leading */
+.lp-of__title:has(.lp-em) {
+  line-height: max(var(--lp-display-lh), 1.12);
+}
+
+.lp-of__lead {
+  max-inline-size: 34rem;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+/* the note grows with what is typed (no native grip cutting into the rounded corner) */
+.lp-orderForm .lp-textarea {
+  resize: none;
+  field-sizing: content;
+  max-block-size: 12rem;
+}
+
+/* --- form skeleton -------------------------------------------------------- */
+.lp-of__form {
+  position: relative;
+  display: grid;
+  gap: var(--of-gap);
+  min-inline-size: 0;
+}
+
+.lp-of__steps {
+  container: of / inline-size;
+  display: grid;
+  gap: var(--of-gap);
+  min-inline-size: 0;
+}
+
+.lp-of__checkout {
+  container: of / inline-size;
+  display: grid;
+  align-content: start;
+  gap: var(--of-gap-s);
+  min-inline-size: 0;
+}
+
+.lp-of__step {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.lp-of__legend {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  inline-size: 100%;
+  margin-block-end: 1.15rem;
+  font-size: calc(var(--lp-step-0) * 1.1 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.25;
+}
+
+/* numeral disc; the tick waits inside it, undrawn */
+.lp-of__no {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  font-family: var(--lp-font-body);
+  font-size: 0.8rem;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition:
+    background-color var(--lp-dur-m) var(--lp-smooth),
+    color var(--lp-dur-m) var(--lp-smooth),
+    box-shadow var(--lp-dur-l) var(--lp-smooth);
+}
+
+.lp-of__no-1,
+.lp-of__no-2 {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--lp-dur-s) var(--lp-ease),
+    scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-of__no-2 {
+  display: none;
+}
+
+.lp-of__tick {
+  grid-area: 1 / 1;
+  inline-size: 1.05rem;
+  block-size: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--lp-dur-m) var(--lp-smooth) 120ms;
+}
+
+/* a step is done when none of its required controls is invalid (hidden unit rows don't count):
+   the disc takes the accent, the numeral shrinks away, the tick draws in */
+@supports selector(:has(a)) {
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) {
+    --of-done: 1;
+  }
+
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__no {
+    background: var(--sec-accent);
+    color: var(--sec-accent-ink);
+    box-shadow: 0 0 0 4px var(--mx-tint-2);
+  }
+
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) :is(.lp-of__no-1, .lp-of__no-2) {
+    opacity: 0;
+    scale: 0.4;
+  }
+
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__tick {
+    stroke-dashoffset: 0;
+  }
+}
+
+.lp-of__fields {
+  display: grid;
+  gap: 1.05rem 0.9rem;
+}
+
+@container of (min-width: 30rem) {
+  .lp-of__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-of__f--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --- product options: unit rows on a soft sheet --------------------------- */
+.lp-vars {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.lp-vrow {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 1rem;
+  border-radius: calc(max(var(--lp-radius-m), 0.875rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--mx-field);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-vrow[hidden] {
+  display: none;
+}
+
+.lp-vrow__n {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  font-weight: 600;
+  color: var(--sec-ink-soft);
+}
+
+.lp-vrow__i {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1.45rem;
+  block-size: 1.45rem;
+  border-radius: 50%;
+  background: var(--mx-tint-2);
+  color: var(--sec-ink);
+  font-size: 0.72rem;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-vars[data-units="1"] .lp-vrow {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.lp-vars[data-units="1"] .lp-vrow__n {
+  display: none;
+}
+
+.lp-vrow__groups {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.lp-vg {
+  min-inline-size: 0;
+}
+
+.lp-vg__name {
+  margin-block-end: 0.55rem;
+  font-size: calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale));
+  font-weight: 600;
+}
+
+.lp-vg__opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* short labels (sizes, ages): even chips on a column grid — every row lines up, no ragged ends */
+.lp-vg__opts[data-even] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 4.9rem), 1fr));
+}
+
+.lp-vg__opts[data-even] .lp-vo {
+  display: grid;
+}
+
+.lp-vg__opts[data-even] .lp-vo__face {
+  justify-content: center;
+  padding-inline: 0.6em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.lp-vo {
+  position: relative;
+  cursor: pointer;
+}
+
+.lp-vo__in {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.lp-vo__face {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 2.75rem;
+  padding: 0.4em 1.05em;
+  border-radius: var(--lp-radius-pill, 999px);
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--sec-line-strong);
+  color: var(--sec-card-ink);
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background-color var(--lp-dur-s) var(--lp-ease),
+    color var(--lp-dur-s) var(--lp-ease),
+    box-shadow var(--lp-dur-m) var(--lp-smooth),
+    scale var(--lp-dur-m) var(--lp-spring);
+}
+
+@media (hover: hover) {
+  .lp-vo:hover .lp-vo__face {
+    box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
+  }
+}
+
+.lp-vo__sw {
+  inline-size: 1.3rem;
+  block-size: 1.3rem;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 22%, transparent);
+}
+
+.lp-vo__img {
+  inline-size: 1.9rem;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.lp-vo__in:checked + .lp-vo__face {
+  background: var(--sec-accent);
+  box-shadow: inset 0 1px 0 var(--mx-on-accent), 0 8px 18px -10px var(--mx-btn-2);
+  color: var(--sec-accent-ink);
+}
+
+.lp-vo__in:checked + .lp-vo__face .lp-vo__sw {
+  box-shadow: 0 0 0 2px var(--sec-accent-ink);
+}
+
+.lp-vo:active .lp-vo__face {
+  scale: 0.96;
+}
+
+.lp-vo__in:focus-visible + .lp-vo__face {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 2px;
+}
+
+.lp-vo[data-soldout] {
+  cursor: not-allowed;
+}
+
+.lp-vo[data-soldout] .lp-vo__face {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.lp-vg[data-invalid] .lp-vo__face {
+  box-shadow: inset 0 0 0 1.5px var(--sec-danger);
+}
+
+.lp-vg__err:empty {
+  margin: 0;
+}
+
+.lp-vg__err:not(:empty) {
+  margin-block-start: 0.5rem;
+}
+
+/* --- order bump: a soft add-on card that lights up once ticked ------------ */
+.lp-bump {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "check body price";
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: calc(max(var(--lp-radius-m), 0.875rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  cursor: pointer;
+  transition: background-color var(--lp-dur-m) var(--lp-smooth), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-bump--pic {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "check pic body price";
+}
+
+@media (hover: hover) {
+  .lp-bump:hover {
+    box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
+  }
+}
+
+@supports (color: oklch(from red l c h)) {
+  .lp-bump {
+    --of-bump-on: color-mix(in oklab, var(--sec-accent) 8%, oklch(from var(--sec-card) l 0 0));
+  }
+}
+
+.lp-bump:has(:checked) {
+  background: var(--of-bump-on, var(--sec-card));
+  box-shadow: inset 0 0 0 2px var(--sec-accent), 0 14px 30px -18px var(--mx-btn-2);
+}
+
+.lp-bump__check {
+  grid-area: check;
+}
+
+.lp-bump__pic {
+  grid-area: pic;
+  inline-size: 3.6rem;
+  border-radius: calc(max(var(--lp-radius-s), 0.7rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  overflow: hidden;
+}
+
+.lp-bump__body {
+  grid-area: body;
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+.lp-bump__add {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--of-lab);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-accent);
+}
+
+.lp-bump__title {
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.25;
+}
+
+.lp-bump__desc {
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+  line-height: 1.35;
+}
+
+.lp-bump__price {
+  grid-area: price;
+  padding: 0.35em 0.75em;
+  border-radius: 999px;
+  background: var(--mx-tint);
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@container of (max-width: 26rem) {
+  .lp-bump {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "check body" ". price";
+    row-gap: 0.6rem;
+  }
+
+  .lp-bump--pic {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "check body pic" ". price pic";
+    align-items: start;
+  }
+
+  .lp-bump--pic .lp-bump__check {
+    align-self: center;
+  }
+
+  .lp-bump__price {
+    justify-self: start;
+  }
+}
+
+/* --- live summary: hairline rows, the total set in display type ----------- */
+.lp-sum {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1.1rem 1.2rem 1.2rem;
+  border-radius: calc(max(var(--lp-radius-m), 0.875rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--mx-field);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  font-size: calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale));
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.lp-sum__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lp-sum__row dt {
+  min-inline-size: 0;
+  color: var(--sec-ink-soft);
+}
+
+.lp-sum__row dd {
+  margin: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lp-sum__row--bump:has([data-zero]) {
+  display: none;
+}
+
+[data-lp-sum="shipping"][data-zero] {
+  color: var(--sec-success);
+}
+
+.lp-sum__row--total {
+  align-items: center;
+  margin-block-start: 0.2rem;
+  padding-block-start: 0.9rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-sum__row--total dt {
+  max-inline-size: 15rem;
+  color: var(--sec-ink);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.lp-sum__row--total dd {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1;
+}
+
+/* --- submit, status, reassurance ----------------------------------------- */
+.lp-of__go {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.lp-of__submit {
+  inline-size: 100%;
+  justify-content: space-between;
+  text-align: start;
+}
+
+.lp-of__submit .lp-btn__label {
+  flex: 1;
+  text-wrap: balance;
+}
+
+/* a merchant's long label ("Je commande — paiement à la livraison") steps down a size so it holds
+   one line beside the total; where it still wraps, the two lines stay tight and balanced */
+.lp-of__submit--long {
+  --btn-fs: calc(var(--lp-step-0) * 1.04);
+}
+
+.lp-of__submit--long .lp-btn__label {
+  line-height: 1.15;
+}
+
+/* the live total chip sits in the button's end with an even inset all round */
+.lp-of__submit.lp-btn--has-price {
+  --btn-px: clamp(1.1em, 0.7em + 1.2vw, 1.6em);
+  padding-inline-end: 0.75em;
+}
+
+/* narrow checkout with the live total set right above: the button drops its price chip and
+   keeps a confident one-line label */
+@container of (max-width: 23rem) {
+  .lp-sum ~ .lp-of__go .lp-btn__price {
+    display: none;
+  }
+
+  .lp-sum ~ .lp-of__go .lp-of__submit {
+    justify-content: center;
+    padding-inline: var(--btn-px);
+    text-align: center;
+  }
+
+  .lp-sum ~ .lp-of__go .lp-of__submit .lp-btn__label {
+    flex: 0 1 auto;
+  }
+}
+
+/* sending: a soft light sweeps across the button */
+.lp-of__form[data-state="sending"] .lp-of__submit {
+  cursor: progress;
+}
+
+.lp-of__form[data-state="sending"] .lp-of__submit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 35%, color-mix(in oklab, var(--btn-ink) 22%, transparent) 50%, transparent 65%) 0 0 / 250% 100%;
+  animation: lp-of-sweep 1.1s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes lp-of-sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+.lp-of__status {
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.lp-of__status:empty {
+  margin-block-start: -0.8rem;
+}
+
+.lp-of__status:not(:empty) {
+  padding: 0.7rem 0.9rem;
+  border-radius: calc(max(var(--lp-radius-s), 0.6rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+}
+
+.lp-of__status[data-tone="error"] {
+  background: color-mix(in oklab, var(--sec-danger) 10%, transparent);
+  color: var(--sec-danger);
+}
+
+.lp-of__status[data-tone="success"] {
+  color: var(--sec-success);
+}
+
+/* centered lines with the icon inline, so it hugs the first word however the text wraps */
+.lp-of__assure,
+.lp-of__privacy {
+  text-align: center;
+  text-wrap: balance;
+}
+
+.lp-of__assure .lp-icon,
+.lp-of__privacy .lp-icon {
+  display: inline-block;
+  margin-inline-end: 0.4em;
+  vertical-align: -0.2em;
+}
+
+.lp-of__assure {
+  font-size: calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale));
+  font-weight: 600;
+}
+
+.lp-of__assure .lp-icon {
+  color: var(--sec-success);
+}
+
+.lp-of__privacy {
+  font-size: calc(var(--lp-step--1) * 0.86 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+}
+
+/* trust: one quiet row — line icons over short lines, hairlines between (no discs, no boxes) */
+.lp-of__trust {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0.35rem 0;
+  list-style: none;
+  font-size: calc(var(--lp-step--1) * 0.88 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.lp-of__trust-item {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.45rem;
+  padding-inline: 0.5rem;
+  color: var(--sec-ink-soft);
+}
+
+.lp-of__trust-item + .lp-of__trust-item {
+  box-shadow: inset calc(1px * var(--lp-x)) 0 0 var(--mx-hair);
+}
+
+.lp-of__trust-ico {
+  display: grid;
+  place-items: center;
+  color: var(--sec-accent);
+  font-size: 1.15em;
+}
+
+/* WhatsApp alternative: "— or —" then a quiet outlined pill */
+.lp-of__alt {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+}
+
+.lp-of__or {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  inline-size: 100%;
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+}
+
+.lp-of__or::before,
+.lp-of__or::after {
+  content: "";
+  flex: 1;
+  block-size: 1px;
+  background: var(--mx-hair);
+}
+
+.lp-of__wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-block-size: 3.1rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: var(--lp-radius-btn);
+  box-shadow: inset 0 0 0 1px var(--sec-line-strong);
+  color: var(--sec-ink);
+  font-weight: var(--lp-strong-weight);
+  text-decoration: none;
+  transition: background-color var(--lp-dur-s) var(--lp-ease), box-shadow var(--lp-dur-s) var(--lp-ease), translate var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-of__wa .lp-icon {
+  color: var(--sec-success);
+}
+
+@media (hover: hover) {
+  .lp-of__wa:hover {
+    background: var(--mx-tint);
+    box-shadow: inset 0 0 0 1px var(--sec-ink);
+    translate: 0 -2px;
+  }
+}
+
+.lp-of__wa:active {
+  scale: 0.98;
+}
+
+.lp-of__wa:focus-visible {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 3px;
+}
+
+/* --- cross-fading per-pack bits (receipt line, split stage) --------------- */
+.lp-of__swap {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 0.35em;
+  transition:
+    opacity var(--lp-dur-s) var(--lp-ease),
+    translate var(--lp-dur-m) var(--lp-spring),
+    visibility 0s linear var(--lp-dur-s);
+}
+
+.lp-of__swap[data-selected] {
+  opacity: 1;
+  visibility: visible;
+  translate: none;
+  transition-delay: 0s;
+}
+
+/* --- the receipt line: thumb (+ live ×qty bubble) · your order · pack · total --- */
+.lp-of__line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.95rem;
+}
+
+.lp-of__line-media {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 3.9rem;
+  aspect-ratio: 1;
+  border-radius: calc(max(var(--lp-radius-m), 0.95rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: radial-gradient(70% 70% at 50% 40%, var(--mx-tint-2), var(--mx-tint));
+  box-shadow: inset 0 0 0 1px var(--mx-hair), 0 10px 22px -16px color-mix(in oklab, var(--sec-ink) 60%, transparent);
+}
+
+.lp-of__line-pic {
+  inline-size: 100%;
+  border-radius: inherit;
+  corner-shape: inherit;
+  overflow: hidden;
+}
+
+.lp-of__line-qty {
+  position: absolute;
+  inset-block-start: -0.5rem;
+  inset-inline-end: -0.5rem;
+  display: grid;
+  min-inline-size: 1.65rem;
+  block-size: 1.65rem;
+  padding-inline: 0.4rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  box-shadow: 0 0 0 2.5px var(--of-line-ring, var(--sec-card)), 0 6px 14px -6px color-mix(in oklab, var(--sec-ink) 60%, transparent);
+  font-size: 0.74rem;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* no photo at all: the bubble grows into the tile itself */
+/* the bubble leaves the corner where it would cover a face (badgeSpot: [data-q] = block · inline) */
+.lp-of__line-media[data-q^="e"] .lp-of__line-qty {
+  inset-block: auto -0.5rem;
+}
+
+.lp-of__line-media[data-q$="s"] .lp-of__line-qty {
+  inset-inline: -0.5rem auto;
+}
+
+.lp-of__line-media--none .lp-of__line-qty {
+  position: static;
+  background: none;
+  box-shadow: none;
+  color: var(--sec-accent);
+  font-family: var(--lp-font-display);
+  font-size: 1.35rem;
+}
+
+.lp-of__line-txt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: 0.12rem;
+  min-inline-size: 0;
+}
+
+.lp-of__line-k {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--of-lab);
+  font-weight: 600;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-of__line-name {
+  display: -webkit-box;
+  overflow: hidden;
+  /* the <bdi> takes the name's own direction, so a Latin name on an Arabic page clamps as
+     "prière avec…", never "…prière avec" (ellipsis at its logical end). The box hugs the name and sits
+     at the column's start: a short name lines up with the label above; a right-aligned LTR clamp is
+     avoided on purpose (Chromium pushes its ellipsis past the clip edge). */
+  justify-self: start;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.3;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.lp-of__line-pack {
+  display: grid;
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+  line-height: 1.3;
+}
+
+.lp-of__line-price {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) .lp-of__step[data-reveal]:not([data-in])::before {
+    scale: 1 0;
+  }
+}
+
+.lp-of__panel {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.lp-of__cod {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  inline-size: max-content;
+  max-inline-size: calc(100% - 2rem);
+  margin-inline: auto;
+  padding: 0.55rem 1.05rem;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  translate: 0 -50%;
+}
+
+.lp-of__cod .lp-icon {
+  color: var(--sec-success);
+}
+
+/* ==========================================================================
+   split — sticky product stage (pack visual follows the choice) | form
+   ========================================================================== */
+.lp-of__aside-in {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  grid-template-areas:
+    "copy copy"
+    "show prod";
+  align-items: center;
+  gap: 1.25rem 1rem;
+}
+
+.lp-of__aside-copy {
+  display: contents;
+}
+
+.lp-of__product {
+  grid-area: prod;
+  display: grid;
+  gap: 0.3rem;
+  min-inline-size: 0;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+}
+
+.lp-of__product-name {
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.3;
+  color: var(--sec-ink);
+}
+
+.lp-of__product-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: var(--sec-ink);
+}
+
+.lp-of__product-rating .lp-icon {
+  color: var(--sec-accent);
+  fill: currentColor;
+}
+
+.lp-of__product-count {
+  font-weight: 400;
+  color: var(--sec-ink-soft);
+}
+
+.lp-of__show {
+  grid-area: show;
+  position: relative;
+  display: grid;
+  aspect-ratio: 1;
+  border-radius: calc(max(var(--lp-radius-m), 1rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: radial-gradient(75% 75% at 50% 40%, var(--mx-tint-2), var(--mx-tint));
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.lp-of__show-own {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-of__show-i {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  visibility: hidden;
+  scale: 0.94;
+  filter: blur(6px);
+  transition:
+    opacity var(--lp-dur-m) var(--lp-smooth),
+    scale var(--lp-dur-l) var(--lp-spring),
+    filter var(--lp-dur-m) var(--lp-smooth),
+    visibility 0s linear var(--lp-dur-m);
+}
+
+.lp-of__show-i[data-selected] {
+  opacity: 1;
+  visibility: visible;
+  scale: 1;
+  filter: none;
+  transition-delay: 0s;
+}
+
+.lp-of__show-pv {
+  --pv-spread: 1.15;
+  --pv-r: 0.5rem;
+  inline-size: 100%;
+}
+
+.lp-of__show-cap {
+  display: none;
+}
+
+.lp-sum--panel {
+  display: none;
+}
+
+@media (min-width: 64rem) {
+
+  .lp-of__aside {
+    position: sticky;
+    inset-block-start: var(--of-stick);
+  }
+
+  .lp-of__aside-in {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "copy" "show" "prod" "sum";
+    gap: 1.5rem;
+  }
+
+  /* the stage: product light from above, a floor of shade, the pack ×qty standing in it */
+  .lp-of__show {
+    aspect-ratio: 5 / 4;
+    border-radius: var(--lp-sq-xl);
+    background:
+      radial-gradient(55% 60% at 50% 38%, var(--mx-stage-hi), transparent 72%),
+      radial-gradient(80% 50% at 50% 100%, var(--mx-stage-lo), transparent 70%),
+      var(--mx-stage);
+    box-shadow: inset 0 0 0 1px var(--mx-hair), inset 0 1px 0 var(--mx-rim), 0 30px 60px -40px color-mix(in oklab, var(--sec-ink) 55%, transparent);
+  }
+
+  .lp-of__show-pv {
+    --pv-r: 1.1rem;
+    inline-size: min(76%, 22rem);
+    margin-block-end: 3rem;
+  }
+
+  /* glass caption bar: the chosen pack and its total, riding over the stage floor */
+  .lp-of__show-cap {
+    position: absolute;
+    inset-block-end: 0.85rem;
+    inset-inline: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem;
+    padding-inline-start: 1.1rem;
+    border-radius: max(var(--lp-sq-s), calc(var(--lp-sq-xl) - 0.85rem * var(--lp-corner-d)));
+    corner-shape: var(--lp-corner);
+    font-size: calc(var(--lp-step--1) * 0.98 * var(--lp-script-scale));
+    font-weight: 600;
+  }
+
+  .lp-of__show-name {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lp-of__show-price {
+    flex: none;
+    padding: 0.4em 0.8em;
+    border-radius: 999px;
+    background: var(--sec-ink);
+    color: var(--sec-bg);
+    font-weight: var(--lp-strong-weight);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lp-sum--panel {
+    grid-area: sum;
+    display: grid;
+  }
+
+  .lp-sum--inline {
+    display: none;
+  }
+}
+
+.lp-of__checkout-k {
+  position: relative;
+}
+
+.lp-of__checkout-k {
+  align-items: baseline;
+  gap: 1rem;
+  padding-block-start: 1.35rem;
+}
+
+.lp-of__checkout-k {
+  display: none;
+}
+
+.lp-of__light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    radial-gradient(60% 45% at 90% 0%, color-mix(in oklab, var(--sec-accent-ink) 16%, transparent), transparent 72%),
+    radial-gradient(70% 50% at 10% 100%, color-mix(in oklab, var(--lp-dark) 16%, transparent), transparent 72%);
+  pointer-events: none;
+}
+
+.lp-of__side {
+  display: grid;
+  gap: 1.75rem;
+  align-content: start;
+}
+
+/* side trust list (desktop): icon chips beside short lines */
+.lp-of__trust--side {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
+  justify-items: start;
+  padding-block: 1.5rem 0;
+  border-block-start: 1px solid color-mix(in oklab, var(--sec-ink) 18%, transparent);
+  font-size: calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale));
+  text-align: start;
+}
+
+.lp-of__trust--side .lp-of__trust-item {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: 0;
+  box-shadow: none;
+  color: var(--sec-ink);
+}
+
+/* the best saving: a turning seal half over the slab's top edge */
+.lp-of__disc {
+  --badge-size: var(--disc);
+  position: absolute;
+  inset-block-start: calc(var(--disc) * -0.5);
+  inset-inline-end: clamp(0.75rem, 4vw, 2.5rem);
+  z-index: 3;
+}
+
+/* "−25%" reads left-to-right in every script */
+.lp-of__disc .lp-ringbadge__core {
+  direction: ltr;
+}
+
+@media (min-width: 64rem) {
+
+  .lp-of__side {
+    position: sticky;
+    inset-block-start: calc(var(--of-stick) + 0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-of__show-i,
+  .lp-of__swap,
+  .lp-vo__face,
+  .lp-bump,
+  .lp-of__no,
+  .lp-of__no-1,
+  .lp-of__no-2,
+  .lp-of__tick,
+  .lp-of__step::before,
+  .lp-of__step::after {
+    transition: none;
+  }
+
+  .lp-of__form[data-state="sending"] .lp-of__submit::after {
+    animation: none;
+  }
+}

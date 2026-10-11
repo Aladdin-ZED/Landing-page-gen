@@ -1,0 +1,310 @@
+/* stats · rings — rules only this variant renders (inlined after stats.css on pages whose markup
+   carries .lp-stats--rings; the admin preview loads every variant). Shared rules live in stats.css. */
+
+/* ==========================================================================
+   rings — one concentric cluster drawing to each share, a legend that lights it
+   ========================================================================== */
+.lp-stats__rg {
+  --ring-0: var(--sec-accent);
+  --ring-1: var(--sec-ink);
+  --ring-2: var(--sec-ink-soft);
+  --ring-3: var(--mx-line);
+  display: grid;
+  grid-template-areas: "head" "cluster" "keys" "foot";
+  row-gap: clamp(2.25rem, 1.5rem + 3vw, 3.5rem);
+}
+
+/* one family of tones around the accent: a deeper step toward the ink, a lighter one toward the
+   section color (on dark blocks: a pale step and a platinum near-ink; on color blocks: steps of the ink) */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-stats__rg {
+    --ring-1: color-mix(in oklab, var(--sec-accent) 58%, var(--sec-ink));
+    --ring-2: color-mix(in oklab, var(--sec-accent) 42%, var(--sec-bg));
+    --ring-3: color-mix(in oklab, var(--sec-accent) 28%, var(--sec-ink));
+  }
+
+  :is([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])) > .lp-stats__rg {
+    --ring-1: color-mix(in oklab, var(--sec-accent) 45%, var(--sec-ink));
+    --ring-2: color-mix(in oklab, var(--sec-ink) 84%, var(--sec-bg));
+    --ring-3: color-mix(in oklab, var(--sec-accent) 55%, var(--sec-bg));
+  }
+
+  :is([data-bg="accent"], [data-bg="pop"]) > .lp-stats__rg {
+    /* tone on tone: steps of the block's own ink (a second hue mixed into the block could pass
+       through orange — a crimson into a butter block) */
+    --ring-1: color-mix(in oklab, var(--sec-ink) 68%, var(--sec-bg));
+    --ring-2: color-mix(in oklab, var(--sec-ink) 40%, var(--sec-bg));
+    --ring-3: color-mix(in oklab, var(--sec-ink) 22%, var(--sec-bg));
+  }
+
+  /* where relative colors exist, the lighter / deeper steps are the accent's own hue at less chroma
+     (a mix with a warm ground drifts a crimson toward coral) */
+  @supports (color: oklch(from red l c h)) {
+    .lp-stats__rg {
+      --ring-2: oklch(from var(--sec-accent) calc(l + (1 - l) * 0.42) calc(c * 0.55) h);
+    }
+
+    :is([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])) > .lp-stats__rg {
+      --ring-3: oklch(from var(--sec-accent) calc(l * 0.82) calc(c * 0.6) h);
+    }
+  }
+
+  .lp-stats__ring > .lp-stats__track {
+    stroke: color-mix(in oklab, var(--rc) 16%, transparent);
+  }
+
+  .lp-stats__minitrack {
+    stroke: color-mix(in oklab, var(--rc) 22%, transparent);
+  }
+}
+
+.lp-stats__rg > :is(.lp-stats__head, .lp-stats__foot) {
+  margin: 0;
+}
+
+.lp-stats__rg > .lp-stats__head {
+  grid-area: head;
+}
+
+.lp-stats__rg > .lp-stats__foot {
+  grid-area: foot;
+}
+
+.lp-stats__dialwrap {
+  grid-area: cluster;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+}
+
+.lp-stats__cluster {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  inline-size: min(100%, 21rem);
+  aspect-ratio: 1;
+}
+
+.lp-stats__cluster > :not(.lp-orb) {
+  grid-area: 1 / 1;
+}
+
+/* the light sits behind the rings and the core (a positioned layer would otherwise veil them) */
+.lp-stats__cluster > .lp-orb {
+  z-index: -1;
+}
+
+.lp-stats__dial {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+  fill: none;
+}
+
+[dir="rtl"] .lp-stats__dial {
+  transform: scaleX(-1);
+}
+
+.lp-stats__ring {
+  transition: opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-stats__track {
+  stroke: var(--mx-hair);
+}
+
+.lp-stats__arc {
+  --rv-dur: calc(var(--lp-dur-l) * 2);
+  stroke: var(--rc);
+  stroke-linecap: round;
+}
+
+.lp-stats__hair {
+  stroke: var(--mx-line);
+  stroke-width: 0.7;
+}
+
+/* fine rings: hairline tracks, and a bead of light where each share ends */
+.lp-stats__rg--fine .lp-stats__ring > .lp-stats__track {
+  stroke: var(--mx-line);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.lp-stats__bead {
+  stroke: var(--rc);
+  stroke-width: calc(var(--sw, 4) * 2.5px);
+  stroke-linecap: round;
+}
+
+/* the halo parts the hairline under the bead */
+.lp-stats__bead--halo {
+  stroke: var(--sec-bg);
+  stroke-width: calc(var(--sw, 4) * 2.5px + 5px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* each bead lands once its arc has drawn */
+  html.lp-js:not([data-motion="off"]) .lp-stats__dial[data-reveal][data-in] .lp-stats__bead.lp-draw {
+    animation: lp-stats-bead calc(var(--lp-dur-m) * 1.2) var(--lp-spring) calc(var(--d, 0ms) + var(--i, 0) * 140ms + var(--lp-dur-l) * 1.6) backwards;
+  }
+}
+
+/* the free core: the product (a photo in a circle, a cutout on a disc of light) or the lead figure */
+.lp-stats__core {
+  display: grid;
+  place-items: center;
+  inline-size: var(--core, 60%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.lp-stats__core .lp-stats__vis {
+  inline-size: 100%;
+}
+
+.lp-stats__core[data-kind="photo"] .lp-stats__vis {
+  filter: drop-shadow(0 0.75rem 1.25rem var(--st-drop));
+}
+
+.lp-stats__core[data-kind="cutout"] {
+  background-image: radial-gradient(circle at 50% 38%, var(--mx-stage-hi), var(--mx-stage) 72%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-stats__core[data-kind="cutout"] .lp-stats__vis {
+  inline-size: 84%;
+  margin-block-start: -18%;
+}
+
+.lp-stats__core[data-kind="cutout"] .lp-stats__pic {
+  aspect-ratio: 1;
+}
+
+.lp-stats__corenum {
+  --fs: clamp(3rem, 2rem + 5vw, 6.5rem);
+  display: block;
+  inline-size: 86%;
+  text-align: center;
+  color: var(--rc, var(--sec-ink));
+}
+
+.lp-stats__label--core {
+  max-inline-size: 28ch;
+  text-align: center;
+}
+
+/* legend */
+.lp-stats__keys {
+  grid-area: keys;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.75rem, 1.2rem + 2vw, 2.5rem) clamp(1rem, 4vw, 2.25rem);
+}
+
+.lp-stats__keys:is([data-count="1"], [data-count="3"]) > :last-child {
+  grid-column: 1 / -1;
+}
+
+.lp-stats__key {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  align-content: start;
+  gap: 0.65rem 0.8rem;
+  padding-block-start: 1.1rem;
+  border-block-start: 1px solid var(--mx-hair);
+  transition: opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* key: a small ring of the figure's own share */
+.lp-stats__mini {
+  inline-size: 1.3rem;
+  block-size: 1.3rem;
+  overflow: visible;
+  fill: none;
+}
+
+[dir="rtl"] .lp-stats__mini {
+  transform: scaleX(-1);
+}
+
+.lp-stats__minitrack {
+  stroke: var(--mx-hair);
+  stroke-width: 3.4;
+}
+
+.lp-stats__miniarc {
+  --rv-dur: calc(var(--lp-dur-l) * 1.4);
+  stroke: var(--rc);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+
+/* a figure without a whole has no ring to key: a short hairline dash holds the ring's place (same
+   1.3rem slot, so every figure of the legend starts on the same line) without reading as a bullet */
+.lp-stats__swatch {
+  inline-size: 0.8rem;
+  block-size: 2px;
+  margin-inline: 0.25rem;
+  border-radius: 999px;
+  background-color: var(--mx-line);
+}
+
+.lp-stats__keynum {
+  --fs: clamp(2.35rem, 1.8rem + 2.2vw, 3.5rem);
+}
+
+.lp-stats__key .lp-stats__label {
+  grid-column: 1 / -1;
+}
+
+/* hover a key: its ring lights, the others step back */
+@media (hover: hover) {
+  .lp-stats__keys:has(.lp-stats__key:hover) .lp-stats__key:not(:hover) {
+    opacity: 0.5;
+  }
+
+  .lp-stats__rg:has(.lp-stats__key[data-k]:hover) .lp-stats__ring {
+    opacity: 0.22;
+  }
+
+  .lp-stats__rg:has(.lp-stats__key[data-k="0"]:hover) .lp-stats__ring[data-k="0"],
+  .lp-stats__rg:has(.lp-stats__key[data-k="1"]:hover) .lp-stats__ring[data-k="1"],
+  .lp-stats__rg:has(.lp-stats__key[data-k="2"]:hover) .lp-stats__ring[data-k="2"],
+  .lp-stats__rg:has(.lp-stats__key[data-k="3"]:hover) .lp-stats__ring[data-k="3"] {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 56rem) {
+  .lp-stats__rg {
+    grid-template: "cluster head" auto "cluster keys" auto "cluster foot" 1fr / minmax(0, 1fr) minmax(0, 1.08fr);
+    gap: clamp(2rem, 3vw, 2.75rem) clamp(3rem, 7vw, 7.5rem);
+  }
+
+  .lp-stats__cluster {
+    inline-size: min(100%, 30rem);
+  }
+
+  .lp-stats__keys[data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lp-stats__keys[data-count="3"] > :last-child {
+    grid-column: auto;
+  }
+
+  .lp-stats__rg > .lp-stats__foot {
+    align-self: start;
+  }
+}
+
+@keyframes lp-stats-bead {
+  from {
+    stroke-width: 0;
+    stroke-dashoffset: 0;
+  }
+}

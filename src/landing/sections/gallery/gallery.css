@@ -1,0 +1,401 @@
+/* ==========================================================================
+   gallery — carousel · masonry (bento) · filmstrip · lookbook   (v2 · modern)
+   Runtime hooks: data-active on slides/thumbs/segments, aria-current, disabled
+   arrows, data-index on [data-gallery] (→ --gi, 0-based active photo).
+   Elements tagged .lp-gallery__k carry their own index --k and derive
+   --on (1 on the active photo, 0 elsewhere) and --side (−1 before it, +1 after):
+   ambient light, caption deck and segments crossfade on that, in pure CSS.
+   States a reader depends on (counter, progress) use `transform`; individual
+   translate/scale only carry motion (DESIGN.md · browser floor).
+   Rules every variant uses. A variant's own rules live in gallery.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-gallery {
+  --g-gap: clamp(0.625rem, 0.4rem + 0.9vw, 1.125rem);
+  --g-thumb-r: min(var(--lp-sq-media), 1.4rem);
+}
+
+.lp-gallery [data-index="1"] { --gi: 1; }
+.lp-gallery [data-index="2"] { --gi: 2; }
+.lp-gallery [data-index="3"] { --gi: 3; }
+.lp-gallery [data-index="4"] { --gi: 4; }
+.lp-gallery [data-index="5"] { --gi: 5; }
+.lp-gallery [data-index="6"] { --gi: 6; }
+.lp-gallery [data-index="7"] { --gi: 7; }
+.lp-gallery [data-index="8"] { --gi: 8; }
+.lp-gallery [data-index="9"] { --gi: 9; }
+.lp-gallery [data-index="10"] { --gi: 10; }
+.lp-gallery [data-index="11"] { --gi: 11; }
+
+.lp-gallery__k {
+  --on: calc(1 - min(1, max(var(--k) - var(--gi, 0), var(--gi, 0) - var(--k))));
+  --side: clamp(-1, var(--k) - var(--gi, 0), 1);
+}
+
+.lp-gallery__head {
+  margin-block-end: clamp(2rem, 1.4rem + 2.6vw, 3.5rem);
+}
+
+/* ---------- photos ---------- */
+.lp-gallery__pic--fill {
+  position: absolute;
+  inset: 0;
+  block-size: 100%;
+}
+
+/* cutouts stand on a lit studio tile instead of being cropped */
+.lp-gallery__pic--cut {
+  background: radial-gradient(75% 62% at 50% 40%, var(--mx-stage-hi), var(--mx-stage) 68%, var(--mx-stage-lo));
+}
+
+.lp-gallery__pic--cut .lp-pic__img {
+  padding: 10%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* ---------- captions: "02  In detail" ---------- */
+.lp-gallery__cap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7em;
+  margin: 0;
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * var(--lp-script-scale)));
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.lp-gallery__cap-n {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.84em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--lp-label-tracking);
+  color: var(--sec-accent);
+}
+
+/* glass chip over a photo: a pill on one line, a soft rounded card on two (never more) */
+.lp-gallery__cap.lp-glass {
+  position: absolute;
+  z-index: 2;
+  inset-block-end: 0.875rem;
+  inset-inline-start: 0.875rem;
+  max-inline-size: calc(100% - 1.75rem);
+  padding-block: 0.5em 0.55em;
+  padding-inline: 0.95em 1.1em;
+  border-radius: 1.3em;
+  font-weight: 600;
+}
+
+.lp-gallery__cap.lp-glass .lp-gallery__cap-n {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.lp-gallery__cap.lp-glass .lp-gallery__cap-t {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* ---------- controls ---------- */
+.lp-gallery__arrows {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.lp-gallery__arrow {
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: scale var(--lp-dur-m) var(--lp-spring), opacity var(--lp-dur-s) var(--lp-ease);
+}
+
+.lp-gallery__arrow:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.lp-gallery__arrow:not(:disabled):active {
+  scale: 0.9;
+}
+
+@media (hover: hover) {
+  .lp-gallery__arrow:not(:disabled):hover {
+    scale: 1.08;
+  }
+
+  .lp-gallery__seg:not([data-active]):hover::before {
+    background: var(--mx-line);
+    opacity: 1;
+  }
+}
+
+/* rolling number: "01" rolls up to "02" like an odometer */
+.lp-gallery__now {
+  display: block;
+  block-size: 1em;
+  overflow: hidden;
+}
+
+.lp-gallery__roll {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(calc(var(--gi, 0) * -1em));
+  transition: transform var(--lp-dur-l) var(--lp-spring);
+}
+
+.lp-gallery__roll > span {
+  block-size: 1em;
+  line-height: 1;
+}
+
+.lp-gallery__cta {
+  inline-size: 100%;
+}
+
+/* ---------- ambient light (viewer + filmstrip) ----------
+   The active photo, heavily blurred and saturated, glows around the frame; it crossfades to the
+   next photo's colors. Stronger on dark sections, a tinted halo on light ones. */
+.lp-gallery__amb {
+  --amb: 0.42;
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+[data-tone="dark"] .lp-gallery__amb {
+  --amb: 0.7;
+}
+
+[data-tone="accent"] .lp-gallery__amb,
+[data-tone="pop"] .lp-gallery__amb {
+  --amb: 0.5;
+}
+
+html[data-shadow="none"] .lp-gallery__amb {
+  --amb: 0.3;
+}
+
+.lp-gallery__amb-l {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  opacity: calc(var(--amb) * var(--on));
+  /* fade first, then hide (a hidden layer is never painted: one blur at a time) */
+  transition: opacity 1.1s var(--lp-smooth), visibility 0s linear 1.1s;
+}
+
+.lp-gallery__amb-l[data-k="0"],
+[data-index="1"] .lp-gallery__amb-l[data-k="1"],
+[data-index="2"] .lp-gallery__amb-l[data-k="2"],
+[data-index="3"] .lp-gallery__amb-l[data-k="3"],
+[data-index="4"] .lp-gallery__amb-l[data-k="4"],
+[data-index="5"] .lp-gallery__amb-l[data-k="5"],
+[data-index="6"] .lp-gallery__amb-l[data-k="6"],
+[data-index="7"] .lp-gallery__amb-l[data-k="7"],
+[data-index="8"] .lp-gallery__amb-l[data-k="8"],
+[data-index="9"] .lp-gallery__amb-l[data-k="9"],
+[data-index="10"] .lp-gallery__amb-l[data-k="10"],
+[data-index="11"] .lp-gallery__amb-l[data-k="11"] {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+[data-index]:not([data-index="0"]) .lp-gallery__amb-l[data-k="0"] {
+  visibility: hidden;
+  transition-delay: 0s, 1.1s;
+}
+
+.lp-gallery__amb-l .lp-pic {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  max-inline-size: none;
+  aspect-ratio: auto;
+  border-radius: var(--lp-radius-media);
+  filter: blur(clamp(28px, 1rem + 3vw, 60px)) saturate(1.7);
+}
+
+.lp-gallery__amb-l .lp-pic__img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+/* HUD: big rolling number with its total as an index ("01 /03"), the caption deck, and under
+   them a hairline that fills with progress */
+.lp-gallery__hud {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-areas: "num all deck" "bar bar bar";
+  align-items: end;
+  row-gap: clamp(0.875rem, 0.7rem + 0.5vw, 1.125rem);
+}
+
+.lp-gallery__num {
+  grid-area: num;
+  font-family: var(--lp-font-display);
+  font-size: clamp(3rem, 2.2rem + 3vw, 4.75rem);
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1;
+}
+
+.lp-gallery__deck {
+  grid-area: deck;
+  display: grid;
+  align-self: end;
+  min-inline-size: 0;
+  padding-block-end: 0.25em;
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* captions stacked in one cell: the active one is sharp, the others wait above/below, blurred */
+.lp-gallery__deck-i {
+  grid-area: 1 / 1;
+  align-self: end;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  opacity: var(--on);
+  translate: 0 calc(var(--side) * 0.6em);
+  filter: blur(calc((1 - var(--on)) * 5px));
+  transition:
+    opacity var(--lp-dur-m) var(--lp-smooth),
+    translate var(--lp-dur-l) var(--lp-spring),
+    filter var(--lp-dur-m) var(--lp-smooth);
+  text-wrap: balance;
+}
+
+.lp-gallery__all {
+  grid-area: all;
+  align-self: start;
+  margin-block-start: 0.3em;
+  margin-inline: 0.45rem clamp(1rem, 0.7rem + 1vw, 1.5rem);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--lp-step--1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--lp-label-tracking);
+  color: var(--sec-ink-soft);
+}
+
+.lp-gallery__all::before {
+  content: "/";
+  margin-inline-end: 0.15em;
+  opacity: 0.55;
+}
+
+.lp-gallery__bar {
+  grid-area: bar;
+  position: relative;
+  block-size: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--mx-line);
+}
+
+.lp-gallery__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--sec-accent);
+  transform: scaleX(calc((var(--gi, 0) + 1) / var(--gn, 1)));
+  transform-origin: left;
+  transition: transform var(--lp-dur-l) var(--lp-smooth);
+}
+
+[dir="rtl"] .lp-gallery__bar::after {
+  transform-origin: right;
+}
+
+.lp-gallery__segs {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.lp-gallery__seg {
+  position: relative;
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.lp-gallery__seg::before,
+.lp-gallery__seg::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(50% - 1.5px);
+  block-size: 3px;
+  border-radius: 3px;
+  transition: transform var(--lp-dur-m) var(--lp-smooth), opacity var(--lp-dur-s) var(--lp-ease);
+}
+
+.lp-gallery__seg::before {
+  background: var(--mx-hair);
+}
+
+/* filled up to the active photo */
+.lp-gallery__seg::after {
+  background: var(--sec-accent);
+  transform: scaleX(clamp(0, var(--gi, 0) - var(--k) + 1, 1));
+  transform-origin: left;
+}
+
+[dir="rtl"] .lp-gallery__seg::after {
+  transform-origin: right;
+}
+
+.lp-gallery__seg:not([data-active])::after {
+  opacity: 0.55;
+}
+
+.lp-gallery__mini {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  margin: 0;
+  direction: ltr;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--lp-step--1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--lp-label-tracking);
+  line-height: 1;
+  color: var(--sec-ink-soft);
+}
+
+.lp-gallery__mini .lp-gallery__now {
+  color: var(--sec-ink);
+}
+
+.lp-gallery__mini-sep {
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-gallery__deck-i {
+    translate: none;
+    filter: none;
+  }
+}

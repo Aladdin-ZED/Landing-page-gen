@@ -1,0 +1,410 @@
+/* showcase · ingredients — rules only this variant renders (inlined after showcase.css on pages whose markup
+   carries .lp-showcase--ingredients; the admin preview loads every variant). Shared rules live in showcase.css. */
+
+:is(.lp-showcase__notes, .lp-showcase__xlist, .lp-showcase__tiles) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ==========================================================================
+   ingredients — masked photo on its glow + a bento of ingredient tiles
+   ========================================================================== */
+.lp-showcase__ib {
+  display: grid;
+  gap: clamp(2.5rem, 1.6rem + 3.5vw, 4rem);
+}
+
+.lp-showcase__media {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  justify-items: center;
+  inline-size: min(100%, 24rem);
+  margin: 0 auto;
+}
+
+.lp-showcase__glow,
+.lp-showcase__zl {
+  z-index: -1;
+}
+
+.lp-showcase__frame {
+  inline-size: 100%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* frosted chip crossing the photo's lower edge */
+.lp-showcase__cap {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-inline-size: calc(100% - 1.5rem);
+  margin-block-start: -1.4rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.3;
+}
+
+.lp-showcase__capdot {
+  flex: none;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 4px var(--mx-tint-2);
+}
+
+.lp-showcase__tilewrap {
+  container-type: inline-size;
+}
+
+.lp-showcase__tiles {
+  display: grid;
+  gap: clamp(0.85rem, 0.6rem + 0.8vw, 1.15rem);
+}
+
+/* phones: a compact cell — icon gutter, name with its figure, origin and copy beneath
+   (the copy box dissolves so each line can take its own grid area) */
+.lp-showcase__tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "art name share"
+    "art origin origin"
+    "art text text"
+    "art bar bar";
+  align-items: start;
+  column-gap: 1rem;
+  padding: clamp(1.1rem, 0.9rem + 0.8vw, 1.5rem) clamp(1.15rem, 0.95rem + 0.9vw, 1.6rem);
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-showcase__tilebody {
+  display: contents;
+}
+
+.lp-showcase__tile .lp-showcase__label {
+  grid-area: name;
+  align-self: center;
+}
+
+/* long figures or words ("3 200 cps/min", "Étanche") would squeeze the name into a hyphenated sliver:
+   on a narrow column every cell stacks instead — mark and figure on top, the name at full width */
+@container (max-width: 31.99rem) {
+  .lp-showcase__tiles[data-shares="long"] .lp-showcase__tile:not(.lp-showcase__tile--lead) {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "art share"
+      "name name"
+      "origin origin"
+      "text text"
+      "bar bar";
+  }
+
+  .lp-showcase__tiles[data-shares="long"] .lp-showcase__tile:not(.lp-showcase__tile--lead) .lp-showcase__label {
+    margin-block-start: 1rem;
+  }
+}
+
+@media (hover: hover) {
+  .lp-showcase__tile:hover {
+    translate: 0 -4px;
+    box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  }
+
+  .lp-showcase__tile:hover .lp-showcase__art {
+    scale: 1.06;
+  }
+}
+
+/* the leading ingredient: a solid color block (a [data-bg] of its own) with its share set large */
+.lp-showcase__tile--lead {
+  overflow: hidden;
+  background: var(--sec-bg);
+  color: var(--sec-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+  transition: translate var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* product light pooling in the lead tile's corner */
+.lp-showcase__tile--lead::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -40%;
+  inset-inline-end: -20%;
+  inline-size: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--mx-rim), transparent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.lp-showcase__art {
+  grid-area: art;
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  padding: 0.5rem;
+  overflow: hidden;
+  border-radius: calc(32% * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  color: var(--sec-accent);
+  background: linear-gradient(160deg, var(--mx-tint-2), var(--mx-tint));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+  transition: scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-showcase__art[data-art="icon"] {
+  padding: 0.75rem;
+}
+
+.lp-showcase__art > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-showcase__share {
+  grid-area: share;
+  align-self: center;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.lp-showcase__share:is([data-kind="pct"], [data-kind="fig"]) {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * 0.95);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--sec-ink);
+}
+
+.lp-showcase__share[data-kind="fig"] {
+  font-size: calc(var(--lp-step-1) * 1.02 * var(--lp-script-scale-display));
+  letter-spacing: -0.01em;
+}
+
+.lp-showcase__share .lp-counter__affix {
+  margin-inline-start: 0.04em;
+  font-size: 0.5em;
+  letter-spacing: 0;
+}
+
+.lp-showcase__share[data-kind="word"] {
+  padding: 0.4em 0.85em;
+  border-radius: 999px;
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  color: var(--sec-accent);
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 600);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.2;
+}
+
+.lp-showcase__origin {
+  grid-area: origin;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.94 * var(--lp-script-scale));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-accent);
+}
+
+.lp-showcase__origin > svg {
+  flex: none;
+}
+
+.lp-showcase__tile .lp-showcase__text {
+  grid-area: text;
+  margin-block-start: 0.55em;
+  font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+  color: inherit;
+  opacity: 0.76;
+}
+
+.lp-showcase__bar {
+  grid-area: bar;
+  display: block;
+  margin-block-start: 1rem;
+  block-size: 0.3rem;
+  border-radius: 999px;
+  background: var(--mx-hair);
+  overflow: hidden;
+}
+
+.lp-showcase__fill {
+  display: block;
+  inline-size: calc(var(--p, 0) * 100%);
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--sec-accent);
+}
+
+.lp-showcase__tile--lead .lp-showcase__share[data-kind="pct"] {
+  font-size: calc(var(--lp-step-5) * 0.92);
+  line-height: 0.86;
+  letter-spacing: -0.035em;
+}
+
+.lp-showcase__tile--lead .lp-showcase__share[data-kind="fig"] {
+  font-size: calc(var(--lp-step-3) * var(--lp-script-scale-display));
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+
+.lp-showcase__tile--lead .lp-showcase__share[data-kind="word"] {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--sec-ink);
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  line-height: 1;
+}
+
+/* the lead reads as a statement: mark and figure on top, then its name set large */
+.lp-showcase__tile--lead {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "art share"
+    "name name"
+    "origin origin"
+    "text text"
+    "bar bar";
+}
+
+.lp-showcase__tile--lead .lp-showcase__share {
+  align-self: start;
+}
+
+.lp-showcase__tile--lead .lp-showcase__label {
+  margin-block-start: 1.25rem;
+  font-size: calc(var(--lp-step-2) * 0.9 * var(--lp-script-scale-display));
+}
+
+.lp-showcase__tile--lead .lp-showcase__bar {
+  margin-block-start: 1.25rem;
+  block-size: 0.4rem;
+}
+
+@container (min-width: 32rem) {
+  .lp-showcase__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-showcase__tile--wide {
+    grid-column: 1 / -1;
+  }
+
+  /* half-width bento cards: mark and figure on top, the copy below (wide ones keep the cell) */
+  .lp-showcase__tile:not(.lp-showcase__tile--wide) {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "art share"
+      "name name"
+      "origin origin"
+      "text text"
+      "bar bar";
+  }
+
+  .lp-showcase__tile:not(.lp-showcase__tile--wide) .lp-showcase__label {
+    margin-block-start: 1.1rem;
+  }
+
+  .lp-showcase__tile--lead {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "art . share"
+      "name name share"
+      "origin origin share"
+      "text text share"
+      "bar bar bar";
+    column-gap: 1.5rem;
+    padding: clamp(1.5rem, 1rem + 1.6vw, 2.25rem);
+  }
+
+  .lp-showcase__tile--lead .lp-showcase__share {
+    align-self: end;
+  }
+}
+
+/* fallback grid for engines without container queries */
+@supports not (container-type: inline-size) {
+  @media (min-width: 40rem) {
+    .lp-showcase__tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .lp-showcase__tile--wide {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+@media (min-width: 60rem) {
+  .lp-showcase__ib {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: center;
+    column-gap: clamp(2.5rem, 5vw, 5rem);
+  }
+
+  /* centred on the tiles; a tall bento lets it ride along (sticky within its row) */
+  .lp-showcase__media {
+    position: sticky;
+    inset-block-start: clamp(1.5rem, 8vh, 5rem);
+    align-self: center;
+    inline-size: 100%;
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"]) :is(.lp-showcase__aura, .lp-showcase__glow, .lp-showcase__field .lp-orb) {
+      animation: lp-sc-drift linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-showcase :is(.lp-showcase__pin, .lp-showcase__card, .lp-showcase__tile, .lp-showcase__art, .lp-showcase__ray, .lp-showcase__leaders g, .lp-showcase__xpin, .lp-showcase__xray, .lp-showcase__xleaders g, .lp-showcase__xcall > *) {
+    transition: none;
+  }
+
+  .lp-showcase :is(.lp-showcase__tile:hover, .lp-showcase__card, .lp-showcase__xbody) {
+    translate: none;
+  }
+
+  .lp-showcase :is(.lp-showcase__pin, .lp-showcase__xpin, .lp-showcase__badge, .lp-showcase__art) {
+    scale: none;
+  }
+}
+
+@keyframes lp-sc-drift {
+  from {
+    translate: 0 8%;
+  }
+  to {
+    translate: 0 -8%;
+  }
+}

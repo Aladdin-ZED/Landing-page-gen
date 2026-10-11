@@ -1,0 +1,428 @@
+/* hero · spec — rules only this variant renders (inlined after hero.css on pages whose markup
+   carries .lp-hero--spec; the admin preview loads every variant). Shared rules live in hero.css. */
+
+.lp-hero__head {
+  display: grid;
+  gap: clamp(0.9rem, 0.65rem + 0.9vw, 1.4rem);
+  justify-items: start;
+  min-inline-size: 0;
+}
+.lp-hero__specs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ==========================================================================
+   spec — dark instrument panel: centered headline, buy console, the product
+   big on its set with numbered callouts on long hairline leaders, figures
+   ========================================================================== */
+.lp-hero--spec {
+  text-align: center;
+}
+
+.lp-hero__gridlines {
+  opacity: 0.9;
+}
+
+.lp-hero--spec .lp-hero__grid {
+  justify-items: center;
+  gap: clamp(1.75rem, 1.2rem + 2.5vw, 3rem);
+}
+
+.lp-hero--spec .lp-hero__head {
+  justify-items: center;
+  max-inline-size: 54rem;
+}
+
+.lp-hero__ref {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  margin: 0;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(0.74rem * var(--lp-script-scale));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-hero__ref-id {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+
+.lp-hero__ref-v {
+  color: var(--sec-accent);
+  font-weight: var(--lp-strong-weight);
+}
+
+.lp-hero__ref-name {
+  color: var(--sec-ink);
+  text-wrap: balance;
+}
+
+/* the hairline divider only exists between a real reference and the name */
+.lp-hero__ref-id + .lp-hero__ref-name {
+  padding-inline-start: 0.65rem;
+  border-inline-start: 1px solid var(--mx-line);
+}
+
+/* phones: a pill that wraps would start its second line on the divider — the reference and the
+   product name stack instead, as a two-row spec plate split by a hairline */
+@media (max-width: 39.99rem) {
+  .lp-hero__ref:has(> .lp-hero__ref-id + .lp-hero__ref-name) {
+    display: inline-grid;
+    justify-items: center;
+    row-gap: 0.4rem;
+    padding: 0.55rem 1.1rem 0.6rem;
+    border-radius: var(--lp-sq-l);
+    corner-shape: var(--lp-corner);
+  }
+
+  /* the product name alone may run onto a second line: a soft plate, not a stretched pill */
+  .lp-hero__ref:not(:has(> .lp-hero__ref-id)) {
+    padding-inline: 1.1rem;
+    border-radius: var(--lp-sq-l);
+    corner-shape: var(--lp-corner);
+  }
+
+  .lp-hero__ref-id + .lp-hero__ref-name {
+    justify-self: stretch;
+    padding-block-start: 0.45rem;
+    padding-inline-start: 0;
+    border-block-start: 1px solid var(--mx-line);
+    border-inline-start: 0;
+    text-align: center;
+  }
+}
+
+.lp-hero--spec .lp-hero__title {
+  max-inline-size: 18ch;
+  font-size: min(calc(var(--lp-step-5) * 0.8 * var(--lp-script-scale-display)), 12vw, 4.6rem);
+}
+
+@media (min-width: 48rem) {
+  .lp-hero--spec .lp-hero__title--xlong {
+    max-inline-size: 24ch;
+    font-size: min(calc(var(--lp-step-5) * 0.6 * var(--lp-script-scale-display)), 3.5rem);
+  }
+}
+
+.lp-hero--spec .lp-hero__lead {
+  max-inline-size: 36rem;
+}
+
+.lp-hero__rig {
+  --half: min(13rem, 50%);
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1.5rem;
+  inline-size: 100%;
+}
+
+.lp-hero--spec .lp-hero__stage {
+  inline-size: 100%;
+  max-inline-size: calc(var(--half) * 2);
+}
+
+/* a photo sits on a thin glass mat */
+.lp-hero--spec .lp-stage[data-kind="photo"] .lp-stage__product {
+  inset: 3.5%;
+}
+
+/* the over layer clips the one-time scan sweep */
+.lp-hero--spec .lp-stage__over {
+  overflow: hidden;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-hero__scan {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  block-size: 28%;
+  background: linear-gradient(180deg, transparent, var(--mx-tint-2) 88%, var(--sec-accent) 99%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* phones & tablets: a numbered spec sheet on hairlines under the product */
+@media (max-width: 63.99rem) {
+  .lp-hero__specs {
+    display: grid;
+    inline-size: 100%;
+    max-inline-size: 34rem;
+    border-block-end: 1px solid var(--mx-line);
+    text-align: start;
+  }
+
+  .lp-hero--spec .lp-hero__callout {
+    position: relative;
+    grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 46%);
+    align-items: baseline;
+    column-gap: 0.75rem;
+    inline-size: auto;
+    max-inline-size: none;
+    padding: 0.8rem 0;
+    border: 0;
+    border-block-start: 1px solid var(--mx-line);
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: inherit;
+    font-size: calc(0.86rem * var(--lp-script-scale));
+  }
+
+  .lp-hero--spec .lp-hero__callout-n {
+    font-size: 0.78rem;
+  }
+
+  .lp-hero--spec .lp-hero__callout-t {
+    font-size: 1em;
+  }
+
+  .lp-hero--spec .lp-hero__callout-d {
+    color: var(--sec-ink-soft);
+    text-align: end;
+    opacity: 1;
+  }
+
+  .lp-hero--spec .lp-hero__leader {
+    display: none;
+  }
+}
+
+/* one column per real figure, each about 15rem: a single figure is a centered plate, not a lone
+   number adrift in a 46rem strip */
+.lp-hero__stats {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  inline-size: 100%;
+  max-inline-size: 46rem;
+  margin: 0;
+  border-block: 1px solid var(--mx-line);
+}
+
+.lp-hero__stats[data-n="1"] {
+  max-inline-size: 16rem;
+}
+
+.lp-hero__stats[data-n="2"] {
+  max-inline-size: 32rem;
+}
+
+.lp-hero__stat {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  padding: 1rem 0.5rem;
+}
+
+.lp-hero__stat + .lp-hero__stat {
+  border-inline-start: 1px solid var(--mx-line);
+}
+
+.lp-hero__stat-v {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-3) * 0.95 * var(--lp-script-scale-display));
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* the sign is set small like the % but sits on the figures' optical middle, not on the baseline */
+.lp-hero__stat-v .lp-counter__fig > .lp-counter__affix:first-child {
+  vertical-align: 0.16em;
+  margin-inline-end: 0.06em;
+}
+
+.lp-hero__stat-k {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(0.72rem * var(--lp-script-scale));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-hero__stat-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--lp-dur-s) var(--lp-ease);
+}
+
+@media (hover: hover) {
+  .lp-hero__stat-link:hover {
+    color: var(--sec-accent);
+  }
+}
+
+.lp-hero--spec .lp-hero__buy {
+  justify-items: center;
+  inline-size: 100%;
+}
+
+.lp-hero__console {
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  inline-size: 100%;
+}
+
+.lp-hero--spec .lp-hero__trust {
+  justify-content: center;
+}
+
+@media (min-width: 64rem) {
+  /* Apple order: headline → buy console → the product, big → figures */
+  .lp-hero--spec .lp-hero__grid {
+    grid-template-areas: "head" "buy" "rig" "stats";
+    row-gap: 2.25rem;
+  }
+
+  .lp-hero--spec .lp-hero__head {
+    grid-area: head;
+  }
+
+  .lp-hero--spec .lp-hero__buy {
+    grid-area: buy;
+    gap: 1rem;
+  }
+
+  .lp-hero__rig {
+    /* half the set: the callouts (gap + 14rem) must still fit beside it on small laptops */
+    --half: clamp(13rem, 50vw - 18.5rem, 16rem);
+    grid-area: rig;
+    margin-block-start: 0.5rem;
+  }
+
+  .lp-hero__stats {
+    grid-area: stats;
+  }
+
+  /* the console: price and action in one glass capsule */
+  .lp-hero__console {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.75rem;
+    inline-size: auto;
+    padding: 0.45rem;
+    padding-inline-start: 1.75rem;
+    border: 1px solid var(--sec-glass-border, var(--mx-hair));
+    /* concentric with the action it holds: the button's drawn corner (its radius, at least a quarter
+       of its 4rem height, × k) plus the inset × d; a pill button sits in a pill console */
+    border-radius: calc(max(var(--lp-radius-btn), 1rem) * var(--lp-corner-k) + 0.45rem * var(--lp-corner-d));
+    corner-shape: var(--lp-corner);
+    background-color: var(--sec-glass-solid, var(--sec-card));
+    color: var(--sec-glass-ink, var(--sec-card-ink));
+    box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l), 0 30px 80px -40px var(--mx-btn-2);
+  }
+
+  .lp-hero__console .lp-hero__cta {
+    min-inline-size: 18rem;
+  }
+
+  .lp-hero__specs {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+  }
+
+  .lp-hero--spec .lp-hero__callout {
+    --gap: 1.75rem;
+    --ll: var(--gap);
+    position: absolute;
+    inline-size: max-content;
+    max-inline-size: 14rem;
+    padding: 0.8rem 1.05rem 0.85rem;
+    font-size: calc(0.82rem * var(--lp-script-scale));
+    transform: translateY(-50%);
+    pointer-events: auto;
+  }
+
+  /* on a cutout the leaders cross the set and land on the product itself */
+  .lp-hero__rig[data-kind="cutout"] .lp-hero__callout {
+    --ll: calc(var(--gap) + var(--half) * 0.62);
+  }
+
+  .lp-hero--spec .lp-hero__callout[data-side="start"] {
+    inset-inline-end: calc(50% + var(--half) + var(--gap));
+  }
+
+  .lp-hero--spec .lp-hero__callout[data-side="end"] {
+    inset-inline-start: calc(50% + var(--half) + var(--gap));
+  }
+
+  .lp-hero--spec .lp-hero__callout[data-slot="0"] {
+    inset-block-start: 26%;
+  }
+
+  .lp-hero--spec .lp-hero__callout[data-slot="1"] {
+    inset-block-start: 40%;
+  }
+
+  .lp-hero--spec .lp-hero__callout[data-slot="2"] {
+    inset-block-start: 60%;
+  }
+
+  .lp-hero--spec .lp-hero__callout[data-slot="3"] {
+    inset-block-start: 74%;
+  }
+
+  .lp-hero__stat {
+    padding-block: 1.25rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root[data-btn="pill"] .lp-hero__console {
+    border-radius: 999px;
+    corner-shape: round;
+  }
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  @media (min-width: 64rem) {
+    .lp-hero__console {
+      background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+      -webkit-backdrop-filter: var(--lp-glass);
+      backdrop-filter: var(--lp-glass);
+    }
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* one light scan sweeps the spec set */
+  html.lp-js:not([data-motion="off"]) .lp-hero__scan {
+    animation: lp-hero-scan 2.4s var(--lp-sway) 0.5s 1 both;
+  }
+}
+
+@keyframes lp-hero-scan {
+  0% {
+    opacity: 0;
+    translate: 0 -100%;
+  }
+  15%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 360%;
+  }
+}

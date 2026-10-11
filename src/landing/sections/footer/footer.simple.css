@@ -1,0 +1,466 @@
+/* footer · simple — rules only this variant renders (inlined after footer.css on pages whose markup
+   carries .lp-footer--simple; the admin preview loads every variant). Shared rules live in footer.css. */
+
+.lp-footer__row-label {
+  font-family: var(--lp-font-label);
+  font-size: calc(
+    max(0.72rem, var(--lp-step--1) * 0.86) * var(--lp-script-scale)
+  );
+  font-weight: var(--lp-accent-weight);
+  line-height: 1.3;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+.lp-footer__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-footer__row-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ft-d, var(--ft-round));
+  block-size: var(--ft-d, var(--ft-round));
+  border-radius: 50%;
+  background: var(--ft-disc);
+  color: var(--sec-accent);
+  transition:
+    background-color var(--ft-e),
+    color var(--ft-e),
+    border-color var(--ft-e),
+    translate var(--ft-s),
+    scale var(--ft-s);
+}
+
+/* ==========================================================================
+   simple
+   ========================================================================== */
+/* the page's last block: a lighter run-in and a shorter run-out under the fine print — capped, so an
+   airy page's large rhythm never leaves the quiet info block floating in an empty panel */
+.lp-footer--simple {
+  padding-block: min(calc(var(--lp-space-section) * var(--space-k, 1) * 0.85), 8rem)
+    min(calc(var(--lp-space-section) * var(--space-k, 1) * 0.55), 5rem);
+}
+
+.lp-footer__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "intro" "reach" "legal" "rule" "meta" "fine";
+}
+
+.lp-footer__intro {
+  grid-area: intro;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.lp-footer__grid > .lp-footer__reach {
+  grid-area: reach;
+  margin-block-start: var(--ft-gap);
+}
+
+.lp-footer__grid > .lp-footer__legal {
+  grid-area: legal;
+  margin-block-start: calc(var(--ft-gap) * 0.75);
+}
+
+.lp-footer__grid > .lp-footer__rule {
+  grid-area: rule;
+  margin-block-start: calc(var(--ft-gap) * 0.6);
+}
+
+.lp-footer__grid > .lp-footer__meta {
+  grid-area: meta;
+  margin-block-start: 1.25rem;
+}
+
+.lp-footer__grid > .lp-footer__fine {
+  grid-area: fine;
+  margin-block-start: 1.25rem;
+}
+
+/* contact bento: the lead tile and the grouped card — stacked on phones, side by side from 38rem */
+.lp-footer__reach {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 0.625rem;
+}
+
+/* ---- the lead tile: the accent surface of the footer, the number set large ---- */
+.lp-footer__prime {
+  --ft-pad: clamp(1.1rem, 0.95rem + 0.6vw, 1.4rem);
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon . go"
+    "body body body";
+  align-content: space-between;
+  row-gap: 1.75rem;
+  min-block-size: 10.5rem;
+  padding: var(--ft-pad);
+  overflow: hidden;
+  container-type: inline-size;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-accent);
+  /* a top light from the reading start, a soft fall-off toward the opposite corner */
+  background-image:
+    radial-gradient(
+      110% 85% at var(--ft-light) 0%,
+      rgb(255 255 255 / 0.2),
+      transparent 58%
+    ),
+    radial-gradient(
+      90% 80% at calc(100% - var(--ft-light)) 100%,
+      rgb(0 0 0 / 0.12),
+      transparent 70%
+    );
+  box-shadow:
+    var(--lp-highlight-accent),
+    0 1px 2px var(--mx-btn-1),
+    0 22px 40px -22px var(--mx-btn-2);
+  color: var(--sec-accent-ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    translate var(--ft-s),
+    scale var(--ft-s),
+    box-shadow var(--lp-dur-m) var(--lp-ease);
+}
+
+:root[data-shadow="none"] .lp-footer__prime {
+  box-shadow: var(--lp-highlight-accent);
+}
+
+/* one band of light sweeps across in the reading direction on hover */
+.lp-footer__prime::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgb(255 255 255 / 0.16) 50%,
+    transparent 70%
+  );
+  translate: calc(var(--lp-x) * -101%) 0;
+  pointer-events: none;
+}
+
+.lp-footer__prime-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  /* concentric with the tile it sits --ft-pad inside of */
+  border-radius: max(calc(0.6rem * var(--lp-corner-k, 1)), calc(var(--lp-sq-l) - var(--ft-pad) * var(--lp-corner-d, 1)));
+  corner-shape: var(--lp-corner);
+  background: var(--mx-on-accent);
+  box-shadow: inset 0 0 0 1px var(--mx-on-accent);
+}
+
+.lp-footer__prime-go {
+  grid-area: go;
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  overflow: hidden;
+  border: 1px solid var(--mx-on-accent);
+  border-radius: 50%;
+  transition:
+    background-color var(--ft-e),
+    color var(--ft-e),
+    border-color var(--ft-e);
+}
+
+.lp-footer__prime-body {
+  grid-area: body;
+  display: grid;
+  gap: 0.4rem;
+  min-inline-size: 0;
+}
+
+.lp-footer__prime-label {
+  font-size: calc(var(--lp-step--1) * 1.06 * var(--lp-script-scale));
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* the number: display face, tabular, one line — fitted to the tile's width from its measured
+   advance (--ft-em / --ft-ws, set by the markup; 100cqi = the tile's content width) */
+.lp-footer__prime-fit {
+  display: block;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  /* engines without container units keep a size every face fits at any tile width */
+  font-size: var(--lp-step-1);
+  font-size: clamp(1rem, calc(100cqi / var(--ft-em, 10) * 0.94), 3.5rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+  word-spacing: var(--ft-ws, 0);
+  text-transform: none;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-footer__prime[data-k="email"] .lp-footer__prime-fit {
+  font-size: var(--lp-step-0);
+  font-size: min(var(--lp-step-1), 7cqi);
+  white-space: normal;
+}
+
+@media (hover: hover) {
+
+  :root[data-shadow="none"] a.lp-footer__prime:hover {
+    box-shadow: var(--lp-highlight-accent);
+  }
+
+  a.lp-footer__prime:hover::after {
+    translate: calc(var(--lp-x) * 101%) 0;
+    transition: translate calc(var(--lp-dur-l) * 2.4) var(--lp-smooth);
+  }
+
+  a.lp-footer__prime:hover .lp-footer__prime-go {
+    border-color: transparent;
+    background-color: var(--sec-accent-ink);
+    color: var(--sec-accent);
+  }
+
+  :root:not([data-motion="off"])
+    a.lp-footer__prime:hover
+    .lp-footer__prime-arrow {
+    animation: lp-ft-diag calc(var(--lp-dur-l) * 1.1) var(--lp-smooth);
+  }
+}
+
+a.lp-footer__prime:active {
+  scale: 0.985;
+  transition-duration: var(--lp-dur-s);
+}
+
+/* ---- the grouped card: one surface, hairline rows (the divider starts at the text) ---- */
+.lp-footer__rows {
+  --ft-pad: 1rem;
+  --ft-d: 2.5rem;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--mx-hair);
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background: var(--ft-tile);
+  box-shadow: var(--lp-highlight);
+}
+
+.lp-footer__rows-item {
+  position: relative;
+  display: grid;
+}
+
+.lp-footer__rows-item + .lp-footer__rows-item::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: calc(var(--ft-pad) + var(--ft-d) + 0.9rem) 0;
+  block-size: 1px;
+  background: var(--mx-hair);
+}
+
+.lp-footer__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.9rem;
+  min-block-size: 4.25rem;
+  padding: 0.75rem var(--ft-pad);
+  padding-inline-end: 1.15rem;
+  color: var(--sec-ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--ft-e);
+}
+
+/* the card clips its rows: their focus ring is drawn inside */
+.lp-footer__row:focus-visible {
+  outline-offset: -3px;
+}
+
+.lp-footer__row-icon {
+  border-radius: max(calc(0.7rem * var(--lp-corner-k, 1)), calc(var(--lp-sq-l) - var(--ft-pad) * var(--lp-corner-d, 1)));
+  corner-shape: var(--lp-corner);
+}
+
+.lp-footer__row-body {
+  display: grid;
+  gap: 0.2rem;
+  min-inline-size: 0;
+}
+
+.lp-footer__row-value {
+  font-size: calc(var(--lp-step-0) * 0.96 * var(--lp-script-scale));
+  font-weight: 500;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+:is([data-k="whatsapp"], [data-k="phone"]) > * > .lp-footer__row-value {
+  white-space: nowrap;
+}
+
+/* e-mails are long single words: a notch smaller so most fit on one line */
+[data-k="email"] .lp-footer__row-value {
+  font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+}
+
+.lp-footer__row-go {
+  color: var(--sec-ink-soft);
+  opacity: 0.5;
+  transition:
+    translate var(--ft-s),
+    opacity var(--ft-e),
+    color var(--ft-e);
+}
+
+@media (hover: hover) {
+  a.lp-footer__row:hover {
+    background-color: var(--ft-tile-hi);
+  }
+
+  a.lp-footer__row:hover .lp-footer__row-go {
+    opacity: 1;
+    color: var(--sec-accent);
+    translate: calc(var(--lp-x) * 3px) -3px;
+  }
+}
+
+a.lp-footer__row:active {
+  background-color: var(--ft-tile-hi);
+}
+
+@container (min-width: 38rem) {
+  .lp-footer__grid[data-reach="duo"] .lp-footer__reach {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+
+  /* beside the lead tile the rows share its height evenly */
+  .lp-footer__grid[data-reach="duo"] .lp-footer__rows {
+    grid-auto-rows: 1fr;
+  }
+
+  .lp-footer__grid[data-reach="duo"] .lp-footer__prime {
+    min-block-size: 13rem;
+  }
+
+  .lp-footer__grid[data-reach="solo"] .lp-footer__prime {
+    min-block-size: 11rem;
+  }
+}
+
+/* wide: the brand faces the contact bento; the COD capsule settles on the bento's bottom line;
+   legal links inline, socials + top at the end */
+@container (min-width: 56rem) {
+  /* three tracks: the bento spans the last two, the legal links the first two */
+  .lp-footer__grid {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 4fr);
+    grid-template-areas:
+      "intro reach reach"
+      "rule rule rule"
+      "legal legal meta"
+      "fine fine fine";
+    column-gap: clamp(2.5rem, 6cqi, 6rem);
+  }
+
+  /* no contact channel: the brand and its line face the COD capsule across the full width (the
+     capsule settles on the line's last baseline) — one balanced row instead of a lone column */
+  .lp-footer__grid:not([data-reach]) .lp-footer__intro {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: clamp(2.5rem, 6cqi, 6rem);
+  }
+
+  .lp-footer__grid:not([data-reach]) .lp-footer__intro > :not(.lp-footer__cod) {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .lp-footer__grid:not([data-reach]) .lp-footer__intro > .lp-footer__cod {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: end;
+    margin: 0;
+  }
+
+  .lp-footer__grid[data-reach] .lp-footer__intro > .lp-footer__cod {
+    margin-block-start: auto;
+  }
+
+  .lp-footer__grid[data-reach] .lp-footer__intro > .lp-footer__tagline {
+    margin-block-end: 1.5rem;
+  }
+
+  .lp-footer__grid > .lp-footer__reach {
+    margin-block-start: 0;
+  }
+
+  .lp-footer__grid > .lp-footer__rule {
+    margin-block-start: calc(var(--ft-gap) * 1.25);
+  }
+
+  .lp-footer__grid > :is(.lp-footer__legal, .lp-footer__meta) {
+    margin-block-start: 1rem;
+  }
+
+  .lp-footer__grid .lp-footer__legal-list {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 2rem;
+  }
+
+  .lp-footer__grid > .lp-footer__meta {
+    justify-content: flex-end;
+  }
+
+  .lp-footer__grid .lp-footer__top {
+    margin-inline-start: 0.75rem;
+  }
+
+  .lp-footer__grid > .lp-footer__fine {
+    margin-block-start: 0.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+
+  .lp-footer__prime::after {
+    display: none;
+  }
+}
+
+:root[data-motion="off"] .lp-footer__prime::after {
+  display: none;
+}
+
+/* the diagonal arrow leaves along its own direction and comes back from the opposite corner
+   (in RTL the icon is mirrored with `scale`, so the same transform follows the mirrored arrow) */
+@keyframes lp-ft-diag {
+  45% {
+    opacity: 0;
+    transform: translate(120%, -120%);
+  }
+
+  46% {
+    opacity: 0;
+    transform: translate(-120%, 120%);
+  }
+}

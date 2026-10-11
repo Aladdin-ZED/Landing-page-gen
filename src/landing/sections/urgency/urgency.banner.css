@@ -1,0 +1,230 @@
+/* urgency · banner — rules only this variant renders (inlined after urgency.css on pages whose markup
+   carries .lp-urgency--banner; the admin preview loads every variant). Shared rules live in urgency.css. */
+
+:root[data-emphasis="color"] .lp-urg__btitle .lp-em,
+:root[data-emphasis="color"] .lp-urg__btitle .lp-em__w {
+  color: var(--sec-accent);
+  text-decoration-line: none;
+}
+
+/* ==========================================================================
+   Banner: a live-activity band
+   ========================================================================== */
+.lp-urg__band {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "title"
+    "meta"
+    "go";
+  justify-items: start;
+  align-items: center;
+  gap: 0.9rem 1rem;
+  padding: clamp(1rem, 0.75rem + 1.4vw, 1.35rem);
+  overflow: hidden;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-color: var(--urg-tint);
+  background-image: linear-gradient(to bottom, var(--mx-hair), transparent 40%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m), inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-urg__band--thumb {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "thumb title"
+    "meta meta"
+    "go go";
+}
+
+.lp-urg__thumb {
+  grid-area: thumb;
+  display: block;
+  inline-size: clamp(3rem, 2.6rem + 1.6vw, 3.75rem);
+  overflow: hidden;
+  border-radius: calc(min(1rem, calc(var(--lp-radius-xl) - 0.5rem)) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s), 0 0 0 1px var(--mx-hair);
+}
+
+.lp-urg__thumb .lp-pic {
+  inline-size: 100%;
+}
+
+.lp-urg__btitle {
+  grid-area: title;
+  margin: 0;
+  max-inline-size: 30ch;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * 0.9 * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.lp-urg__bmeta {
+  grid-area: meta;
+}
+
+.lp-urg__bgo {
+  grid-area: go;
+}
+
+.lp-urg__bmeta,
+.lp-urg__bgo {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+/* island: an inverse capsule that holds the live value */
+.lp-urg__island {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.7rem;
+  min-block-size: 3rem;
+  max-inline-size: 100%;
+  padding: 0.45rem 1.2rem;
+  border-radius: var(--lp-radius-pill, 999px);
+  background-color: var(--sec-bg);
+  background-image: linear-gradient(to bottom, var(--mx-hair), transparent 60%);
+  box-shadow: 0 0.8rem 1.8rem -0.8rem var(--mx-contact), inset 0 0 0 1px var(--mx-hair);
+  color: var(--sec-ink);
+  line-height: 1.2;
+}
+
+/* on a section that is already dark the capsule turns light */
+.lp-urg__island--inverse {
+  background-color: var(--sec-ink);
+  background-image: none;
+  color: var(--sec-bg);
+}
+
+.lp-urg__ilabel {
+  font-size: calc(max(0.78rem, var(--lp-step--1) * 0.95) * var(--lp-script-scale));
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.lp-urg__icd,
+.lp-urg__inum {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 1.1);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+}
+
+.lp-urg__icd .lp-cd__lab {
+  font-family: var(--lp-font-body);
+  font-size: 0.62em;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.lp-urg__iitem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+}
+
+.lp-urg--promise .lp-urg__island {
+  column-gap: 1.1rem;
+}
+
+.lp-urg__bcta {
+  max-inline-size: 100%;
+}
+
+/* Arabic: the days read first, on the right ("02 أيام" then the clock) */
+[dir="rtl"] .lp-urg__icd .lp-cd__unit[data-unit="d"] {
+  order: 9;
+  direction: rtl;
+  margin-inline: 0 0.5em;
+}
+
+@media (max-width: 29.99rem) {
+  .lp-urg--countdown .lp-urg__ilabel {
+    display: none;
+  }
+
+  .lp-urg--promise .lp-urg__island {
+    border-radius: var(--lp-radius-l);
+  }
+
+  .lp-urg__bmeta,
+  .lp-urg__island,
+  .lp-urg__bgo,
+  .lp-urg__bcta {
+    inline-size: 100%;
+  }
+
+  .lp-urg--countdown .lp-urg__island,
+  .lp-urg--stock .lp-urg__island {
+    justify-content: center;
+  }
+}
+
+@media (min-width: 30rem) and (max-width: 59.99rem) {
+  .lp-urg__band {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "title title"
+      "meta go";
+  }
+
+  .lp-urg__band--thumb {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "thumb title title"
+      "meta meta go";
+  }
+
+  .lp-urg__bgo {
+    justify-self: end;
+  }
+}
+
+@media (min-width: 60rem) {
+  .lp-urg__band {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "title meta go";
+    gap: 1.5rem;
+    padding: 0.7rem;
+    padding-inline-start: 2rem;
+    border-radius: calc(var(--lp-sq-xl) * 1.4);
+  }
+
+  .lp-urg__band--thumb {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "thumb title meta go";
+    padding-inline-start: 0.7rem;
+  }
+
+  /* concentric with the band: 0.7rem inside its corner */
+  .lp-urg__thumb {
+    border-radius: max(0.75rem, calc(var(--lp-sq-xl) * 1.4 - 0.7rem * var(--lp-corner-d)));
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  .lp-urg__thumb {
+    transition:
+      translate var(--lp-dur-m) var(--lp-spring),
+      rotate var(--lp-dur-m) var(--lp-spring),
+      box-shadow var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  @media (hover: hover) {
+
+    .lp-urg__band:hover .lp-urg__thumb {
+      rotate: -4deg;
+    }
+  }
+}

@@ -1,0 +1,256 @@
+/* problem · quote — rules only this variant renders (inlined after problem.css on pages whose markup
+   carries .lp-problem--quote; the admin preview loads every variant). Shared rules live in problem.css. */
+
+.lp-problem .lp-ill.lp-problem__glow {
+  z-index: -1;
+}
+
+.lp-problem__idx {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--sec-accent);
+}
+
+/* ==========================================================================
+   quote — the statement
+   ========================================================================== */
+.lp-problem__qhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.1rem;
+  padding-block-end: 1rem;
+  border-block-end: 1px solid var(--mx-line);
+}
+
+.lp-problem__qtitle {
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+}
+
+.lp-problem__quote {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  justify-items: start;
+  margin: clamp(2rem, 1.4rem + 3vw, 4rem) 0 0;
+}
+
+.lp-problem__statement {
+  position: relative;
+  margin: 0;
+}
+
+.lp-problem__qmark {
+  display: block;
+  inline-size: clamp(2.5rem, 1.8rem + 3vw, 4.25rem);
+  margin-block-end: clamp(0.75rem, 0.5rem + 1.5vw, 1.5rem);
+  fill: var(--sec-accent);
+}
+
+.lp-problem__say {
+  max-inline-size: 21ch;
+  font-size: min(calc(var(--lp-step-5) * 0.78 * var(--lp-script-scale-display)), 10.5vw);
+  line-height: calc(var(--lp-display-lh) + 0.04);
+  letter-spacing: calc(var(--lp-display-tracking) * 1.15);
+}
+
+:lang(ar) .lp-problem__say {
+  line-height: 1.4;
+}
+
+/* the key words: one refined gesture instead of a highlighter block (emphasis style aside). They
+   settle into the accent while a slim rounded rule draws under them, word after word, clear of the
+   descenders: each word's slice reaches into the following space, so the rule reads as one line.
+   On an accent / pop section the accent is the brand's second hue: words and rule stay in the ink. */
+.lp-problem__statement {
+  --q-c: var(--sec-accent);
+  /* the accent itself, opaque and slim: the word slices overlap in the spaces (a translucent rule
+     would show darker joints), and a mix with a warm ground would drift the hue toward orange */
+  --q-rule: var(--q-c);
+  --q-rule-w: max(2px, 0.036em);
+  /* from the top of the word box (line-height 1): just under the descenders; tight display leading
+     (kinetic caps, no descenders) lifts it toward the baseline so it never meets the next line */
+  --q-rule-at: calc(1.1em - var(--em-tight, 0) * 0.12em);
+}
+
+.lp-problem:is([data-bg="accent"], [data-bg="pop"]) .lp-problem__statement {
+  --q-c: var(--sec-ink);
+  --q-rule: var(--sec-ink);
+}
+
+/* Arabic letters sit higher in the em box and their tails dip deeper: the rule rides lower — except
+   under an all-Latin emphasis on an Arabic page (a product name), which keeps the Latin height */
+.lp-problem__statement:lang(ar) {
+  --q-rule-at: 1.24em;
+}
+
+.lp-problem__statement .lp-em[dir="ltr"] {
+  --q-rule-at: calc(1.1em - var(--em-tight, 0) * 0.12em);
+}
+
+.lp-problem__statement .lp-em,
+.lp-problem__statement .lp-em__w {
+  color: var(--q-c);
+  text-decoration: none;
+}
+
+.lp-problem__statement .lp-em__deco {
+  display: none;
+}
+
+.lp-problem__statement .lp-em__w::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: var(--q-rule-at) auto;
+  inset-inline: 0.02em -0.3em;
+  block-size: var(--q-rule-w);
+  border-radius: 999px;
+  background: var(--q-rule);
+  transform-origin: left center;
+}
+
+[dir="rtl"] .lp-problem__statement .lp-em__w::before {
+  transform-origin: right center;
+}
+
+/* an emphasis isolated left to right inside an Arabic page draws left to right */
+[dir="rtl"] .lp-problem__statement .lp-em[dir="ltr"] .lp-em__w::before {
+  transform-origin: left center;
+}
+
+/* the rule stops at the stroke's end word (in stroke order, which :last-child is not across a bidi run) */
+.lp-problem__statement .lp-em__w--e::before {
+  inset-inline-end: 0.02em;
+}
+
+/* plain emphasis (no word boxes): the same accent and rule, as a text decoration */
+.lp-problem__statement .lp-em--plain {
+  text-decoration-line: underline;
+  text-decoration-color: var(--q-rule);
+  text-decoration-thickness: var(--q-rule-w);
+  text-underline-offset: 0.24em;
+}
+
+.lp-problem__cite {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-block-start: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  font-weight: 600;
+  color: var(--sec-ink-soft);
+}
+
+.lp-problem__cite::before {
+  content: "";
+  inline-size: 2.5rem;
+  block-size: 1px;
+  background: currentColor;
+}
+
+/* below the statement: the pains (start) and the answer card (end) */
+.lp-problem__qbody {
+  --qgap: clamp(2.25rem, 1.75rem + 2.5vw, 3.75rem);
+  display: grid;
+  gap: clamp(2.5rem, 2rem + 2.5vw, 3.5rem);
+  margin-block-start: var(--qgap);
+}
+
+.lp-problem__qlist {
+  display: grid;
+  align-content: start;
+  min-inline-size: 0;
+}
+
+.lp-problem__qlead {
+  max-inline-size: 34rem;
+  margin: 0 0 clamp(1.25rem, 1rem + 1.2vw, 2rem);
+  font-size: calc(var(--lp-step-1) * 0.92 * var(--lp-script-scale));
+  line-height: 1.45;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-problem__index {
+  display: grid;
+  column-gap: clamp(1.25rem, 3vw, 2.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-problem__entry {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.6rem;
+  padding-block: clamp(0.9rem, 0.75rem + 0.5vw, 1.15rem);
+  border-block-start: 1px solid var(--mx-line);
+  font-size: calc(var(--lp-step-1) * 0.9 * var(--lp-script-scale));
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.lp-problem__qbody--turn .lp-problem__entry:last-child {
+  border-block-end: 1px solid var(--mx-line);
+}
+
+/* no answer card: the index spreads into columns */
+@media (min-width: 40rem) {
+  .lp-problem__qbody:not(.lp-problem__qbody--turn) .lp-problem__index {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  }
+
+  .lp-problem__qbody:not(.lp-problem__qbody--turn) .lp-problem__entry {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 60rem) {
+  .lp-problem__qbody--turn {
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 24rem);
+    column-gap: clamp(3rem, 7vw, 7rem);
+    align-items: start;
+  }
+
+  /* the card lifts to the caption line: it answers the statement above */
+  .lp-problem__qbody--turn .lp-problem__turn--card {
+    margin-block-start: calc(var(--qgap) * -1 - 1.5rem);
+  }
+
+  .lp-problem__qbody--turn .lp-problem__qlist {
+    padding-block-start: 0.25rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* quote: the rule draws under the key words once the statement has resolved, and each word
+     turns to the accent as the rule reaches it */
+  html.lp-js:not([data-motion="off"]) .lp-problem__statement .lp-em[data-reveal="draw"]:not([data-in]) .lp-em__w::before {
+    transform: scaleX(0);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__statement .lp-em[data-reveal="draw"][data-in] .lp-em__w::before {
+    animation: lp-rv-hl calc(var(--lp-dur-l) * 1.1 * var(--ef, 1)) var(--lp-smooth) calc(var(--hl-d, 0ms) + var(--lp-dur-l) * 1.1 * var(--ef0, 0)) backwards;
+  }
+
+  /* a color transition, not an animation: the words keep their own blur-in cascade */
+  html.lp-js:not([data-motion="off"]) .lp-problem__statement .lp-em[data-reveal="draw"]:not([data-in]) .lp-em__w {
+    color: var(--sec-ink);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__statement .lp-em[data-reveal="draw"] .lp-em__w {
+    transition: color calc(var(--lp-dur-l) * 0.8) var(--lp-smooth) calc(var(--hl-d, 0ms) + var(--lp-dur-l) * 1.1 * (var(--ef0, 0) + var(--ef, 1) * 0.35));
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__statement .lp-em--plain {
+    animation: lp-problem-ink calc(var(--lp-dur-l) * 1.4) var(--lp-smooth) var(--hl-d, 0ms) backwards;
+  }
+}
+
+@keyframes lp-problem-ink {
+  from,
+  35% {
+    color: var(--sec-ink);
+  }
+}

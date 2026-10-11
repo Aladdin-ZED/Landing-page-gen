@@ -1,0 +1,238 @@
+/* gallery · lookbook — rules only this variant renders (inlined after gallery.css on pages whose markup
+   carries .lp-gallery--lookbook; the admin preview loads every variant). Shared rules live in gallery.css. */
+
+/* ==========================================================================
+   lookbook — editorial spreads
+   ========================================================================== */
+.lp-gallery__look {
+  display: grid;
+  gap: clamp(3.5rem, 2.5rem + 4vw, 7rem);
+}
+
+.lp-gallery__spread {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.75rem, 1.4rem + 1.5vw, 2.5rem) var(--g-gap);
+  align-items: start;
+}
+
+/* phones: the heading opens the spread, its order button closes it */
+.lp-gallery__lk--head {
+  display: contents;
+}
+
+.lp-gallery__lk--head > *,
+.lp-gallery__lk--main {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.lp-gallery__lk--head .lp-gallery__cta {
+  order: 1;
+}
+
+.lp-gallery__lk--head .lp-gallery__head {
+  margin: 0;
+}
+
+/* the square second photo steps down beside the 4:5 first one so their bottom edges meet exactly:
+   a percentage block margin resolves against the column width, and 25% of it is the height
+   difference of the two frames (landscape sets share one 4:3 frame: no step) */
+.lp-gallery__lk--b {
+  margin-block-start: 25%;
+}
+
+.lp-gallery__spread--land .lp-gallery__lk--b {
+  margin-block-start: 0;
+}
+
+.lp-gallery__lk--main {
+  position: relative;
+  isolation: isolate;
+}
+
+/* the opening photo's light, behind the photo only (not its caption) */
+.lp-gallery__lk--main > .lp-gallery__amb {
+  inset: 9% 6% calc(2.75rem + 2%);
+}
+
+/* a small photo left alone steps to the end, wider — never a half-empty row */
+.lp-gallery__lk--a:last-child {
+  grid-column: 1 / -1;
+  justify-self: end;
+  inline-size: 64%;
+}
+
+.lp-gallery__lk-fig {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+}
+
+.lp-gallery__lk-fig .lp-pic {
+  box-shadow: var(--lp-shadow-m);
+}
+
+/* the small photos: continuous media corners; the large one wears the page's own mask (arch,
+   capsule, circle, blob or rounded — the kit draws it, its crop is fitted to it) */
+.lp-gallery__lk-fig .lp-pic:not(.lp-mask) {
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-gallery__lk-fig .lp-pic__img {
+  transition: scale 1.4s var(--lp-smooth);
+}
+
+.lp-gallery__lk--main .lp-pic {
+  box-shadow: var(--lp-shadow-l);
+}
+
+@media (hover: hover) {
+  .lp-gallery__lk-fig:hover .lp-pic__img {
+    scale: 1.04;
+  }
+}
+
+.lp-gallery__look .lp-gallery__cap {
+  align-items: baseline;
+  font-size: calc(var(--lp-step--1) * 1.12 * var(--lp-script-scale));
+  font-weight: 500;
+  color: var(--sec-ink);
+}
+
+.lp-gallery__look .lp-gallery__cap-n::after {
+  content: "";
+  inline-size: 1.75rem;
+  block-size: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* desktop 12-column spreads: a = heading + large photo at the end · b = mirrored · c = a without
+   heading (the first small photo moves up). The second small photo steps over the large one's
+   edge, lifted by a ring of the section color. */
+@media (min-width: 62rem) {
+  .lp-gallery__spread {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(1rem, 2.2vw, 2rem);
+    row-gap: clamp(2rem, 3vw, 3rem);
+  }
+
+  .lp-gallery__lk--a:last-child {
+    inline-size: auto;
+    justify-self: stretch;
+  }
+
+  .lp-gallery__spread .lp-gallery__lk--b {
+    z-index: 1;
+    grid-row: 2;
+    align-self: end;
+    margin: 0;
+  }
+
+  .lp-gallery__lk--head {
+    display: grid;
+    gap: 1.75rem;
+    justify-items: start;
+    align-content: start;
+    grid-column: 1 / 6;
+    grid-row: 1;
+    padding-inline-end: clamp(0rem, 2vw, 2rem);
+  }
+
+  .lp-gallery__spread--a .lp-gallery__lk--main,
+  .lp-gallery__spread--c .lp-gallery__lk--main {
+    grid-column: 6 / 13;
+    grid-row: 1 / 3;
+  }
+
+  .lp-gallery__spread--a .lp-gallery__lk--a {
+    grid-column: 1 / 4;
+    grid-row: 2;
+  }
+
+  /* two photos: the small one stands under the heading on the text's own edge, its base level
+     with the large photo's */
+  .lp-gallery__spread--a .lp-gallery__lk--a:last-child {
+    grid-column: 1 / 5;
+    align-self: end;
+  }
+
+  .lp-gallery__spread--a .lp-gallery__lk--b,
+  .lp-gallery__spread--c .lp-gallery__lk--b {
+    grid-column: 4 / 7;
+  }
+
+  .lp-gallery__spread--b .lp-gallery__lk--main {
+    grid-column: 1 / 8;
+    grid-row: 1 / 3;
+  }
+
+  .lp-gallery__spread--b .lp-gallery__lk--a {
+    grid-column: 9 / 13;
+    grid-row: 1;
+  }
+
+  .lp-gallery__spread--b .lp-gallery__lk--b {
+    grid-column: 7 / 10;
+  }
+
+  .lp-gallery__spread--c .lp-gallery__lk--a {
+    grid-column: 1 / 5;
+    grid-row: 1;
+  }
+
+  .lp-gallery__spread--solo .lp-gallery__lk--main {
+    grid-column: 1 / -1;
+  }
+
+  /* landscape frames are shorter: zigzag — the first small photo tucks under the large one's
+     bottom edge, the second sits under the heading */
+  .lp-gallery__spread--land.lp-gallery__spread--a .lp-gallery__lk--main {
+    grid-row: 1;
+  }
+
+  .lp-gallery__spread--land.lp-gallery__spread--a .lp-gallery__lk--a {
+    z-index: 1;
+    grid-column: 8 / 12;
+    margin-block-start: calc(-1 * clamp(3rem, 7vw, 6rem));
+  }
+
+  .lp-gallery__spread--land.lp-gallery__spread--a .lp-gallery__lk--b {
+    grid-column: 2 / 6;
+    align-self: start;
+  }
+
+  /* two landscape photos: heading, button and the detail photo stack in one column (the photo on
+     the text's own edge) beside the large photo; no empty column under the button */
+  .lp-gallery__spread--land.lp-gallery__spread--pair.lp-gallery__spread--a .lp-gallery__lk--main {
+    grid-row: 1 / 3;
+    align-self: start;
+  }
+
+  .lp-gallery__spread--land.lp-gallery__spread--pair.lp-gallery__spread--a .lp-gallery__lk--a {
+    z-index: auto;
+    grid-column: 1 / 5;
+    grid-row: 2;
+    align-self: start;
+    margin-block-start: 0;
+  }
+
+  .lp-gallery__lk--b .lp-pic,
+  .lp-gallery__spread--land .lp-gallery__lk--a .lp-pic {
+    box-shadow: 0 0 0 clamp(6px, 0.6vw, 9px) var(--sec-bg), var(--lp-shadow-l);
+  }
+
+  /* the overlapping photo's caption stays clear of the large photo */
+  .lp-gallery__lk--b .lp-gallery__cap {
+    max-inline-size: 64%;
+  }
+
+  .lp-gallery__lk--b .lp-gallery__cap-t {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}

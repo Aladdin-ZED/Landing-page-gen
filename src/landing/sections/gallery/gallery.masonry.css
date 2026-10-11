@@ -1,0 +1,259 @@
+/* gallery · masonry — rules only this variant renders (inlined after gallery.css on pages whose markup
+   carries .lp-gallery--masonry; the admin preview loads every variant). Shared rules live in gallery.css. */
+
+/* ==========================================================================
+   masonry → bento
+   ========================================================================== */
+.lp-gallery__bento {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--g-gap);
+}
+
+.lp-gallery__tile {
+  position: relative;
+  isolation: isolate;
+  grid-column: var(--ms, span 2);
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-m);
+}
+
+/* crisp rim of light over every tile */
+.lp-gallery__tile:not(.lp-gallery__tile--head)::before {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 1px var(--mx-rim), inset 0 1px 0 var(--mx-rim);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.lp-gallery__tile--head {
+  grid-column: 1 / -1;
+  overflow: visible;
+  padding-block-end: 0.75rem;
+  box-shadow: none;
+}
+
+.lp-gallery__tile--head .lp-gallery__head {
+  margin: 0;
+}
+
+.lp-gallery__tile--photo {
+  aspect-ratio: 3 / 4;
+  background: var(--mx-tint);
+  transition: translate var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-gallery__tile--photo[data-w] {
+  aspect-ratio: 16 / 11;
+}
+
+.lp-gallery__tile--hero[data-w] {
+  aspect-ratio: 1;
+}
+
+/* a soft sheen passes over the photo on hover */
+.lp-gallery__tile--photo::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 38%, var(--mx-rim) 50%, transparent 62%);
+  opacity: 0.55;
+  translate: -110% 0;
+  pointer-events: none;
+}
+
+/* the tile is a size container: its photo takes the fitted crop of the step matching the tile's
+   real shape (--fit-k / --fiz-k, written by the markup: reviews/frames.ts fitSteps) — faces and
+   hands stay whole whatever height the rows grow to */
+.lp-gallery__tile--photo {
+  container: lp-fit / size;
+}
+
+.lp-gallery__tile--photo .lp-pic__img {
+  --fz: var(--fiz-0, 1);
+  object-position: var(--fit-0, var(--pic-pos, 50% 50%));
+  transform-origin: var(--fit-0, 50% 50%);
+  scale: var(--fz);
+  transition: scale 1.2s var(--lp-smooth);
+}
+
+@container lp-fit (aspect-ratio >= 139 / 200) {
+  .lp-gallery__tile--photo .lp-pic__img {
+    --fz: var(--fiz-1, 1);
+    object-position: var(--fit-1, var(--pic-pos, 50% 50%));
+    transform-origin: var(--fit-1, 50% 50%);
+  }
+}
+
+@container lp-fit (aspect-ratio >= 861 / 1000) {
+  .lp-gallery__tile--photo .lp-pic__img {
+    --fz: var(--fiz-2, 1);
+    object-position: var(--fit-2, var(--pic-pos, 50% 50%));
+    transform-origin: var(--fit-2, 50% 50%);
+  }
+}
+
+@container lp-fit (aspect-ratio >= 1059 / 1000) {
+  .lp-gallery__tile--photo .lp-pic__img {
+    --fz: var(--fiz-3, 1);
+    object-position: var(--fit-3, var(--pic-pos, 50% 50%));
+    transform-origin: var(--fit-3, 50% 50%);
+  }
+}
+
+@container lp-fit (aspect-ratio >= 327 / 250) {
+  .lp-gallery__tile--photo .lp-pic__img {
+    --fz: var(--fiz-4, 1);
+    object-position: var(--fit-4, var(--pic-pos, 50% 50%));
+    transform-origin: var(--fit-4, 50% 50%);
+  }
+}
+
+@container lp-fit (aspect-ratio >= 819 / 500) {
+  .lp-gallery__tile--photo .lp-pic__img {
+    --fz: var(--fiz-5, 1);
+    object-position: var(--fit-5, var(--pic-pos, 50% 50%));
+    transform-origin: var(--fit-5, 50% 50%);
+  }
+}
+
+@container lp-fit (aspect-ratio >= 43 / 20) {
+  .lp-gallery__tile--photo .lp-pic__img {
+    --fz: var(--fiz-6, 1);
+    object-position: var(--fit-6, var(--pic-pos, 50% 50%));
+    transform-origin: var(--fit-6, 50% 50%);
+  }
+}
+
+.lp-gallery__tile .lp-gallery__cap.lp-glass {
+  inset-block-end: 0.75rem;
+  inset-inline-start: 0.75rem;
+  max-inline-size: calc(100% - 1.5rem);
+  font-size: max(calc(0.78rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 0.94 * var(--lp-script-scale)));
+}
+
+/* the price tile: a lit color block — name, price + savings, button, cash-on-delivery promise */
+.lp-gallery__tile--buy {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: clamp(1.25rem, 0.9rem + 1.4vw, 2rem);
+  background: var(--sec-bg);
+  color: var(--sec-ink);
+}
+
+/* light falls on the tile from its top end corner */
+.lp-gallery__buy-light {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(90% 75% at calc(50% + 50% * var(--lp-x)) 0%, var(--mx-on-accent), transparent 70%),
+    radial-gradient(70% 60% at calc(50% - 50% * var(--lp-x)) 100%, var(--mx-floor), transparent 75%);
+  pointer-events: none;
+}
+
+.lp-gallery__buy-name {
+  margin: 0 0 auto;
+  max-inline-size: 18ch;
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.lp-gallery__buy-go {
+  display: grid;
+  gap: 0.7rem;
+  justify-items: start;
+}
+
+.lp-gallery__buy-cod {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0;
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * 0.94 * var(--lp-script-scale)));
+  font-weight: 500;
+  color: var(--sec-ink-soft);
+}
+
+.lp-gallery__buy-tag {
+  margin: 0;
+  max-inline-size: 30ch;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+@media (hover: hover) {
+  .lp-gallery__tile--photo:hover {
+    translate: 0 -4px;
+    box-shadow: var(--lp-shadow-l);
+  }
+
+  .lp-gallery__tile--photo:hover .lp-pic__img {
+    scale: calc(var(--fz, 1) * 1.05);
+  }
+
+  .lp-gallery__tile--photo:hover::after {
+    translate: 110% 0;
+    transition: translate 1.1s var(--lp-smooth);
+  }
+}
+
+@media (min-width: 62rem) {
+  .lp-gallery__bento {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: minmax(clamp(11rem, 15vw, 15rem), auto);
+  }
+
+  .lp-gallery__bento > .lp-gallery__tile {
+    grid-column: var(--gc);
+    grid-row: var(--gr);
+    aspect-ratio: auto;
+  }
+
+  .lp-gallery__bento > .lp-gallery__tile--head {
+    align-self: start;
+    padding-block: 0.25rem 1rem;
+    padding-inline-end: clamp(0rem, 2vw, 2rem);
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    /* bento: each photo settles from a slight zoom as its tile scrolls into view (vertical
+       timelines are fine in both directions) */
+    html:not([data-motion="off"]):not(.lp-qa) .lp-gallery__tile--photo .lp-pic {
+      animation: lp-gal-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 55%;
+    }
+  }
+}
+
+@keyframes lp-gal-settle {
+  from {
+    scale: 1.14;
+  }
+
+  to {
+    scale: 1;
+  }
+}

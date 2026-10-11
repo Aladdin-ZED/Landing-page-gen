@@ -1,0 +1,228 @@
+/* benefits · stack — rules only this variant renders (inlined after benefits.css on pages whose markup
+   carries .lp-benefits--stack; the admin preview loads every variant). Shared rules live in benefits.css. */
+
+.lp-benefits__t--xl {
+  font-size: min(calc(var(--lp-step-3) * 1.04 * var(--lp-script-scale-display)), 9.5vw);
+  line-height: max(1.06, calc(var(--lp-display-lh) + 0.04));
+  letter-spacing: var(--lp-display-tracking);
+}
+
+.lp-benefits__p--l {
+  max-inline-size: 38ch;
+  font-size: calc(var(--lp-step-1) * 0.88 * var(--lp-script-scale));
+}
+
+.lp-benefits__idx {
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--sec-accent);
+}
+
+.lp-benefits__ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 3.25rem;
+  aspect-ratio: 1;
+  padding: 0.78rem;
+  border-radius: calc(32% * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  color: var(--sec-accent);
+  background: linear-gradient(160deg, var(--mx-tint-2), var(--mx-tint));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair), 0 10px 20px -12px var(--mx-btn-2);
+  transition: translate var(--lp-dur-m) var(--lp-spring), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+:is(.lp-benefits__ico, .lp-benefits__disc) > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+.lp-benefits [data-bg] .lp-benefits__ico {
+  color: var(--sec-ink);
+  background: var(--mx-on-accent);
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+}
+
+/* ==========================================================================
+   stack — sticky cards receding into a deck
+   ========================================================================== */
+.lp-benefits--stack {
+  --bn-top: 1rem;
+  --bn-peek: 0.8rem;
+}
+
+:root:has(.lp-header--sticky) .lp-benefits--stack {
+  --bn-top: 5.25rem;
+}
+
+.lp-benefits__stack {
+  display: grid;
+  gap: clamp(1.25rem, 4vh, 2.5rem);
+  view-timeline: --lp-bn-stack block;
+}
+
+.lp-benefits__card {
+  position: sticky;
+  inset-block-start: calc(var(--bn-top) + var(--i, 0) * var(--bn-peek));
+}
+
+/* phones: a stuck card must fit the screen (its lower part would otherwise never show), so the card
+   is capped to the viewport and the photo row gives way first (15rem → 5rem) */
+.lp-benefits__cardin {
+  --bn-fit: calc(var(--bn-top) + var(--n, 1) * var(--bn-peek) + 1rem);
+  display: grid;
+  grid-template-rows: minmax(5rem, 15rem) auto;
+  max-block-size: calc(100vh - var(--bn-fit));
+  max-block-size: calc(100svh - var(--bn-fit));
+  overflow: hidden;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  transform-origin: 50% 0;
+}
+
+/* the photo row takes the exact frame its crop was fitted to (--mr) whenever the screen has room
+   for the whole card */
+@supports (width: 1cqi) {
+  .lp-benefits__card {
+    container-type: inline-size;
+  }
+
+  .lp-benefits__cardin {
+    grid-template-rows: minmax(5rem, calc((100cqi - 1.2rem) / var(--mr, 1.34))) auto;
+  }
+}
+
+.lp-benefits__cardin[data-bg] {
+  background: var(--sec-bg);
+  color: var(--sec-ink);
+}
+
+.lp-benefits__cardmedia {
+  position: relative;
+  order: -1;
+  min-block-size: 0;
+  margin: 0.6rem 0.6rem 0;
+  overflow: hidden;
+  border-radius: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - 0.6rem * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+}
+
+/* a crisp inner edge over the photo, following its corner */
+.lp-benefits__cardmedia::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge, var(--mx-hair));
+  pointer-events: none;
+}
+
+.lp-benefits__cardpic {
+  position: absolute;
+  inset: 0;
+}
+
+.lp-benefits__cardpic.lp-benefits__plate {
+  aspect-ratio: auto;
+}
+
+/* the copy column is a size container: the big title never outgrows it (long words in caps) */
+.lp-benefits__cardcopy {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(1.25rem, 0.5rem + 2.5vw, 2rem);
+  padding: clamp(1.25rem, 0.9rem + 2vw, 3rem);
+}
+
+@supports (width: 1cqi) {
+  .lp-benefits__cardcopy .lp-benefits__t--xl {
+    font-size: min(calc(var(--lp-step-3) * 1.04 * var(--lp-script-scale-display)), 10.5cqi);
+  }
+}
+
+.lp-benefits__cardtop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-block-size: 2.9rem;
+}
+
+.lp-benefits__cardtop .lp-benefits__idx {
+  color: inherit;
+}
+
+.lp-benefits__cardtop .lp-benefits__ico {
+  inline-size: 2.9rem;
+  padding: 0.7rem;
+}
+
+.lp-benefits__cardmain .lp-benefits__fact {
+  margin-block-start: 1.5rem;
+  padding-block-start: 1.1rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-benefits__cardmain .lp-benefits__figlabel {
+  max-inline-size: 22ch;
+  font-size: calc(var(--lp-step-0) * 0.88 * var(--lp-script-scale));
+  color: inherit;
+  opacity: 0.78;
+}
+
+@media (hover: hover) {
+  .lp-benefits__cardmedia .lp-pic__img {
+    transition: scale 1.2s var(--lp-smooth);
+  }
+
+  .lp-benefits__cardin:hover .lp-benefits__cardmedia .lp-pic__img {
+    scale: 1.035;
+  }
+}
+
+@media (min-width: 56rem) {
+  .lp-benefits__cardin {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    grid-template-rows: none;
+    min-block-size: min(34rem, calc(100vh - var(--bn-top) - 5rem));
+    max-block-size: none;
+  }
+
+  .lp-benefits__cardmedia {
+    order: 0;
+    margin: 0.75rem;
+    margin-inline-start: 0;
+    border-radius: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - 0.75rem * var(--lp-corner-d)));
+  }
+}
+
+/* the deck: each card shrinks a little as the cards after it pile on (scroll-driven) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"], .lp-qa) .lp-benefits__card:not(:last-child) .lp-benefits__cardin {
+      animation: lp-bn-recede linear both;
+      animation-timeline: --lp-bn-stack;
+      animation-range: contain calc(var(--i, 0) * 100% / var(--n, 1)) contain 100%;
+    }
+  }
+}
+
+@keyframes lp-bn-recede {
+  to {
+    scale: calc(1 - (var(--n, 1) - var(--i, 0) - 1) * 0.035);
+    filter: brightness(0.94);
+  }
+}

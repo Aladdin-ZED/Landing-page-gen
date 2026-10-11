@@ -1,0 +1,262 @@
+/* specs · label — rules only this variant renders (inlined after specs.css on pages whose markup
+   carries .lp-specs--label; the admin preview loads every variant). Shared rules live in specs.css. */
+
+.lp-specs__grid {
+  display: grid;
+  gap: clamp(2rem, 1.4rem + 2.4vw, 3.5rem);
+}
+
+.lp-specs__lead .lp-specs__chips {
+  margin-block-start: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+}
+
+/* ==========================================================================
+   label — the spec card
+   ========================================================================== */
+.lp-specs__cardwrap {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  justify-items: center;
+  perspective: 1400px;
+}
+
+.lp-specs__cardwrap .lp-specs__aura {
+  inset: -8% 0;
+}
+
+.lp-specs__card {
+  position: relative;
+  inline-size: min(100%, 27rem);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair), var(--lp-shadow-l);
+  transition: rotate var(--lp-dur-l) var(--lp-spring), translate var(--lp-dur-l) var(--lp-spring), box-shadow var(--lp-dur-l) var(--lp-smooth);
+}
+
+/* sheen: a soft band of light crosses the card once it has landed */
+.lp-specs__card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 38%, var(--mx-rim) 50%, transparent 62%) 0 0 / 250% 100% no-repeat;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .lp-specs__card:hover {
+    rotate: 0deg;
+    translate: 0 -6px;
+    box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair), var(--lp-shadow-l), 0 40px 70px -40px var(--mx-btn-2);
+  }
+}
+
+.lp-specs__well {
+  position: relative;
+  margin: 0.5rem 0.5rem 0;
+}
+
+/* the well sits 0.5rem inside the card: concentric corners (inner = outer − inset × the corner factor) */
+.lp-specs__well .lp-specs__pic {
+  aspect-ratio: 1;
+  border-radius: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - 0.5rem * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+}
+
+.lp-specs__well [data-fit="mat"] .lp-specs__pic {
+  aspect-ratio: var(--ratio);
+}
+
+.lp-specs__well [data-fit="cutout"] .lp-specs__pic {
+  aspect-ratio: 1;
+}
+
+/* frosted cash-on-delivery chip over the product */
+.lp-specs__codchip {
+  position: absolute;
+  z-index: 1;
+  inset-block-end: 0.75rem;
+  inset-inline-start: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  max-inline-size: calc(100% - 1.5rem);
+  padding-block: 0.5em;
+  padding-inline: 0.75em 0.95em;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.lp-specs__codchip .lp-icon {
+  flex: none;
+  color: var(--sec-accent);
+}
+
+/* a cutout stands up out of the card */
+.lp-specs__card[data-layout="cutout"] {
+  margin-block-start: clamp(3rem, 12vw, 6rem);
+}
+
+.lp-specs__card[data-layout="cutout"] .lp-specs__well {
+  margin-block-start: clamp(-6rem, -12vw, -3rem);
+}
+
+.lp-specs__card[data-layout="cutout"] .lp-specs__well .lp-pic {
+  padding: 0 12%;
+  background: none;
+}
+
+.lp-specs__card[data-layout="cutout"] .lp-specs__codchip {
+  inset-block-end: 0;
+}
+
+.lp-specs__cbody {
+  display: grid;
+  gap: 1.1rem;
+  padding: clamp(1.15rem, 0.9rem + 1.2vw, 1.85rem);
+}
+
+.lp-specs__brand {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.72rem, var(--lp-step--1) * 0.86) * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight, 500);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-specs__sku {
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-specs__pname {
+  margin: 0 0 0.25rem;
+  font-size: calc(var(--lp-step-2) * 0.92 * var(--lp-script-scale-display));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.6);
+  text-transform: var(--lp-display-case);
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.lp-specs__card .lp-specs__dl--grid {
+  margin-block-start: 0.25rem;
+}
+
+@media (min-width: 48rem) {
+  .lp-specs__card {
+    rotate: var(--rot, 0deg);
+  }
+
+  /* a landscape photo runs across the top of a wider card */
+  .lp-specs__card[data-layout="banner"] {
+    inline-size: min(100%, 46rem);
+  }
+
+  .lp-specs__card[data-layout="banner"] .lp-specs__cbody {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-areas: "brand brand" "name dl" "chips dl" ". dl" "buy buy";
+    column-gap: clamp(1.5rem, 3vw, 2.5rem);
+    align-items: start;
+  }
+
+  .lp-specs__card[data-layout="banner"] .lp-specs__brand {
+    grid-area: brand;
+  }
+
+  .lp-specs__card[data-layout="banner"] .lp-specs__pname {
+    grid-area: name;
+  }
+
+  .lp-specs__card[data-layout="banner"] .lp-specs__dl {
+    grid-area: dl;
+    margin: 0;
+  }
+
+  .lp-specs__card[data-layout="banner"] .lp-specs__chips {
+    grid-area: chips;
+  }
+
+  .lp-specs__card[data-layout="banner"] .lp-specs__buy {
+    grid-area: buy;
+  }
+
+  .lp-specs__card[data-layout="banner"] .lp-specs__buy .lp-btn {
+    flex: 0 1 auto;
+  }
+}
+
+/* wide: the card lies down — product well on one side, the label on the other */
+@media (min-width: 60rem) {
+  .lp-specs__lab {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    column-gap: clamp(2.5rem, 5vw, 5rem);
+    align-items: center;
+  }
+
+  .lp-specs__card:is([data-layout="side"], [data-layout="cutout"]) {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    inline-size: min(100%, 54rem);
+  }
+
+  .lp-specs__card:is([data-layout="side"], [data-layout="cutout"]) .lp-specs__well {
+    margin: 0.5rem;
+    margin-inline-end: 0;
+  }
+
+  .lp-specs__card:is([data-layout="side"], [data-layout="cutout"]) .lp-specs__frame,
+  .lp-specs__card:is([data-layout="side"], [data-layout="cutout"]) .lp-specs__pic {
+    block-size: 100%;
+  }
+
+  .lp-specs__card[data-layout="side"] .lp-specs__pic {
+    aspect-ratio: auto;
+  }
+
+  .lp-specs__card[data-layout="cutout"] {
+    margin-block-start: 0;
+  }
+
+  .lp-specs__card[data-layout="cutout"] .lp-specs__well {
+    margin-block-start: 0.5rem;
+  }
+
+  .lp-specs__card[data-layout="cutout"] .lp-specs__well .lp-pic {
+    aspect-ratio: auto;
+    padding: 10%;
+    background: radial-gradient(110% 85% at 50% 12%, var(--mx-stage-hi), var(--mx-stage) 82%);
+  }
+
+  .lp-specs__card[data-layout="cutout"] .lp-specs__codchip {
+    inset-block-end: 0.75rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* the spec card: a band of light crosses once it has landed */
+  html.lp-js:not([data-motion="off"]) .lp-specs__card[data-in]::after {
+    animation: lp-specs-sheen 1.7s var(--lp-sway) calc(var(--d, 0ms) + 650ms) both;
+  }
+}
+
+@keyframes lp-specs-sheen {
+  from {
+    opacity: 1;
+    background-position: 100% 0;
+  }
+
+  to {
+    opacity: 1;
+    background-position: 0 0;
+  }
+}

@@ -1,0 +1,839 @@
+/* Legal documents (src/landing/legal/LegalBody.tsx) — privacy, terms of sale, shipping & returns,
+   contact — as elegant long-form reading pages in the landing page's own theme (v2 · modern).
+   Tokens only (docs/DESIGN.md §2); --sec-* follow each block's data-bg. Logical properties only.
+   No JavaScript: everything (sticky contents, anchors, print) is plain CSS.
+   Transforms use `transform` (the individual rotate/translate/scale properties are missing on the
+   Chrome 90 / Samsung 14 floor). */
+
+/* --- top bar --------------------------------------------------------------- */
+
+.lp-legal__bar {
+  border-block-end: 1px solid var(--sec-line);
+}
+
+.lp-legal__bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-block-size: 3.75rem;
+}
+
+.lp-legal__brand {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.lp-legal__logo {
+  inline-size: auto;
+  max-inline-size: 9rem;
+  block-size: 2.25rem;
+}
+
+.lp-legal__logo img {
+  inline-size: auto;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.lp-legal__wordmark {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: var(--lp-step-1);
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1.1;
+}
+
+.lp-legal__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 2.75rem;
+  padding-inline: 0.25rem;
+  color: var(--sec-ink-soft);
+  font-size: var(--lp-step--1);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--lp-ui-s, 200ms) var(--lp-ease);
+}
+
+.lp-legal__back:hover {
+  color: var(--sec-ink);
+}
+
+.lp-legal__back:active {
+  opacity: 0.72;
+}
+
+/* "back" points to the start edge. arrow-right is mirrored in RTL by the primitive (.lp-flip-rtl,
+   individual `scale`); one more flip with `transform` points it to the start in both directions.
+   (Never "scale: none; transform: none" in one rule: lightningcss merges it into transform alone.) */
+.lp-legal__back-icon {
+  transform: scaleX(-1);
+}
+
+/* engines without `scale` mirror RTL icons with `transform` (base.css): the two flips would cancel */
+@supports not (scale: 1) {
+  [dir="rtl"] .lp-legal__back-icon {
+    transform: none;
+  }
+}
+
+/* --- hero: a softly lit panel ---------------------------------------------- */
+
+.lp-legal__hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-inline: var(--lp-panel-inset, 0);
+  border-radius: var(--lp-radius-panel, 0);
+  padding-block: clamp(2rem, 6vw, 4.5rem) calc(var(--lp-space-section) * 1.1);
+}
+
+.lp-legal__aurora {
+  position: absolute;
+  inset: -15% -5% 0;
+  z-index: -1;
+  background: var(--lp-aurora);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.lp-legal__hero-inner {
+  display: grid;
+  gap: 1.1rem;
+  justify-items: start;
+}
+
+/* document switcher: one segmented glass pill (scrolls sideways on small phones) */
+.lp-legal__docs {
+  max-inline-size: 100%;
+  margin-block-end: clamp(1rem, 4vw, 2.5rem);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lp-legal__docs::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-legal__docs-list {
+  display: flex;
+  gap: 0.25rem;
+  inline-size: max-content;
+  margin: 0;
+  padding: 0.3rem;
+  border: 1px solid var(--sec-glass-border);
+  border-radius: var(--lp-radius-pill);
+  background: var(--sec-glass-solid);
+  box-shadow: var(--lp-shadow-s), var(--lp-highlight);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-legal__docs-list {
+    background: var(--sec-glass);
+    -webkit-backdrop-filter: var(--lp-glass-filter);
+    backdrop-filter: var(--lp-glass-filter);
+  }
+}
+
+.lp-legal__doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 2.75rem;
+  padding-inline: 1em;
+  border-radius: var(--lp-radius-pill);
+  color: var(--sec-glass-ink);
+  font-size: var(--lp-step--1);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0.78;
+  transition:
+    background-color var(--lp-dur-s) var(--lp-ease),
+    color var(--lp-dur-s) var(--lp-ease),
+    opacity var(--lp-dur-s) var(--lp-ease);
+}
+
+.lp-legal__doc:hover {
+  opacity: 1;
+}
+
+.lp-legal__doc[aria-current="page"] {
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  opacity: 1;
+  box-shadow: var(--lp-shadow-s);
+}
+
+.lp-legal__doc:focus-visible {
+  outline: 2px solid var(--sec-accent);
+  outline-offset: 2px;
+}
+
+.lp-legal__doc-n {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.lp-legal__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7em;
+  margin: 0;
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.92);
+  font-weight: var(--lp-accent-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+/* one small accent dot leads the label */
+.lp-legal__kicker::before {
+  content: "";
+  flex: none;
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 0.25em var(--sec-chip);
+}
+
+.lp-legal__kicker-n {
+  padding-inline-start: 0.7em;
+  border-inline-start: 1px solid var(--sec-line-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-legal__title {
+  max-inline-size: 18ch;
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: min(calc(var(--lp-step-5) * var(--lp-script-scale-display, 1)), 13vw);
+  /* long titles wrap to 2–3 lines: room for accented capitals ("GÉNÉRALES") under tight display fonts */
+  line-height: max(0.98, var(--lp-display-lh));
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.lp-legal__updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0.25rem 0 0;
+  padding-block: 0.45em;
+  padding-inline: 0.9em;
+  border-radius: var(--lp-radius-pill);
+  background: var(--sec-chip);
+  color: var(--sec-chip-ink);
+  font-size: var(--lp-step--1);
+}
+
+.lp-legal__updated time {
+  font-weight: 600;
+}
+
+/* --- layout ---------------------------------------------------------------- */
+
+.lp-legal__content {
+  z-index: 1;
+  padding-block-start: 0;
+}
+
+.lp-legal__layout {
+  display: grid;
+  gap: clamp(2rem, 6vw, 4.5rem);
+  align-items: start;
+}
+
+.lp-legal__aside {
+  display: grid;
+  gap: 1.75rem;
+}
+
+@media (min-width: 60rem) {
+  .lp-legal__layout {
+    grid-template-columns: minmax(15rem, 19rem) minmax(0, 44rem);
+    justify-content: space-between;
+  }
+
+  .lp-legal__aside {
+    position: sticky;
+    inset-block-start: 1.5rem;
+  }
+}
+
+.lp-legal__aside-title {
+  margin: 0 0 0.85rem;
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.9);
+  font-weight: var(--lp-accent-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.35;
+  color: var(--sec-ink-soft);
+}
+
+/* glass "in short" card: the boundary-crossing moment — it floats over the hero's lower edge */
+.lp-legal__brief {
+  position: relative;
+  margin-block-start: calc(var(--lp-space-section) * -0.6);
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  border: 1px solid var(--sec-glass-border);
+  border-radius: var(--lp-radius-xl);
+  background: var(--sec-glass-solid);
+  color: var(--sec-glass-ink);
+  box-shadow: var(--lp-shadow-l), var(--lp-highlight);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-legal__brief {
+    /* two layers of the glass tint (~88% opaque): frosted, yet calm where a dark block shows through */
+    background: linear-gradient(var(--sec-glass), var(--sec-glass)) var(--sec-glass);
+    -webkit-backdrop-filter: var(--lp-glass-filter);
+    backdrop-filter: var(--lp-glass-filter);
+  }
+}
+
+.lp-legal__brief .lp-legal__aside-title {
+  color: inherit;
+  opacity: 0.72;
+}
+
+.lp-legal__brief-list {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+}
+
+.lp-legal__brief-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  font-size: var(--lp-step--1);
+  line-height: 1.55;
+}
+
+.lp-legal__brief-tick {
+  box-sizing: content-box;
+  margin-block-start: 0.05em;
+  padding: 0.2em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-legal__toc-list {
+  display: grid;
+  margin: 0;
+  border-block-start: 1px solid var(--sec-line);
+}
+
+.lp-legal__toc-list a {
+  display: grid;
+  grid-template-columns: 2.1rem minmax(0, 1fr);
+  align-items: baseline;
+  min-block-size: 2.75rem;
+  padding-block: 0.6rem;
+  border-block-end: 1px solid var(--sec-line);
+  color: var(--sec-ink-soft);
+  font-size: var(--lp-step--1);
+  line-height: 1.4;
+  text-decoration: none;
+  transition: color var(--lp-ui-s, 200ms) var(--lp-ease);
+}
+
+.lp-legal__toc-list a:hover {
+  color: var(--sec-ink);
+}
+
+/* the section the reader jumped to is marked in the article (CSS only: no script on legal pages) */
+.lp-legal__sec:target .lp-legal__h {
+  color: var(--sec-accent);
+}
+
+.lp-legal__toc-n {
+  font-family: var(--lp-font-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--sec-accent);
+}
+
+/* mobile: the contents list stays compact under the "in short" card */
+@media (max-width: 59.99rem) {
+  .lp-legal__toc-list {
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    column-gap: 1.25rem;
+  }
+}
+
+/* --- article --------------------------------------------------------------- */
+
+.lp-legal__article {
+  display: grid;
+  gap: clamp(2.25rem, 5vw, 3.25rem);
+  min-inline-size: 0;
+}
+
+.lp-legal__sec {
+  display: grid;
+  gap: 1rem;
+  padding-block-start: clamp(1.25rem, 3vw, 1.75rem);
+  border-block-start: 1px solid var(--sec-line);
+  scroll-margin-block-start: 1.5rem;
+}
+
+.lp-legal__h {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7em;
+  align-items: baseline;
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display, 1));
+  line-height: max(1.2, calc(var(--lp-display-lh) + 0.1));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case);
+}
+
+.lp-legal__n {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 2.4em;
+  padding-block: 0.35em;
+  border-radius: var(--lp-radius-pill);
+  background: var(--sec-chip);
+  color: var(--sec-chip-ink);
+  font-family: var(--lp-font-body);
+  font-size: 0.42em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  transform: translateY(-0.2em);
+}
+
+.lp-legal__p,
+.lp-legal__list,
+.lp-legal__callout p {
+  margin: 0;
+  max-inline-size: 42rem;
+  font-size: var(--lp-step-0);
+  line-height: var(--lp-body-lh);
+  text-wrap: pretty;
+}
+
+.lp-legal__p strong,
+.lp-legal__list strong,
+.lp-legal__brief strong,
+.lp-legal__callout strong {
+  font-weight: var(--lp-strong-weight);
+}
+
+.lp-legal__list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lp-legal__list li {
+  position: relative;
+  padding-inline-start: 1.6rem;
+}
+
+/* hand-set dash marker in the accent color */
+.lp-legal__list li::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0.8em;
+  inset-inline-start: 0.2rem;
+  inline-size: 0.75rem;
+  block-size: 2px;
+  border-radius: 2px;
+  background: var(--sec-accent);
+}
+
+.lp-legal__a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--sec-accent);
+  text-decoration-thickness: 0.09em;
+  text-underline-offset: 0.2em;
+  overflow-wrap: anywhere;
+}
+
+.lp-legal__a:hover {
+  text-decoration-thickness: 0.16em;
+}
+
+/* identity ledger: label · dotted leader · value */
+.lp-legal__facts {
+  display: grid;
+  margin: 0;
+  max-inline-size: 42rem;
+  border-block-start: 1px solid var(--sec-line);
+}
+
+.lp-legal__fact {
+  display: grid;
+  gap: 0.15rem;
+  padding-block: 0.7rem;
+  border-block-end: 1px solid var(--sec-line);
+}
+
+.lp-legal__fact dt {
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.9);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-legal__fact dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 36rem) {
+  .lp-legal__fact {
+    grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: baseline;
+  }
+}
+
+.lp-legal__callout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  max-inline-size: 42rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--sec-line);
+  border-radius: var(--lp-radius-l);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-shadow-s), var(--lp-highlight);
+}
+
+.lp-legal__callout-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+/* information the merchant still has to provide: a highlighted, outlined chip — impossible to miss,
+   never mistaken for real data (screen readers hear chrome.todo first) */
+.lp-legal__ph {
+  padding-block: 0.08em;
+  padding-inline: 0.45em;
+  border: 1px solid var(--sec-warn, var(--sec-accent));
+  border-radius: var(--lp-radius-xs);
+  background: var(--sec-highlight);
+  color: var(--sec-ink);
+  font-weight: 600;
+  font-style: normal;
+  white-space: normal;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* --- contact tiles --------------------------------------------------------- */
+
+.lp-legal__tiles {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+@media (min-width: 40rem) {
+  .lp-legal__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.lp-legal__tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon label go"
+    "icon value go";
+  column-gap: 0.9rem;
+  align-items: center;
+  min-block-size: 5.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--sec-line);
+  border-radius: var(--lp-radius-l);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-shadow-s), var(--lp-highlight);
+  text-decoration: none;
+  transition:
+    transform var(--lp-dur-s) var(--lp-ease-out),
+    box-shadow var(--lp-dur-s) var(--lp-ease-out);
+}
+
+a.lp-legal__tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--lp-shadow-m);
+}
+
+a.lp-legal__tile:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.lp-legal__tile--main {
+  border-color: transparent;
+  background: var(--lp-accent);
+  color: var(--lp-accent-ink);
+  box-shadow: var(--lp-shadow-glow), var(--lp-highlight-accent);
+}
+
+@media (min-width: 40rem) {
+  .lp-legal__tile--main {
+    grid-column: 1 / -1;
+  }
+}
+
+.lp-legal__tile-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: 50%;
+  background: var(--sec-chip);
+  color: var(--sec-chip-ink);
+}
+
+.lp-legal__tile--main .lp-legal__tile-icon {
+  background: var(--lp-accent-ink);
+  color: var(--lp-accent);
+}
+
+.lp-legal__tile-label {
+  grid-area: label;
+  font-size: var(--lp-step--1);
+  opacity: 0.8;
+}
+
+.lp-legal__tile-value {
+  grid-area: value;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: var(--lp-step-1);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.lp-legal__tile--static .lp-legal__tile-value {
+  font-family: var(--lp-font-body);
+  font-size: var(--lp-step-0);
+  font-weight: 600;
+}
+
+/* arrow-up-right mirrors itself in RTL (.lp-flip-rtl) */
+.lp-legal__tile-go {
+  grid-area: go;
+  opacity: 0.7;
+}
+
+/* --- "a question?" card ---------------------------------------------------- */
+
+.lp-legal__ask {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  gap: 0.75rem;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid var(--sec-line);
+  border-radius: var(--lp-radius-xl);
+}
+
+/* a soft light in the corner, from the product hues */
+.lp-legal__ask::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -40%;
+  inset-inline-end: -20%;
+  z-index: -1;
+  inline-size: 70%;
+  padding-block-end: 70%;
+  background: var(--lp-stage-glow);
+  pointer-events: none;
+}
+
+.lp-legal__ask-title {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-3) * var(--lp-script-scale-display, 1));
+  line-height: var(--lp-display-lh);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+}
+
+.lp-legal__ask-text {
+  margin: 0;
+  max-inline-size: 34rem;
+  color: var(--sec-ink-soft);
+}
+
+.lp-legal__ask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  margin-block-start: 0.5rem;
+}
+
+.lp-legal__ask-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 2.75rem;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--sec-accent);
+  text-underline-offset: 0.2em;
+}
+
+/* --- footer ---------------------------------------------------------------- */
+
+.lp-legal__foot {
+  font-size: var(--lp-step--1);
+}
+
+.lp-legal__foot-grid {
+  display: grid;
+  gap: 1.75rem;
+}
+
+@media (min-width: 48rem) {
+  .lp-legal__foot-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+}
+
+.lp-legal__foot-id {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.lp-legal__foot-brand {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: var(--lp-step-2);
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1.1;
+}
+
+.lp-legal__foot-line {
+  margin: 0;
+  color: var(--sec-ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.lp-legal__foot-cod {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0;
+  font-weight: 600;
+}
+
+.lp-legal__foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.25rem;
+  margin: 0;
+}
+
+.lp-legal__foot-links a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--sec-line-strong);
+  text-underline-offset: 0.25em;
+}
+
+.lp-legal__foot-links a:hover {
+  text-decoration-color: currentColor;
+}
+
+@media (min-width: 48rem) {
+  .lp-legal__foot-links {
+    display: grid;
+    justify-items: end;
+  }
+}
+
+.lp-legal__foot-copy {
+  margin: 1.75rem 0 0;
+  padding-block-start: 1.25rem;
+  border-block-start: 1px solid var(--sec-line);
+  color: var(--sec-ink-soft);
+}
+
+/* --- print: the document only, ink on paper --------------------------------- */
+
+@media print {
+  .lp-legal__bar,
+  .lp-legal__docs,
+  .lp-legal__toc,
+  .lp-legal__ask,
+  .lp-legal__aurora,
+  .lp-legal__foot-links {
+    display: none !important;
+  }
+
+  .lp-legal__hero,
+  .lp-legal__content,
+  .lp-legal__foot,
+  .lp-legal__brief,
+  .lp-legal__callout,
+  .lp-legal__tile {
+    background: none !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .lp-legal__brief {
+    margin: 0;
+    border-color: #999 !important;
+  }
+
+  .lp-legal__hero {
+    margin: 0;
+    padding-block: 0 1rem;
+  }
+
+  .lp-legal__layout {
+    display: block;
+  }
+
+  .lp-legal__sec {
+    break-inside: avoid-page;
+  }
+}

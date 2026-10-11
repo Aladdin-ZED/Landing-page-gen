@@ -1,0 +1,204 @@
+/* steps · cards — rules only this variant renders (inlined after steps.css on pages whose markup
+   carries .lp-steps--cards; the admin preview loads every variant). Shared rules live in steps.css. */
+
+.lp-steps__outro--split {
+  justify-content: space-between;
+  padding-block-start: clamp(1.5rem, 1rem + 2vw, 2.25rem);
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+/* ==========================================================================
+   cards — frosted glass staircase, giant numerals glowing through the glass
+   ========================================================================== */
+.lp-steps__deck {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-steps__glow {
+  z-index: -1;
+}
+
+.lp-steps__cards {
+  --num: clamp(8.5rem, 5.5rem + 9vw, 14.5rem);
+  /* the numeral's box ≈ its cap height (trimmed exactly where text-box is supported) */
+  --nh: calc(var(--num) * 0.74);
+  /* share of the numeral standing clear of the glass */
+  --above: 0.58;
+  --gx: max(1.3rem, calc(var(--lp-radius-xl) + 0.3rem));
+  --cgap: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+  display: grid;
+  gap: var(--cgap);
+}
+
+/* Arabic display faces carry cap metrics taller than their Latin digits, so the trimmed numeral box
+   has air above the glyph: lift it further, and about the same share of the digit clears the glass
+   (a "2" must still read as a 2, not an arch) */
+:root[dir="rtl"] .lp-steps__cards {
+  --above: 0.68;
+}
+
+.lp-steps__card {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  padding-block-start: calc(var(--nh) * var(--above));
+}
+
+.lp-steps__giant {
+  position: absolute;
+  z-index: 0;
+  inset-block-start: 0;
+  /* clear of the card's corner curve, so the glyph always enters the glass through a straight edge */
+  inset-inline-start: var(--gx);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: var(--num);
+  line-height: 0.74;
+  letter-spacing: -0.04em;
+  color: var(--sec-accent);
+  font-variant-numeric: lining-nums;
+  pointer-events: none;
+  user-select: none;
+  transition: translate var(--lp-dur-l) var(--lp-spring);
+}
+
+@supports (text-box: trim-both cap alphabetic) {
+  .lp-steps__giant {
+    line-height: 1;
+    text-box: trim-both cap alphabetic;
+  }
+}
+
+/* frosted card: the theme's glass, heavier frost, a top sheen */
+.lp-steps__glass {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  padding: clamp(1.4rem, 1.1rem + 1.2vw, 2rem);
+  padding-block-start: calc(var(--nh) * (1 - var(--above)) * 0.72 + 0.9rem);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.12), transparent 38%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+  transition: translate var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-steps__glass {
+    /* a moderate boost: a strong one turns a warm ground behind the glass into a peach / amber wash */
+    -webkit-backdrop-filter: blur(28px) saturate(130%);
+    backdrop-filter: blur(28px) saturate(130%);
+  }
+}
+
+/* the glass catching the numeral's light: a diffused copy of the glyph, exactly where the real one
+   stands behind it, painted between the glass fill and the text */
+.lp-steps__giant--lit {
+  z-index: -1;
+  inset-block-start: calc(var(--nh) * var(--above) * -1 - 1px);
+  inset-inline-start: calc(var(--gx) - 1px);
+  opacity: 0.26;
+  filter: blur(calc(var(--num) * 0.2));
+}
+
+/* on dark glass the numeral reads as a light source: tighter and brighter */
+:is([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])) .lp-steps__giant--lit {
+  opacity: 0.7;
+  filter: blur(calc(var(--num) * 0.14));
+}
+
+/* the duration sits on the top edge, opposite the numeral */
+.lp-steps__glass > .lp-steps__time {
+  position: absolute;
+  inset-block-start: clamp(1rem, 0.8rem + 0.8vw, 1.35rem);
+  inset-inline-end: clamp(1rem, 0.8rem + 0.8vw, 1.35rem);
+}
+
+.lp-steps__cpic {
+  inline-size: 100%;
+  margin-block-start: 1.25rem;
+  border-radius: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - 0.5rem * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+}
+
+@media (hover: hover) {
+  .lp-steps__card:hover .lp-steps__glass {
+    translate: 0 -6px;
+    box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  }
+
+  .lp-steps__card:hover .lp-steps__giant {
+    translate: 0 -18px;
+  }
+
+  /* the diffused copy rides inside the lifted glass: it moves only by the difference */
+  .lp-steps__card:hover .lp-steps__giant--lit {
+    translate: 0 -12px;
+  }
+}
+
+@media (min-width: 56rem) {
+  .lp-steps__cards {
+    --cgap: clamp(1.25rem, 2.2vw, 2.25rem);
+    --stair: clamp(2rem, 3.6vw, 3.75rem);
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .lp-steps__cards[data-count="2"] {
+    max-inline-size: 56rem;
+  }
+
+  /* a staircase: the first card sits lowest, each next one a step higher */
+  .lp-steps__card {
+    margin-block-start: calc(var(--rise) * var(--stair));
+  }
+
+  /* five steps: 3 + 2, flat */
+  .lp-steps__cards[data-count="5"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    row-gap: calc(var(--cgap) * 1.4);
+  }
+
+  .lp-steps__cards[data-count="5"] .lp-steps__card {
+    grid-column: span 2;
+    margin-block-start: 0;
+  }
+
+  .lp-steps__cards[data-count="5"] .lp-steps__card:nth-child(4) {
+    grid-column: 2 / span 2;
+  }
+}
+
+:root[data-arch="circuit"] :is(.lp-steps__fnum, .lp-steps__giant) {
+  font-family: var(--lp-font-label, var(--lp-font-display));
+  letter-spacing: -0.06em;
+}
+
+:root[data-arch="editorial"] :is(.lp-steps__fnum, .lp-steps__giant) {
+  color: var(--sec-ink);
+}
+
+/* ink numerals don't read as light: the frost alone hints at them */
+:root[data-arch="editorial"] .lp-steps__giant--lit {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+  html.lp-js:not([data-motion="off"]) .lp-steps__card[data-in] .lp-steps__giant {
+    animation: lp-steps-num calc(var(--lp-dur-l) * 1.25) var(--lp-spring) calc(var(--d, 0ms) + 220ms) backwards;
+  }
+}
+
+/* cards: the numeral climbs out of the glass once its card has landed */
+@keyframes lp-steps-num {
+  from {
+    opacity: 0;
+    translate: 0 32%;
+  }
+}

@@ -1,0 +1,455 @@
+/* hero · split — rules only this variant renders (inlined after hero.css on pages whose markup
+   carries .lp-hero--split; the admin preview loads every variant). Shared rules live in hero.css. */
+
+.lp-hero__deal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.25rem;
+}
+.lp-hero__bullets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:is(.lp-hero__media[data-kind="cutout"], .lp-hero__card--cutout, .lp-hero__pic--cutout) {
+  background-image: radial-gradient(70% 60% at 50% 32%, var(--mx-stage-hi), transparent), linear-gradient(180deg, var(--mx-stage), var(--mx-stage-lo));
+}
+
+:is(.lp-hero__media[data-kind="cutout"], .lp-hero__card--cutout, .lp-hero__pic--cutout) .lp-pic__img {
+  padding: 10%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* ==========================================================================
+   split — premium product page: gallery | buy panel with pack chips
+   ========================================================================== */
+.lp-hero--split .lp-hero__grid {
+  align-items: start;
+  gap: clamp(1.5rem, 1rem + 3vw, 4.5rem);
+}
+
+.lp-hero__gallery {
+  display: grid;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+.lp-hero__frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+  box-shadow: var(--lp-shadow-l);
+}
+
+/* the media edge (base.css §11): one hairline just inside the frame, over every slide */
+.lp-hero__frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge);
+  pointer-events: none;
+}
+
+.lp-hero__track {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.lp-hero__track::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-hero__slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+}
+
+/* the saving sits in the photo's quietest corner (split.tsx: data-block / data-inline) */
+.lp-hero__flag {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 1rem;
+  inset-inline-start: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), var(--lp-shadow-m);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.85rem;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.lp-hero__flag[data-block="end"] {
+  inset-block: auto 1rem;
+}
+
+.lp-hero__flag[data-inline="end"] {
+  inset-inline: auto 1rem;
+}
+
+.lp-hero__nav {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: 50%;
+  inset-inline-start: 0.85rem;
+  display: none;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  translate: 0 -50%;
+  opacity: 0;
+  transition: opacity var(--lp-dur-s) var(--lp-ease), scale var(--lp-dur-s) var(--lp-spring);
+}
+
+.lp-hero__nav--next {
+  inset-inline: auto 0.85rem;
+}
+
+.lp-hero__nav:disabled {
+  visibility: hidden;
+}
+
+.lp-hero__nav:active {
+  scale: 0.94;
+}
+
+/* phones: the position dots sit under the photo, never over the subject (a hand, a product's base) */
+.lp-hero__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+  margin-block-start: -0.35rem;
+}
+
+.lp-hero__dot {
+  display: grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.lp-hero__dot::before {
+  content: "";
+  inline-size: 0.4rem;
+  block-size: 0.4rem;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  opacity: 0.28;
+  transition: inline-size var(--lp-dur-m) var(--lp-spring), opacity var(--lp-dur-s) var(--lp-ease);
+}
+
+.lp-hero__dot[data-active]::before {
+  inline-size: 1.1rem;
+  opacity: 1;
+}
+
+.lp-hero__thumbs {
+  display: none;
+}
+
+.lp-hero__thumb {
+  flex: none;
+  inline-size: 4.75rem;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+  box-shadow: 0 0 0 1px var(--mx-hair);
+  cursor: pointer;
+  opacity: 0.62;
+  transition: opacity var(--lp-dur-s) var(--lp-ease), box-shadow var(--lp-dur-m) var(--lp-ease), translate var(--lp-dur-s) var(--lp-spring), scale var(--lp-dur-s) var(--lp-spring);
+}
+
+.lp-hero__thumb:active {
+  scale: 0.95;
+}
+
+.lp-hero__thumb[data-active] {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--sec-accent), 0 0 0 6px var(--mx-tint-2);
+}
+
+.lp-hero__panel {
+  display: grid;
+  gap: 1.15rem;
+  justify-items: start;
+  min-inline-size: 0;
+}
+
+.lp-hero--split .lp-hero__title {
+  max-inline-size: 20ch;
+  font-size: min(calc(var(--lp-step-4) * 0.86 * var(--lp-script-scale-display)), 10vw, 3.6rem);
+}
+
+/* the price answers the title, one step under it — never louder than the promise it follows */
+.lp-hero--split .lp-hero__price {
+  --price-fs: min(var(--lp-step-3), 2.6rem);
+}
+
+/* a very long promise keeps the buy panel's rhythm: four lines, not six */
+@media (min-width: 48rem) {
+  .lp-hero--split .lp-hero__title--xlong {
+    max-inline-size: 24ch;
+    font-size: min(calc(var(--lp-step-4) * 0.66 * var(--lp-script-scale-display)), 2.75rem);
+  }
+}
+
+.lp-hero__bullets {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.lp-hero__bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  font-size: calc(0.95rem * var(--lp-script-scale));
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.lp-hero__tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.4rem;
+  block-size: 1.4rem;
+  margin-block-start: 0.05rem;
+  border-radius: 50%;
+  background: var(--mx-tint-2);
+  color: var(--sec-accent);
+}
+
+.lp-hero__bullet-t {
+  font-weight: var(--lp-strong-weight);
+}
+
+.lp-hero__packs-pick {
+  display: grid;
+  gap: 0.35rem;
+  inline-size: 100%;
+}
+
+.lp-hero__pick-label {
+  margin: 0;
+  font-size: calc(0.84rem * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  color: var(--sec-ink-soft);
+}
+
+.lp-hero__opts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding-block: 0.7rem;
+}
+
+.lp-hero__opts[data-n="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lp-hero__opt {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.25rem;
+  min-block-size: 5.5rem;
+  padding: 1.05rem 0.4rem 0.8rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  text-align: center;
+  text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--mx-line), var(--lp-shadow-s);
+  transition: box-shadow var(--lp-dur-m) var(--lp-ease), translate var(--lp-dur-s) var(--lp-spring), scale var(--lp-dur-s) var(--lp-spring);
+}
+
+.lp-hero__opt[data-selected] {
+  box-shadow: inset 0 0 0 2px var(--sec-accent), 0 0 0 5px var(--mx-tint-2), var(--lp-shadow-m);
+}
+
+.lp-hero__opt:active {
+  scale: 0.97;
+}
+
+@media (hover: hover) {
+  .lp-hero__opt:hover {
+    translate: 0 -2px;
+  }
+
+  .lp-hero__thumb:hover {
+    opacity: 1;
+    translate: 0 -2px;
+  }
+}
+
+.lp-hero__opt-total {
+  font-size: calc(0.92rem * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-hero__opt-save,
+.lp-hero__opt-unit {
+  font-size: calc(0.74rem * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  color: var(--sec-accent);
+}
+
+.lp-hero__opt-unit {
+  font-weight: 400;
+  color: var(--sec-ink-soft);
+}
+
+/* the selection check pops onto the middle of the card's foot, half over its edge: never on the
+   figures, whatever the card's width (three narrow cards on a 320px phone) */
+.lp-hero__opt-check {
+  position: absolute;
+  inset-block-end: -0.65rem;
+  inset-inline: 0;
+  display: grid;
+  place-items: center;
+  inline-size: 1.3rem;
+  block-size: 1.3rem;
+  margin-inline: auto;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: 0 0 0 2px var(--sec-bg);
+  scale: 0;
+  transition: scale var(--lp-dur-m) var(--lp-spring-pop);
+}
+
+.lp-hero__opt[data-selected] .lp-hero__opt-check {
+  scale: 1;
+}
+
+.lp-hero--split .lp-hero__buy {
+  inline-size: 100%;
+  justify-items: stretch;
+}
+
+.lp-hero--split .lp-hero__cta {
+  inline-size: 100%;
+}
+
+/* reassurance on a soft tinted panel lit by a 1px top highlight (never an empty outlined box); the
+   panel gives the promises room, so they read at body size instead of a footnote's */
+.lp-hero--split .lp-hero__trust {
+  gap: 0.7rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+  font-size: calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale));
+}
+
+/* a single promise (the trust bar below carries the set) is a quiet line under the button, not a
+   card that would read as an empty field */
+.lp-hero--split .lp-hero__trust:has(> .lp-trust__item:only-child) {
+  align-items: center;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lp-hero__nav {
+    display: grid;
+  }
+
+  .lp-hero__frame:hover .lp-hero__nav,
+  .lp-hero__nav:focus-visible {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 64rem) {
+  .lp-hero--split .lp-hero__grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+
+  .lp-hero--split .lp-hero__gallery {
+    position: sticky;
+    inset-block-start: 5.5rem;
+  }
+
+  .lp-hero__dots {
+    display: none;
+  }
+
+  .lp-hero__thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  /* several photos: a tall 4:5 stage with a thumbnail rail on its start side */
+  .lp-hero__gallery[data-many] {
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.85rem;
+  }
+
+  .lp-hero__gallery[data-many] .lp-hero__frame {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .lp-hero__gallery[data-many] .lp-hero__thumbs {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .lp-hero__gallery[data-many] .lp-hero__thumb {
+    inline-size: 100%;
+  }
+
+  /* the desktop frame (split.tsx: --g-lg, the crop's frameLg) */
+  .lp-hero__slide .lp-pic {
+    aspect-ratio: var(--g-lg, 0.8);
+  }
+
+  .lp-hero__opts[data-n="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) :is(.lp-hero__media, .lp-hero__print, .lp-hero__slot[data-i="0"] .lp-hero__card, .lp-hero__slide:first-child) .lp-pic__img {
+    animation: lp-hero-settle calc(var(--lp-dur-l) * 2) var(--lp-smooth) backwards;
+  }
+}
+
+@keyframes lp-hero-settle {
+  from {
+    scale: 1.07;
+  }
+}

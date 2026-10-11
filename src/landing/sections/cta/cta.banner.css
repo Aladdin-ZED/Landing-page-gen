@@ -1,0 +1,339 @@
+/* cta · banner — rules only this variant renders (inlined after cta.css on pages whose markup
+   carries .lp-cta--banner; the admin preview loads every variant). Shared rules live in cta.css. */
+
+.lp-cta .lp-cta__head {
+  margin-block-end: 0;
+}
+
+/* a mid-length label beside the live price: in a phone-wide panel the words take a full row and the
+   price + arrow tuck under them (the long-label layout, cta.css) — never two cramped label lines */
+@container (max-width: 25rem) {
+  .lp-cta--banner .lp-cta__btn--mid {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    row-gap: 0.55em;
+    padding-block: 0.85em;
+    text-align: start;
+  }
+
+  .lp-cta--banner .lp-cta__btn--mid .lp-btn__label {
+    flex: 1 1 100%;
+  }
+
+  .lp-cta--banner .lp-cta__btn--mid .lp-btn__icon {
+    margin-inline-start: auto;
+  }
+}
+
+/* ---------- shared: actions, reassurance points, chips ---------------------- */
+.lp-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ==========================================================================
+   banner — a contrasting panel; the product breaks out of it
+   ========================================================================== */
+.lp-cta--banner {
+  /* how far the product rises above the panel's top edge */
+  --over: clamp(2.75rem, 1.4rem + 5.5vw, 5.5rem);
+}
+
+.lp-cta__panel {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: var(--c-gap);
+  padding: var(--c-pad);
+  border-radius: var(--c-radius);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-highlight), inset 0 0 0 1px var(--mx-hair), var(--lp-shadow-l);
+}
+
+/* room above the panel for the break-out, beyond what the section padding already gives. The product
+   then fills the top padding, so the panel gives the same amount back at the bottom: the whole
+   composition (product top → panel floor) sits in its block with the section's optical rhythm — the
+   space under the panel 8% larger than the space over the product, like every section's padding
+   (top gap T = max(padding − over, 2.5rem); bottom = 1.08 T; the shadow fits in ≥ 2.7rem).
+   (The wrap is a container, i.e. its own formatting context: the margin stays inside.) */
+.lp-cta__panel:not([data-media="none"]) {
+  margin-block-start: max(0px, calc(var(--over) + 2.5rem - var(--lp-space-section) * var(--space-k, 1)));
+  margin-block-end: min(0px, calc(1.08 * max(-1 * var(--over), 2.5rem - var(--lp-space-section) * var(--space-k, 1))));
+}
+
+.lp-cta__panel-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  corner-shape: inherit;
+}
+
+.lp-cta__copy {
+  display: grid;
+  gap: var(--c-gap);
+  justify-items: start;
+}
+
+.lp-cta__copy .lp-sh__title {
+  max-inline-size: 14ch;
+}
+
+:lang(ar) .lp-cta__copy .lp-sh__title {
+  max-inline-size: 17ch;
+}
+
+/* uppercase display faces (kinetic, garage) set capitals far wider than the "0" a ch measures: a
+   longer measure keeps the last word and its "?" together instead of breaking inside the word box */
+:root:is([data-arch="kinetic"], [data-arch="garage"]) .lp-cta__copy .lp-sh--l .lp-sh__title:not(:lang(ar)) {
+  max-inline-size: 18ch;
+}
+
+/* a long title (stepped down a size) runs to a normal measure */
+.lp-cta__copy .lp-sh--m .lp-sh__title {
+  max-inline-size: 22ch;
+}
+
+/* phones: the points as a quiet stacked list */
+.lp-cta--banner .lp-cta__points {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.lp-cta__media {
+  position: relative;
+  z-index: 2;
+  justify-self: center;
+  inline-size: min(76%, 21rem);
+  margin-block-start: calc(-1 * (var(--c-pad) + var(--over)));
+}
+
+.lp-cta__lift {
+  position: relative;
+}
+
+.lp-cta__frame {
+  position: relative;
+  isolation: isolate;
+  rotate: var(--rot, 0deg);
+}
+
+.lp-cta__frame .lp-cta__glow {
+  z-index: -1;
+  opacity: 0.8;
+}
+
+/* the photo card: the kit's mask (continuous corners, a true arch, the media edge — Picture `mask`)
+   at the aspect its crop was fitted to (--card-r: close to the photo's own, cta/fit.ts). On phones
+   every card is about as tall: a narrow stadium is narrower, a near-square photo keeps its width. */
+.lp-cta__shape {
+  /* blob pages: a soft pillow — an organic outline on a tall card would read as an egg */
+  --blob: 30% 30% 30% 30% / 22% 22% 22% 22%;
+  inline-size: 100%;
+  aspect-ratio: var(--card-r, 4 / 5);
+  box-shadow: var(--lp-highlight), var(--lp-shadow-l);
+}
+
+.lp-cta__panel[data-media="photo"] .lp-cta__media {
+  max-inline-size: calc(21.5rem * var(--card-r, 0.8));
+}
+
+/* a landscape photo stays landscape: a 4:3 card (a 3:2 stadium on pill / circle pages) */
+.lp-cta__panel[data-media="wide"] .lp-cta__media {
+  inline-size: min(92%, 30rem);
+}
+
+/* masks clip box-shadows (the arch is an SVG mask): the frame carries the depth as a drop shadow */
+.lp-cta__frame[data-shape="arch"] {
+  filter: var(--lp-shadow-product-filter);
+}
+
+/* cutout: standing in its own light, a contact shadow under it */
+.lp-cta__cutout {
+  position: relative;
+  isolation: isolate;
+  block-size: 100%;
+}
+
+.lp-cta__cutout .lp-cta__glow {
+  z-index: -1;
+}
+
+/* out of flow: the product never sizes the panel, the panel sizes the product */
+.lp-cta__cutout .lp-pic {
+  position: absolute;
+  inset: 0;
+}
+
+.lp-cta__panel[data-media="cutout"] .lp-cta__lift {
+  block-size: clamp(17rem, 62vw, 23rem);
+}
+
+.lp-cta__cutout .lp-pic__img {
+  object-position: 50% 100%;
+  filter: var(--lp-shadow-product-filter);
+}
+
+.lp-cta__contact {
+  position: absolute;
+  inset-inline: 16%;
+  inset-block-end: -3%;
+  z-index: -1;
+  block-size: 9%;
+  border-radius: 50%;
+  background-image: radial-gradient(closest-side, var(--mx-contact), transparent);
+}
+
+/* real-data chips on a diagonal: saving high on the outer edge, rating low toward the copy */
+.lp-cta__media-save,
+.lp-cta__media-rating {
+  position: absolute;
+  z-index: 3;
+}
+
+.lp-cta__media-save {
+  inset-block-start: 30%;
+  inset-inline-end: -8%;
+}
+
+.lp-cta__media-rating {
+  inset-block-end: 9%;
+  inset-inline-start: -13%;
+}
+
+/* a cutout is narrower than its box: chips hug the product instead of the box edges */
+.lp-cta__panel[data-media="cutout"] .lp-cta__media-save {
+  inset-block-start: 16%;
+  inset-inline-end: 2%;
+}
+
+.lp-cta__panel[data-media="cutout"] .lp-cta__media-rating {
+  inset-block-end: 14%;
+  inset-inline-start: 0;
+}
+
+/* wide card: the coin rides its top edge, the rating sits on its lower corner toward the copy */
+.lp-cta__panel[data-media="wide"] .lp-cta__media-save {
+  inset-block-start: -1.4rem;
+  inset-inline-end: 7%;
+}
+
+.lp-cta__panel[data-media="wide"] .lp-cta__media-rating {
+  inset-block-end: 1.1rem;
+  inset-inline-start: -0.75rem;
+}
+
+@container (min-width: 46rem) {
+  .lp-cta__panel {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    align-items: center;
+    column-gap: clamp(2rem, 6cqi, 5.5rem);
+  }
+
+  .lp-cta__copy {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .lp-cta__panel:not([data-media="none"]) {
+    min-block-size: clamp(24rem, 18rem + 12cqi, 30rem);
+  }
+
+  .lp-cta__media {
+    grid-column: 2;
+    grid-row: 1;
+    inline-size: min(100%, 24rem);
+    margin-inline-end: calc(-0.35 * var(--c-pad));
+  }
+
+  /* the points become a strip under a hairline: even columns, the icon beside a short line */
+  .lp-cta--banner .lp-cta__points {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+    align-items: start;
+    gap: 1rem 1.5rem;
+    inline-size: 100%;
+    margin-block-start: 0.25rem;
+    padding-block-start: 1.5rem;
+    border-block-start: 1px solid var(--mx-hair);
+    font-size: calc(max(0.875rem, var(--lp-step-0) * 0.86) * var(--lp-script-scale));
+  }
+
+  .lp-cta--banner .lp-cta__point {
+    align-items: flex-start;
+  }
+
+  /* the first line sits on the icon's center line; a second one tucks under it */
+  .lp-cta--banner .lp-cta__point > :last-child {
+    padding-block-start: 0.35em;
+    text-wrap: balance;
+  }
+
+  /* a photo card runs from above the panel's top edge down to its padding line — never narrower than
+     the aspect its crop was fitted to allows (~0.56): a long headline that makes the panel very tall
+     leaves the card hanging from the top edge instead of stretching it into a sliver */
+  .lp-cta__panel[data-media="photo"] .lp-cta__media {
+    display: grid;
+    align-self: stretch;
+    max-inline-size: none;
+  }
+
+  /* the card's width is min(24rem, its column ≈ 36% of the wrap): the cap follows it */
+  .lp-cta__panel[data-media="photo"] .lp-cta__lift {
+    display: grid;
+    block-size: 100%;
+    max-block-size: calc(min(24rem, 36cqi) / 0.56);
+  }
+
+  .lp-cta__panel[data-media="photo"] .lp-cta__frame {
+    display: grid;
+    block-size: 100%;
+  }
+
+  .lp-cta__panel[data-media="photo"] .lp-cta__shape {
+    aspect-ratio: auto;
+    block-size: 100%;
+  }
+
+  /* a cutout stands on the panel floor and rises through its top edge */
+  .lp-cta__panel[data-media="cutout"] .lp-cta__media {
+    display: grid;
+    align-self: stretch;
+    inline-size: min(100%, 27rem);
+    margin-block-end: calc(-1 * var(--c-pad) + 0.75rem);
+  }
+
+  .lp-cta__panel[data-media="cutout"] .lp-cta__lift {
+    block-size: 100%;
+  }
+
+  /* a wide card slides out of the panel's end edge instead: the panel steps back to make room */
+  .lp-cta__panel[data-media="wide"] {
+    --over-x: clamp(2.5rem, 0.5rem + 5cqi, 5rem);
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+    margin-block: 0;
+    margin-inline-end: var(--over-x);
+  }
+
+  .lp-cta__panel[data-media="wide"] .lp-cta__media {
+    justify-self: stretch;
+    inline-size: auto;
+    margin-block-start: 0;
+    margin-inline-end: calc(-1 * (var(--c-pad) + var(--over-x)));
+  }
+
+  .lp-cta__panel[data-media="wide"] .lp-cta__media-rating {
+    inset-inline-start: -1.75rem;
+  }
+
+  .lp-cta__panel[data-media="none"] .lp-cta__copy {
+    grid-column: 1 / -1;
+  }
+
+  /* the split statement reads from the top: title under the kicker, the side column beside it */
+  .lp-cta__panel[data-media="none"] .lp-sh--split {
+    align-items: start;
+  }
+}

@@ -1,0 +1,441 @@
+/* ==========================================================================
+   Offer showcase — stacked (bento) · tickets (wallet passes) · shelf (display window)
+   Every pack is one link (a[data-bundle-card]); the runtime moves [data-selected].
+   Static placements use `transform` (engines without individual transforms keep the
+   composition); hovers and reveals ride on the individual properties or on transforms
+   driven by custom properties.
+   Rules every variant uses. A variant's own rules live in offer.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+/* resolved on the section, so cards with their own palette still ring in the section's action color */
+.lp-offer,
+.lp-offer [data-bg] {
+  --ofr-well: var(--mx-tint);
+  --ofr-well-hi: var(--mx-tint);
+  --ofr-wall: var(--mx-tint-2);
+  --ofr-floor: var(--mx-tint);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  /* a recess that reads on light and dark cards alike: the card color nudged toward its ink */
+  .lp-offer,
+  .lp-offer [data-bg] {
+    --ofr-well: color-mix(in oklab, var(--sec-ink) 8%, var(--sec-bg));
+    --ofr-well-hi: color-mix(in oklab, var(--sec-ink) 3%, var(--sec-bg));
+    /* the display window: always a shade deeper than its block, so the spotlight reads */
+    --ofr-wall: color-mix(in oklab, var(--sec-bg) 84%, #000);
+    --ofr-floor: color-mix(in oklab, var(--sec-bg) 92%, #000);
+  }
+}
+
+/* the accent blush goes into the DRAINED ground (README "No orange"): a crimson on a butter card
+   gives a rosy recess, never a peach one */
+@supports (color: oklch(from red l c h)) {
+  .lp-offer,
+  .lp-offer [data-bg] {
+    --ofr-well: color-mix(in oklab, var(--sec-accent) 9%, color-mix(in oklab, var(--sec-ink) 8%, var(--mx-ground, var(--sec-bg))));
+    --ofr-well-hi: color-mix(in oklab, var(--sec-accent) 4%, color-mix(in oklab, var(--sec-ink) 3%, var(--mx-ground, var(--sec-bg))));
+    /* same hue as the block, a step deeper (a black mix would turn pastels dusty). Pastels gain a
+       little chroma; deep blocks lose some instead — a deeper maroon pushed out of sRGB would be
+       clipped by the browser into a brownish red (an orange hue) */
+    --ofr-wall: oklch(from var(--sec-bg) calc(l - 0.085) calc(c * clamp(0.78, 0.48 + l * 0.72, 1.12)) h);
+    --ofr-floor: oklch(from var(--sec-bg) calc(l - 0.035) calc(c * clamp(0.85, 0.55 + l * 0.56, 1.05)) h);
+  }
+}
+
+.lp-offer {
+  /* "×n" on the podium's face: light podiums (every block but the dark ones) take a deep tone of the podium */
+  --ofr-face: var(--sec-ink);
+  --ofr-ring: var(--sec-accent);
+  --ofr-ring-ink: var(--sec-accent-ink);
+  --ofr-ink: var(--sec-ink);
+  --ofr-bg: var(--sec-bg);
+  --ofr-halo: var(--mx-hair);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-offer {
+    --ofr-halo: color-mix(in oklab, var(--sec-accent) 22%, transparent);
+    --ofr-face: color-mix(in oklab, var(--mx-plinth-side) 45%, #000);
+  }
+
+  .lp-offer[data-bg="dark"],
+  :root[data-base="dark"] .lp-offer:is([data-bg="base"], [data-bg="soft"], [data-bg="surface"]) {
+    --ofr-face: color-mix(in oklab, var(--sec-ink) 86%, transparent);
+  }
+}
+
+.lp-ofr {
+  container: ofr / inline-size;
+}
+
+/* a product shown whole (fit.ts): its own dominant color fills the window around it */
+.lp-pic--letterbox {
+  background-color: var(--ph, var(--mx-tint));
+}
+
+/* the reassurance chips ride with the heading (split / aside headings) */
+.lp-ofr__head .lp-ofr__trust {
+  margin-block-start: 0.15rem;
+}
+
+/* split heading: the title column must hold its longest word — huge display caps (kinetic, garage)
+   ease down with the container instead of running into the lead column */
+@media (min-width: 56rem) {
+  .lp-ofr__head.lp-sh--split .lp-sh__title {
+    font-size: min(calc(var(--lp-step-4) * 0.88 * var(--lp-script-scale-display)), 11vw, 6.6cqi);
+  }
+}
+
+/* --- the pack link ------------------------------------------------------------ */
+.lp-ofr__card {
+  --lift: 0px;
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+  color: var(--sec-ink);
+  line-height: 1.3;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  translate: 0 calc(var(--raise, 0px) * -1 - var(--lift));
+  transition:
+    translate var(--lp-dur-m) var(--lp-spring),
+    scale var(--lp-dur-s) var(--lp-smooth),
+    box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-ofr__card:focus-visible {
+  outline: 2px solid var(--ofr-ink);
+  outline-offset: 5px;
+}
+
+.lp-ofr__card:active {
+  scale: 0.985;
+}
+
+/* the shopper's pack: accent ring + soft halo, a small lift, the check disc popping in */
+.lp-ofr__card[data-selected] {
+  --card-ring: 0 0 0 2px var(--ofr-ring), 0 0 0 7px var(--ofr-halo);
+  --lift: 4px;
+}
+
+@media (hover: hover) {
+  .lp-ofr__card:hover {
+    --lift: 6px;
+  }
+}
+
+/* --- type --------------------------------------------------------------------- */
+/* figures: prices, quantities, field values — the display face, tabular */
+.lp-ofr__times,
+.lp-ofr__now {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* "×" in the text face, a size down: display faces draw it as a heavy star */
+.lp-ofr__by {
+  font-family: var(--lp-font-body);
+  font-weight: 400;
+  font-size: 0.6em;
+  margin-inline-end: 0.05em;
+}
+
+.lp-ofr__id {
+  display: grid;
+  gap: 0.2rem;
+  min-inline-size: 0;
+}
+
+.lp-ofr__name {
+  font-size: calc(var(--lp-step-0) * 1.06 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.22;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.lp-ofr__meta {
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.lp-ofr__price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.55rem;
+}
+
+.lp-ofr__now {
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  letter-spacing: min(-0.01em, var(--lp-display-tracking));
+}
+
+/* the genuine reference: base.css .lp-price__was draws the diagonal strike */
+.lp-ofr__was {
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+}
+
+.lp-ofr__perks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.8rem;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  line-height: 1.35;
+}
+
+.lp-ofr__perks:empty {
+  display: none;
+}
+
+.lp-ofr__amt,
+.lp-ofr__ship {
+  font-weight: 600;
+}
+
+.lp-ofr__unit {
+  color: var(--sec-ink-soft);
+}
+
+.lp-ofr__ship {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.lp-ofr__ship .lp-icon {
+  color: var(--sec-success);
+}
+
+/* gift: a soft tinted capsule with its thumbnail */
+.lp-ofr__gift {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  align-self: stretch;
+  min-inline-size: 0;
+  padding: 0.4rem;
+  padding-inline-end: 0.8rem;
+  border-radius: calc(var(--lp-radius-m) * 0.8 * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--ofr-well-hi);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  line-height: 1.3;
+  text-align: start;
+}
+
+.lp-ofr__gift-pic {
+  flex: none;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: max(0.4rem, calc(var(--lp-radius-m) * 0.8 * var(--lp-corner-k) - 0.4rem * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-s);
+}
+
+.lp-ofr__gift-ico {
+  display: grid;
+  place-items: center;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-ofr__gift-txt {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.lp-ofr__gift-txt b {
+  font-weight: var(--lp-strong-weight);
+}
+
+/* --- check disc: pops in with a spring on the selected pack ----------------------- */
+.lp-ofr__check {
+  position: absolute;
+  z-index: 26;
+  inset-block-start: -0.6rem;
+  inset-inline-end: -0.6rem;
+  display: grid;
+  place-items: center;
+  inline-size: 1.9rem;
+  block-size: 1.9rem;
+  border-radius: 50%;
+  background: var(--ofr-ring);
+  color: var(--ofr-ring-ink);
+  box-shadow: 0 0 0 3px var(--ofr-bg), var(--lp-shadow-s);
+  opacity: 0;
+  scale: 0.3;
+  transition:
+    scale var(--lp-dur-m) var(--lp-spring-pop),
+    opacity var(--lp-dur-s) var(--lp-smooth);
+}
+
+[data-selected] .lp-ofr__check {
+  opacity: 1;
+  scale: 1;
+}
+
+.lp-ofr__stage > .lp-ofr__trust {
+  justify-content: center;
+  margin-block-start: clamp(1.75rem, 1.2rem + 2vw, 2.75rem);
+}
+
+/* ==========================================================================
+   product ×qty — a stack of photo sheets & a standing lineup of cutouts
+   ========================================================================== */
+.lp-ofv {
+  position: absolute;
+  inset: 0;
+  display: block;
+  isolation: isolate;
+}
+
+.lp-ofv__more {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: 0.5rem;
+  inset-inline-end: 0.5rem;
+  padding: 0.25em 0.6em;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  box-shadow: var(--lp-shadow-s);
+  font-size: 0.78rem;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* lineup: copies standing in depth — front centre, the others behind on alternate sides */
+.lp-ofv--line {
+  --spread: 1;
+  --rise: -5%;
+  --shrink: 0.1;
+}
+
+.lp-ofv__item {
+  position: absolute;
+  z-index: calc(10 - var(--l));
+  inset-block-end: 0;
+  inset-inline-start: calc(50% - var(--w) / 2);
+  inline-size: var(--w);
+  transform-origin: 50% 100%;
+  transform: translate(calc(var(--x) * var(--spread) * var(--lp-x) * 100%), calc(var(--l) * var(--rise))) scale(calc(1 - var(--l) * var(--shrink)));
+  transition: transform var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-ofv--line[data-kind="cutout"] .lp-pic__img {
+  object-position: 50% 100%;
+  filter: var(--lp-shadow-product-filter);
+}
+
+.lp-ofv--line[data-kind="cutout"] [data-l="1"] .lp-pic__img {
+  filter: var(--lp-shadow-product-filter) brightness(0.93);
+}
+
+.lp-ofv--line[data-kind="cutout"] [data-l="2"] .lp-pic__img {
+  filter: var(--lp-shadow-product-filter) brightness(0.86);
+}
+
+/* contact shadow where each cutout meets the floor */
+.lp-ofv--line[data-kind="cutout"] .lp-ofv__item::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-inline: 14%;
+  inset-block-end: -4%;
+  block-size: 9%;
+  background: var(--lp-shadow-product, radial-gradient(closest-side, var(--mx-contact), transparent));
+}
+
+.lp-ofv--line[data-kind="photo"] .lp-pic {
+  border-radius: max(0.4rem, calc(var(--lp-sq-media) * 0.5));
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-m);
+}
+
+/* "+n" rides on the end edge of the lineup, where the hidden copies would stand */
+.lp-ofv--line > .lp-ofv__more {
+  inset-block: auto 8%;
+  inset-inline: calc(50% + var(--gw) / 2 - 1.4rem) auto;
+}
+
+.lp-ofr__card:is(:hover, [data-selected]) .lp-ofv--line {
+  --spread: 1.1;
+}
+
+/* a lone pass beside its heading (the heading stays in view while the pass scrolls) */
+@media (min-width: 64rem) {
+  .lp-ofr--aside {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(2rem, 6vw, 6rem);
+  }
+
+  .lp-ofr--aside .lp-ofr__head {
+    position: sticky;
+    inset-block-start: clamp(2rem, 8vh, 4.5rem);
+    margin-block-end: 0;
+  }
+
+  /* below the page's sticky header (5.125rem stuck bar, header.css) */
+  :root:has(.lp-header--sticky) .lp-ofr--aside .lp-ofr__head {
+    inset-block-start: calc(5.125rem + clamp(1.5rem, 5vh, 3rem));
+  }
+}
+
+/* ==========================================================================
+   choreography: sheets slide out of the stack, copies step out of line, podiums
+   rise in quantity order and the products land on them, strikes draw on
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+
+  html.lp-js:not([data-motion="off"]) [data-in] .lp-ofv__item:not([data-l="0"]) {
+    animation: lp-ofr-fan var(--lp-dur-l) var(--lp-spring) calc(var(--d, 0ms) + 220ms + var(--l) * 90ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) :is(.lp-ofr__li, .lp-shf__slot):not([data-in]) .lp-ofr__was::after {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"] :is(.lp-ofr__li, .lp-shf__slot):not([data-in]) .lp-ofr__was::after {
+    clip-path: inset(0 0 0 100%);
+  }
+
+  html.lp-js:not([data-motion="off"]) :is(.lp-ofr__li, .lp-shf__slot)[data-in] .lp-ofr__was::after {
+    animation: lp-rv-strike var(--lp-dur-m) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-l)) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"] :is(.lp-ofr__li, .lp-shf__slot)[data-in] .lp-ofr__was::after {
+    animation-name: lp-rv-strike-rtl;
+  }
+}
+
+@keyframes lp-ofr-fan {
+  from {
+    transform: translate(0, 0) scale(calc(1 - var(--l) * var(--shrink)));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-ofr__card,
+.lp-ofr__check,
+.lp-ofv__item {
+    transition: none;
+  }
+
+  .lp-ofr__card:active {
+    scale: none;
+  }
+}

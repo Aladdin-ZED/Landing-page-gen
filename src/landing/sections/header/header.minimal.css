@@ -1,0 +1,234 @@
+/* header · minimal — rules only this variant renders (inlined after header.css on pages whose markup
+   carries .lp-header--minimal; the admin preview loads every variant). Shared rules live in header.css. */
+
+/* ---------- glass layers: rim light + reading hairline ---------------------- */
+.lp-header__float {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* the rim: a 1px edge lit from above, fading into the glass border below */
+.lp-header__float::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  corner-shape: inherit;
+  background: linear-gradient(180deg, var(--mx-rim), var(--hd-edge) 46%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+/* the reading hairline (scroll timelines only): accent light drawn from the start edge */
+.lp-header__float::after {
+  content: "";
+  display: none;
+  position: absolute;
+  inset-block-end: 0;
+  block-size: 2px;
+  border-radius: 2px;
+  background: linear-gradient(calc(90deg * var(--lp-x)), transparent, var(--sec-accent) 30%);
+  clip-path: inset(0 100% 0 0);
+}
+
+/* ---------- minimal: the island ---------------------------------------------- */
+/* Tight phones: only the wordmark yields (ellipsis, down to a readable share). The button keeps its
+   whole label unless the label alone is too long for what is left: --hd-cap is the bar's width
+   minus the wordmark's share, the gap and the contact disc (the bar spans the viewport less the
+   gutters wherever the cap can matter). */
+.lp-header__bar {
+  --hd-span: calc(100vw - 2 * var(--lp-gutter));
+  --hd-mark-min: min(7.5rem, calc(var(--hd-span) * 0.36));
+  --hd-cap: calc(var(--hd-span) - var(--hd-mark-min) - 0.75rem);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-block-size: calc(var(--hd-cta) + 2 * var(--hd-in));
+}
+
+.lp-header__bar:has(.lp-header__contact) {
+  --hd-cap: calc(var(--hd-span) - var(--hd-mark-min) - 0.75rem - var(--hd-cta) - 0.5rem);
+}
+
+.lp-header__bar > .lp-header__mark {
+  flex: 1 1 auto;
+  min-inline-size: var(--hd-mark-min);
+}
+
+.lp-header__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lp-header__actions :is(.lp-header__buy, .lp-header__cta) {
+  flex: none;
+}
+
+.lp-header__actions .lp-header__cta {
+  max-inline-size: min(13rem, var(--hd-cap));
+}
+
+.lp-header__note {
+  display: none;
+  align-items: center;
+  gap: 0.6em;
+  min-inline-size: 0;
+  margin: 0;
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  line-height: 1.2;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+  white-space: nowrap;
+}
+
+.lp-header__tick {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.7em;
+  block-size: 1.7em;
+  border-radius: 50%;
+  background-color: var(--hd-tint);
+  color: var(--sec-accent);
+}
+
+.lp-header__note-text {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the floating capsule: raised frosted glass, concentric with the button, inset from the viewport edge */
+.lp-header__float {
+  inset-block: 0;
+  inset-inline: calc(-1 * var(--hd-in));
+  border-radius: var(--hd-r);
+  corner-shape: var(--hd-corner);
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m, 0 8px 24px -12px var(--mx-contact));
+}
+
+.lp-header__float::after {
+  inset-inline: var(--hd-r);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  /* the theme's glass plus a deeper blur: display type scrolling beneath melts into color, never ghost letters */
+  .lp-header__float {
+    -webkit-backdrop-filter: var(--lp-glass) blur(12px);
+    backdrop-filter: var(--lp-glass) blur(12px);
+  }
+
+  .lp-header__float {
+    background-color: var(--hd-island);
+  }
+}
+
+/* floating state: the bar lets clicks through around the capsule; the wordmark sits inside it */
+.lp-header--minimal.lp-header--sticky {
+  pointer-events: none;
+}
+
+.lp-header--minimal.lp-header--sticky .lp-header__bar > :not(.lp-header__float) {
+  pointer-events: auto;
+}
+
+.lp-header--minimal.lp-header--sticky .lp-header__brand {
+  translate: calc(var(--lp-x) * var(--hd-nudge)) 0;
+}
+
+@media (min-width: 60rem) {
+
+  .lp-header__bar {
+    gap: 1.5rem;
+  }
+
+  /* the note sits truly centered between two equal sides; --hd-side is the room the end cluster
+     needs (button, + price pill, + contact disc), so the note never runs under it */
+  .lp-header__bar--note {
+    --hd-side: 9.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .lp-header__bar--note:has(.lp-header__buy--price) {
+    --hd-side: 17.5rem;
+  }
+
+  .lp-header__bar--note:has(.lp-header__contact) {
+    --hd-side: 13rem;
+  }
+
+  .lp-header__bar--note:has(.lp-header__contact):has(.lp-header__buy--price) {
+    --hd-side: 21rem;
+  }
+
+  .lp-header__note {
+    display: inline-flex;
+    grid-column: 2;
+    max-inline-size: calc(min(100vw - 2 * var(--lp-gutter), var(--lp-container)) - 2 * var(--hd-side) - 3rem);
+  }
+
+  .lp-header__bar--note .lp-header__actions {
+    grid-column: 3;
+    justify-self: end;
+  }
+}
+
+/* the fullest end cluster leaves too little room for the note below 64rem: the line steps aside */
+@media (min-width: 60rem) and (max-width: 63.99rem) {
+  .lp-header__bar--note:has(.lp-header__contact):has(.lp-header__buy--price) .lp-header__note {
+    display: none;
+  }
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    :root:not([data-motion="off"]) .lp-header__float {
+      animation: lp-hd-float linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0.25rem 4.5rem;
+    }
+
+    :root:not([data-motion="off"]) .lp-header--minimal.lp-header--sticky .lp-header__brand {
+      animation: lp-hd-nudge linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0.25rem 4.5rem;
+    }
+  }
+}
+
+/* the glass condenses around the bar: from a slightly larger, looser shape into the capsule */
+@keyframes lp-hd-float {
+  from {
+    opacity: 0;
+    transform: scale(1.03, 1.2);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes lp-hd-nudge {
+  from {
+    translate: 0 0;
+  }
+
+  to {
+    translate: calc(var(--lp-x) * var(--hd-nudge)) 0;
+  }
+}

@@ -1,0 +1,349 @@
+/* ==========================================================================
+   Sticky order CTA — bar (liquid-glass dock) · pill (luminous capsule)
+   Fixed root; the runtime toggles [data-visible] (inert while hidden). Pack
+   details: each [data-bundle-card] element shows only while its pack is the
+   chosen one ([data-selected]; no JS: [data-default]).
+   Rules every variant uses. A variant's own rules live in stickyCta.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-sticky {
+  --st-edge: 0.625rem;
+  /* the inline end / start as a background position (where the order button sits) */
+  --st-end: calc(50% + 50% * var(--lp-x));
+  --st-start: calc(50% - 50% * var(--lp-x));
+  /* springy pop for badges and discs (--lp-pop itself is the palette colour) */
+  --st-pop: var(--lp-ease-pop, var(--lp-spring));
+  /* light and shade come from the palette's own tinted neutrals, never pure white or black */
+  --st-light: var(--mx-rim);
+  --st-shade: var(--mx-floor);
+  --st-gloss: linear-gradient(180deg, var(--st-light), transparent 58%);
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: var(--lp-z-sticky, 80);
+  display: flex;
+  justify-content: center;
+  padding-inline: max(var(--st-edge), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+  padding-block-end: max(var(--st-edge), env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  transition:
+    transform calc(var(--lp-dur-l) * 1.1) var(--lp-spring),
+    visibility 0s;
+}
+
+.lp-sticky > * {
+  pointer-events: auto;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-sticky {
+    --st-light: color-mix(in oklab, var(--lp-n-50) 16%, transparent);
+    --st-shade: color-mix(in oklab, var(--lp-n-950) 10%, transparent);
+  }
+}
+
+/* hidden only once the runtime runs — without JS the bar simply stays */
+html.lp-js .lp-sticky:not([data-visible]) {
+  transform: translateY(calc(100% + 2.5rem));
+  visibility: hidden;
+  transition:
+    transform var(--lp-dur-m) var(--lp-sway),
+    visibility 0s linear var(--lp-dur-m);
+}
+
+/* The first screen belongs to the hero. Its button often sits below the fold (phones, tall
+   product-page heroes), so the runtime would show the bar at first paint, over the product.
+   Instead the bar arrives with the visitor's first scroll, tied to the scroll position
+   (scroll-driven, progressive: engines without scroll timelines keep the runtime behavior). The
+   runtime still hides it over the hero button and the form. Only translate / opacity / visibility
+   move — the runtime owns transform. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    html.lp-js:not(.lp-qa, [data-motion="off"]) .lp-sticky {
+      animation: lp-st-arrive linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 9rem;
+    }
+  }
+}
+
+/* only the start is declared: the end is the bar's own state (visible or hidden by the runtime) */
+@keyframes lp-st-arrive {
+  from {
+    opacity: 0;
+    translate: 0 calc(100% + 2.5rem);
+    visibility: hidden;
+  }
+}
+
+/* no JS: the bar never leaves, so the page ends above it */
+html:not(.lp-js) body {
+  padding-block-end: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* scroll-edge veil: the page frosts progressively where it slides under the floating layer, so the
+   dock reads on any section without a hard band */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-sticky::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: -1;
+    block-size: calc(100% + 1.75rem);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    -webkit-mask-image: linear-gradient(0deg, #000 30%, transparent);
+    mask-image: linear-gradient(0deg, #000 30%, transparent);
+    pointer-events: none;
+  }
+}
+
+/* end-of-page marker (a [data-hero-cta] for the runtime): the bar steps aside over the footer's last lines */
+.lp-sticky-end {
+  display: block;
+  block-size: 6rem;
+  margin-block-start: -6rem;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* --- pack details: one element per pack, only the chosen one shows ------ */
+html.lp-js .lp-sticky [data-bundle-card]:not([data-selected]),
+html:not(.lp-js) .lp-sticky [data-bundle-card]:not([data-default]) {
+  display: none;
+}
+
+/* --- reassurance lines -------------------------------------------------- */
+.lp-sticky__notes {
+  display: grid;
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: calc(var(--lp-step--1) * 0.86 * var(--lp-script-scale));
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.lp-sticky__note {
+  grid-area: 1 / 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-sticky__note + .lp-sticky__note {
+  display: none;
+}
+
+/* a small accent status light */
+.lp-sticky__note::before {
+  content: "";
+  display: inline-block;
+  inline-size: 0.4em;
+  block-size: 0.4em;
+  margin-inline-end: 0.5em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  vertical-align: 0.15em;
+}
+
+/* --- quantity, savings, genuine reference ------------------------------- */
+.lp-sticky__qty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.4rem;
+  block-size: 1.4rem;
+  padding-inline: 0.32rem;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  font: 700 0.72rem/1 var(--lp-font-body);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+/* the quantity as a count bubble on the product tile */
+.lp-sticky__qty--badge {
+  position: absolute;
+  inset-block-start: -0.3rem;
+  inset-inline-end: -0.4rem;
+  z-index: 1;
+  box-shadow:
+    0 0 0 2px var(--sec-glass-solid, var(--sec-card)),
+    0 3px 8px -2px var(--mx-contact);
+}
+
+/* the badge leaves the corner where it would cover a face (badgeSpot: [data-q] = block · inline) */
+.lp-sticky__thumb[data-q^="e"] .lp-sticky__qty--badge {
+  inset-block: auto -0.3rem;
+}
+
+.lp-sticky__thumb[data-q$="s"] .lp-sticky__qty--badge {
+  inset-inline: -0.4rem auto;
+}
+
+/* --- product tile: a lit stage; a cutout breaks out over its top edge ---- */
+.lp-sticky__thumb {
+  position: relative;
+  flex: none;
+  inline-size: var(--st-tile);
+  block-size: var(--st-tile);
+  border-radius: min(var(--st-in), 50%);
+  background: radial-gradient(120% 95% at 50% 12%, var(--mx-stage-hi), var(--mx-stage) 70%, var(--mx-stage-lo));
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-sticky__pic,
+.lp-sticky__pic .lp-pic__img {
+  transition: transform var(--lp-dur-l) var(--lp-smooth);
+}
+
+.lp-sticky__pic {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.lp-sticky__thumb[data-kind="photo"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--mx-hair),
+    inset 0 1px 0 var(--mx-rim);
+  pointer-events: none;
+}
+
+.lp-sticky__thumb[data-kind="cutout"] .lp-sticky__pic {
+  inset: -38% -6% 8%;
+  border-radius: 0;
+  filter: drop-shadow(0 3px 3px var(--mx-contact));
+}
+
+.lp-sticky__price {
+  font-family: var(--lp-font-display);
+  font-size: 1em;
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1.12;
+  white-space: nowrap;
+}
+
+/* hairline serifs vanish at bar size: the price takes the confident text weight */
+:root:is([data-arch="maison"], [data-arch="editorial"], [data-arch="bloom"]) .lp-sticky__price {
+  font-family: var(--lp-font-body);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: -0.01em;
+}
+
+/* tablets & computers: a centred dock adds the product name; the price group keeps its width, a
+   long label wraps in the button, and the name keeps a readable floor */
+@media (min-width: 48rem) {
+  .lp-sticky {
+    --st-edge: 1.25rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .lp-sticky[data-desktop="hide"] {
+    display: none;
+  }
+}
+
+/* the veil is a phone & tablet comfort; it also yields to a reduced-transparency preference */
+@media (min-width: 64rem), (prefers-reduced-transparency: reduce) {
+  .lp-sticky::before {
+    content: none;
+  }
+}
+
+/* ==========================================================================
+   Motion — entrance choreography each time the CTA appears, pack swaps and the
+   rolling reassurance; nothing moves on reduced motion or data-motion="off"
+   (the theme zeroes its durations)
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  /* two lines take turns while the bar is shown (each appearance starts on the first) */
+  html:not([data-motion="off"]) .lp-sticky[data-visible] .lp-sticky__notes[data-count="2"] .lp-sticky__note {
+    display: block;
+    animation: lp-st-roll-a 10s var(--lp-sway) infinite both;
+  }
+
+  html:not([data-motion="off"]) .lp-sticky[data-visible] .lp-sticky__notes[data-count="2"] .lp-sticky__note + .lp-sticky__note {
+    animation-name: lp-st-roll-b;
+  }
+
+  .lp-sticky [data-bundle-card][data-selected] {
+    animation: lp-st-swap var(--lp-dur-m) var(--st-pop) backwards;
+  }
+}
+
+@keyframes lp-st-swap {
+  from {
+    opacity: 0;
+    transform: translateY(0.3em) scale(0.85);
+    filter: blur(2px);
+  }
+}
+
+/* the current line rolls up and out, the next rises in from below — two phase-shifted sets, so the
+   resting state shows only the first line */
+@keyframes lp-st-roll-a {
+  0%,
+  44% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  50%,
+  94% {
+    opacity: 0;
+    transform: translateY(-0.85em);
+    filter: blur(3px);
+  }
+
+  94.01% {
+    transform: translateY(0.85em);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes lp-st-roll-b {
+  0%,
+  44% {
+    opacity: 0;
+    transform: translateY(0.85em);
+    filter: blur(3px);
+  }
+
+  50%,
+  94% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-0.85em);
+    filter: blur(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-sticky,
+  html.lp-js .lp-sticky:not([data-visible]) {
+    transform: none;
+    transition: visibility 0s;
+  }
+}

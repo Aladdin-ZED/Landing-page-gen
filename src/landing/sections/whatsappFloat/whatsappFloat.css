@@ -1,0 +1,717 @@
+/* ==========================================================================
+   WhatsApp float — one gesture for both variants: a vivid disc is the seed and
+   liquid glass grows out of it.
+   · bubble — the disc in a glass bezel that morphs sideways into a capsule
+   · tab    — a slim glass pill on the page edge whose glass runs down from the
+              disc, the line set vertically
+   Fixed root carrying its own data-bg, so glass, inks and the disc colors come
+   from --sec-*; it is never inside a section box. Only the visible glass and
+   the disc catch the pointer — the rest lets clicks through to the page.
+   ========================================================================== */
+/* how much glass has grown out of the disc (0 → 1); registered so it interpolates */
+@property --wa-k {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.lp-wa {
+  --wa-edge: 1rem;
+  /* bubble diameter / tab width, glass bezel around the disc */
+  --wa-d: 3.5rem;
+  --wa-p: 0.25rem;
+  --wa-lift: 0px;
+  /* clearance over the sticky order bar (its height + a gap) */
+  --wa-over-bar: 4.6rem;
+  --wa-max: min(15rem, calc(100vw - var(--wa-d) - 2 * var(--wa-edge) - 2rem));
+  --wa-disc: var(--sec-success);
+  --wa-glyph: var(--sec-bg);
+  --wa-glow: var(--mx-contact);
+  --wa-shine: var(--mx-rim);
+  /* the green disc, re-lit from the theme's success hue (see @supports below): lightness kept
+     between --wa-lo (light pages: WhatsApp's light-mode green) and --wa-hi (dark pages: its
+     dark-mode green), chroma per archetype */
+  --wa-lo: 0.62;
+  --wa-hi: 0.74;
+  --wa-c: 0.17;
+  /* +1 when the button sits on the inline end, −1 on the start (physical offsets × --lp-x) */
+  --wa-s: 1;
+  position: fixed;
+  z-index: var(--lp-z-float, 85);
+  inset-block-end: max(var(--wa-edge), env(safe-area-inset-bottom, 0px));
+  inset-inline-end: max(var(--wa-edge), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+  background: none;
+  pointer-events: none;
+  translate: 0 calc(-1 * var(--wa-lift));
+  transition:
+    translate var(--lp-dur-l) var(--lp-spring),
+    visibility 0s;
+}
+
+.lp-wa[data-side="start"] {
+  --wa-s: -1;
+  inset-inline-end: auto;
+  inset-inline-start: max(var(--wa-edge), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+}
+
+/* quiet archetypes take a deeper, calmer emerald; loud ones a juicier green */
+:root:is([data-arch="maison"], [data-arch="editorial"], [data-arch="bloom"]) .lp-wa {
+  --wa-lo: 0.54;
+  --wa-hi: 0.72;
+  --wa-c: 0.12;
+}
+
+:root:is([data-arch="apothecary"], [data-arch="field"]) .lp-wa {
+  --wa-c: 0.15;
+}
+
+:root:is([data-arch="playground"], [data-arch="kinetic"], [data-arch="circuit"]) .lp-wa {
+  --wa-c: 0.19;
+}
+
+.lp-wa[data-tone="accent"] {
+  --wa-disc: var(--sec-accent);
+  --wa-glyph: var(--sec-accent-ink);
+}
+
+.lp-wa[data-tone="ink"] {
+  --wa-disc: var(--sec-ink);
+  --wa-glyph: var(--sec-bg);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-wa {
+    --wa-glow: color-mix(in oklab, var(--wa-disc) 58%, transparent);
+    --wa-rim-lo: color-mix(in oklab, var(--mx-rim) 45%, transparent);
+    --wa-shine: color-mix(in oklab, var(--lp-n-50) 20%, transparent);
+  }
+}
+
+/* the theme's success green is solved for text (pale on dark pages, forest on light ones); the disc
+   wants the brand's vivid green in that same hue. The glyph flips on the disc's own lightness:
+   a green-white on deep greens, a green-black on bright ones — legible on any section color. */
+@supports (color: oklch(from red l c h)) {
+  .lp-wa[data-tone="green"] {
+    --wa-disc: oklch(from var(--sec-success) clamp(var(--wa-lo), l, var(--wa-hi)) var(--wa-c) h);
+    --wa-glyph: oklch(from var(--wa-disc) clamp(0.2, (0.68 - l) * 999, 0.985) calc(c * 0.14) h);
+  }
+
+  .lp-wa {
+    --wa-disc-hi: oklch(from var(--wa-disc) calc(l + 0.075) c h);
+    --wa-disc-lo: oklch(from var(--wa-disc) calc(l - 0.06) c h);
+  }
+}
+
+:root[data-shadow="glow"] .lp-wa {
+  --wa-halo: 0 0 1.5rem -0.25rem var(--wa-glow);
+}
+
+/* ---- shared: liquid glass, the disc ------------------------------------- */
+.lp-wa__skin {
+  position: absolute;
+  z-index: -1;
+  border-radius: 999px;
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  box-shadow:
+    inset 0 0 0 1px var(--sec-glass-border, var(--mx-hair)),
+    0 1px 2px var(--mx-floor),
+    0 0.6rem 1.5rem -0.8rem var(--mx-contact),
+    var(--lp-shadow-m, 0 0 #0000);
+  pointer-events: auto;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-wa__skin {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+/* no see-through when the visitor asks for less transparency; an edge the system can paint in
+   forced colors (where shadows and fills are dropped) */
+@media (prefers-reduced-transparency: reduce) {
+  .lp-wa__skin {
+    background-color: var(--sec-glass-solid, var(--sec-card));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .lp-wa__skin,
+  .lp-wa__disc {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+}
+
+/* the specular edge: light catches the upper-leading rim and, fainter, the opposite one */
+.lp-wa__skin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+      calc(var(--lp-x) * 145deg),
+      var(--mx-rim),
+      transparent 32% 68%,
+      var(--wa-rim-lo, transparent)
+    )
+    border-box;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.lp-wa__disc {
+  grid-area: disc;
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: calc(var(--wa-d) - 2 * var(--wa-p));
+  block-size: calc(var(--wa-d) - 2 * var(--wa-p));
+  border-radius: 50%;
+  background-color: var(--wa-disc);
+  /* fallback light: a soft top light and a satin floor */
+  background-image:
+    radial-gradient(85% 65% at 50% 0%, var(--mx-rim), transparent 72%),
+    linear-gradient(180deg, transparent 50%, var(--mx-floor));
+  color: var(--wa-glyph);
+  font-size: calc(var(--wa-d) * 0.44);
+  box-shadow:
+    inset 0 1px 0 var(--mx-rim),
+    inset 0 -1px 0 var(--mx-floor),
+    0 1px 2px var(--mx-floor),
+    0 0.5rem 1.1rem -0.4rem var(--wa-glow),
+    var(--wa-halo, 0 0 #0000);
+  pointer-events: auto;
+  transition:
+    scale var(--lp-dur-m) var(--lp-spring),
+    rotate var(--lp-dur-m) var(--lp-spring);
+}
+
+/* a lit lens: the disc's own green rises to the top, deepens to the rim */
+@supports (color: oklch(from red l c h)) {
+  .lp-wa__disc {
+    background-image:
+      radial-gradient(75% 48% at 50% 4%, var(--wa-shine), transparent 72%),
+      linear-gradient(180deg, var(--wa-disc-hi), var(--wa-disc) 52%, var(--wa-disc-lo));
+  }
+}
+
+.lp-wa__disc > * {
+  grid-area: 1 / 1;
+}
+
+/* typing dots, shown inside the disc during the peek */
+.lp-wa__dots {
+  display: none;
+  align-items: center;
+  gap: 0.2rem;
+  opacity: 0;
+}
+
+.lp-wa__dots i {
+  inline-size: 0.34rem;
+  block-size: 0.34rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ==========================================================================
+   bubble — the link keeps its full open size; the glass skin and a clip on the
+   line follow --wa-k, so the capsule grows linearly from the disc and the line
+   (already laid out) is unveiled, never reflowed
+   ========================================================================== */
+.lp-wa__cap {
+  --wa-k: 0;
+  /* share of the line hidden by the closed glass */
+  --wa-hide: calc((1 - var(--wa-k)) * 100%);
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-areas: "line disc";
+  align-items: center;
+  min-block-size: var(--wa-d);
+  padding: var(--wa-p);
+  border-radius: 999px;
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+  text-decoration: none;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    --wa-k var(--lp-dur-m) var(--lp-smooth),
+    scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-wa[data-side="start"] .lp-wa__cap {
+  grid-template-areas: "disc line";
+}
+
+.lp-wa__cap .lp-wa__skin {
+  inset-block: 0;
+  inset-inline: calc((1 - var(--wa-k)) * (100% - var(--wa-d))) 0;
+}
+
+.lp-wa[data-side="start"] .lp-wa__cap .lp-wa__skin {
+  inset-inline: 0 calc((1 - var(--wa-k)) * (100% - var(--wa-d)));
+}
+
+/* the line is clipped on the side away from the disc (clip-path is physical) */
+.lp-wa__line {
+  grid-area: line;
+  clip-path: inset(0 0 0 var(--wa-hide));
+}
+
+[dir="rtl"] .lp-wa__line,
+.lp-wa[data-side="start"] .lp-wa__line {
+  clip-path: inset(0 var(--wa-hide) 0 0);
+}
+
+[dir="rtl"] .lp-wa[data-side="start"] .lp-wa__line {
+  clip-path: inset(0 0 0 var(--wa-hide));
+}
+
+.lp-wa__say {
+  display: block;
+  max-inline-size: var(--wa-max);
+  padding-inline: 1.05rem 0.7rem;
+  font-size: calc(var(--lp-step--1) * 0.98 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.28;
+  text-wrap: balance;
+  opacity: 0;
+  filter: blur(5px);
+  translate: calc(var(--wa-s) * var(--lp-x) * 0.6rem) 0;
+  transition:
+    opacity var(--lp-dur-s) var(--lp-smooth),
+    filter var(--lp-dur-s) var(--lp-smooth),
+    translate var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-wa[data-side="start"] .lp-wa__say {
+  padding-inline: 0.7rem 1.05rem;
+}
+
+/* Arabic needs room for its marks when the line wraps; two lines still fit the capsule */
+:lang(ar) .lp-wa__say {
+  line-height: 1.5;
+}
+
+/* two lines at most; the capsule keeps its height */
+.lp-wa__say .lp-wa__text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* open: hover (pointer devices) and keyboard focus — opens on a spring, closes smoothly */
+@media (hover: hover) {
+  .lp-wa__cap:hover {
+    --wa-k: 1;
+    transition:
+      --wa-k var(--lp-dur-l) var(--lp-spring),
+      scale var(--lp-dur-m) var(--lp-spring);
+  }
+
+  .lp-wa__cap:hover .lp-wa__say {
+    opacity: 1;
+    filter: none;
+    translate: 0 0;
+    transition-delay: calc(var(--lp-dur-s) * 0.35);
+  }
+
+  .lp-wa__cap:hover .lp-wa__disc {
+    scale: 1.06;
+    rotate: calc(var(--lp-x) * var(--wa-s) * -8deg);
+  }
+}
+
+.lp-wa__cap:focus-visible {
+  --wa-k: 1;
+}
+
+.lp-wa__cap:focus-visible .lp-wa__say {
+  opacity: 1;
+  filter: none;
+  translate: 0 0;
+}
+
+.lp-wa__cap:active {
+  scale: 0.96;
+}
+
+/* ---- living with the sticky order bar ([data-sticky-cta]; the runtime sets data-visible) ---- */
+/* phones & tablets: ride above the bar while it is shown (no JS: the bar is always shown) */
+@media (max-width: 79.99rem) {
+  :root:has([data-sticky-cta][data-visible]) .lp-wa--bubble {
+    --wa-lift: var(--wa-over-bar);
+  }
+
+  :root:not(.lp-js):has([data-sticky-cta]) .lp-wa--bubble {
+    --wa-lift: var(--wa-over-bar);
+  }
+}
+
+/* phones & small tablets: the button belongs to the floating layer — it shows with the bar and
+   steps aside while the hero CTA or the order form is on screen, so it never sits on a primary
+   button or a field. Its entrance and its peek stay paused until it is shown. */
+@media (max-width: 63.99rem) {
+  html.lp-js:has([data-sticky-cta]:not([data-visible])) .lp-wa {
+    visibility: hidden;
+    transition:
+      translate var(--lp-dur-l) var(--lp-spring),
+      visibility 0s linear var(--lp-dur-m);
+  }
+
+  html.lp-js:has([data-sticky-cta]:not([data-visible])) .lp-wa__cap {
+    scale: 0;
+    transition: scale var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  html.lp-js:has([data-sticky-cta]:not([data-visible])) .lp-wa__tab {
+    translate: calc(var(--wa-s) * var(--lp-x) * (100% + 2 * var(--wa-edge))) 0;
+  }
+
+  html.lp-js:has([data-sticky-cta]:not([data-visible])) .lp-wa :is(.lp-wa__cap, .lp-wa__tab, .lp-wa__say, .lp-wa__col, .lp-wa__disc > *, .lp-wa__dots i) {
+    animation-play-state: paused;
+  }
+}
+
+/* phones: with a sticky order bar the float belongs to the floating layer, so it arrives with the
+   bar on the visitor's first scroll (same scroll range as stickyCta.css) and never sits on the hero
+   at first paint. Root only: the disc and the capsule keep their own entrance and peek. */
+@supports (animation-timeline: scroll()) {
+  @media (max-width: 63.99rem) and (prefers-reduced-motion: no-preference) {
+    html.lp-js:not(.lp-qa, [data-motion="off"]):has([data-sticky-cta]) .lp-wa {
+      animation: lp-wa-arrive linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 9rem;
+    }
+  }
+}
+
+@keyframes lp-wa-arrive {
+  from {
+    opacity: 0;
+    scale: 0.6;
+    visibility: hidden;
+  }
+}
+
+@media (min-width: 48rem) {
+  .lp-wa {
+    --wa-edge: 1.25rem;
+    --wa-d: 3.75rem;
+    --wa-max: 18rem;
+  }
+
+  .lp-wa--bubble {
+    --wa-over-bar: 5rem;
+  }
+
+  .lp-wa__say {
+    font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+  }
+}
+
+/* wide screens: beside the centered dock (≤ 46rem) the button keeps the bottom line and the
+   capsule stays clear of the dock */
+@media (min-width: 80rem) {
+  :root:has([data-sticky-cta][data-visible]) .lp-wa--bubble {
+    --wa-max: min(18rem, calc((100vw - 46rem) / 2 - var(--wa-edge) - var(--wa-d) - 0.75rem));
+  }
+}
+
+/* the bar is hidden on computers when the merchant chose so */
+@media (min-width: 64rem) {
+  :root:has([data-sticky-cta][data-desktop="hide"]) .lp-wa--bubble {
+    --wa-lift: 0px;
+  }
+}
+
+/* ==========================================================================
+   tab — a slim glass pill floating just off the page edge: the disc on top,
+   the glass running down from it with the line set vertically; it leans
+   toward the page under the pointer
+   ========================================================================== */
+.lp-wa--tab {
+  --wa-edge: 0.5rem;
+  --wa-d: 2.75rem;
+  inset-block-end: max(7.5rem, 28vh);
+}
+
+.lp-wa__tab {
+  --wa-k: 1;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  /* a line that wraps into a second column widens the pill a touch */
+  min-inline-size: var(--wa-d);
+  padding: var(--wa-p) var(--wa-p) 1.05rem;
+  border-radius: 999px;
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+  text-decoration: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    translate var(--lp-dur-m) var(--lp-spring),
+    scale var(--lp-dur-m) var(--lp-spring);
+}
+
+/* the glass hangs from the disc: at --wa-k 0 it is the disc's bezel, at 1 the whole pill */
+.lp-wa__tab .lp-wa__skin {
+  inset-block: 0 calc((1 - var(--wa-k)) * (100% - var(--wa-d)));
+  inset-inline: 0;
+}
+
+/* the column keeps its place; its clip follows the glass down */
+.lp-wa__col {
+  display: block;
+  clip-path: inset(0 -0.25rem calc((1 - var(--wa-k)) * 100%) -0.25rem);
+}
+
+/* the line runs down the pill; a long one breaks into two balanced columns
+   ("Une question ? / Écrivez-nous"), a longer one ends on an ellipsis */
+.lp-wa__tab .lp-wa__text {
+  display: -webkit-box;
+  max-inline-size: min(8.5rem, 30vh);
+  max-block-size: calc(2 * 1.3em);
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  writing-mode: vertical-rl;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(var(--lp-step--1) * 0.88 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.3;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Arabic sits on a taller line so marks never touch across the two columns */
+:lang(ar) .lp-wa__tab .lp-wa__text {
+  max-block-size: calc(2 * 1.5em);
+  line-height: 1.5;
+}
+
+/* the letters' tops face the page: on the right edge the line turns to read bottom → top */
+[dir="ltr"] .lp-wa--tab:not([data-side="start"]) .lp-wa__text,
+[dir="rtl"] .lp-wa--tab[data-side="start"] .lp-wa__text {
+  transform: rotate(180deg);
+}
+
+@media (hover: hover) {
+  .lp-wa__tab:hover {
+    translate: calc(var(--wa-s) * var(--lp-x) * -0.25rem) 0;
+  }
+
+  .lp-wa__tab:hover .lp-wa__disc {
+    scale: 1.06;
+    rotate: calc(var(--lp-x) * var(--wa-s) * -10deg);
+  }
+}
+
+.lp-wa__tab:focus-visible {
+  translate: calc(var(--wa-s) * var(--lp-x) * -0.25rem) 0;
+}
+
+.lp-wa__tab:active {
+  scale: 0.97;
+}
+
+@media (min-width: 48rem) {
+  .lp-wa--tab {
+    --wa-edge: 0.75rem;
+    --wa-d: 3.25rem;
+  }
+
+  .lp-wa__tab .lp-wa__text {
+    max-inline-size: min(10rem, 34vh);
+    font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  }
+}
+
+/* ==========================================================================
+   Motion — entrance after the hero settles; bubble: one peek (the disc types,
+   the glass opens on the line, holds it, folds back); tab: it glides in as a
+   disc, then the glass runs down and the line sharpens. Never in QA shots,
+   with reduced motion or data-motion="off".
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa__cap {
+    animation: lp-wa-pop var(--lp-dur-l) var(--lp-spring) 0.6s backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa__tab {
+    animation:
+      lp-wa-slide var(--lp-dur-l) var(--lp-spring) 1s backwards,
+      lp-wa-grow calc(var(--lp-dur-l) * 1.3) var(--lp-smooth) calc(1s + var(--lp-dur-l) * 0.6) backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa__col {
+    animation: lp-wa-sharpen calc(var(--lp-dur-l) * 1.3) var(--lp-smooth) calc(1s + var(--lp-dur-l) * 0.85) backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa[data-peek] .lp-wa__cap {
+    animation:
+      lp-wa-pop var(--lp-dur-l) var(--lp-spring) 0.6s backwards,
+      lp-wa-open 8s linear 3.6s backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa[data-peek] .lp-wa__say {
+    animation: lp-wa-say 8s linear 3.6s backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa[data-peek] .lp-wa__disc > .lp-icon {
+    animation: lp-wa-glyph 8s linear 3.6s backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa[data-peek] .lp-wa__dots {
+    display: flex;
+    animation: lp-wa-dots 8s linear 3.6s backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa[data-peek] .lp-wa__dots i {
+    animation: lp-wa-type 0.42s var(--lp-sway) 3.85s 4 alternate backwards;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa[data-peek] .lp-wa__dots i:nth-child(2) {
+    animation-delay: 3.99s;
+  }
+
+  :root.lp-js:not(.lp-qa):not([data-motion="off"]) .lp-wa[data-peek] .lp-wa__dots i:nth-child(3) {
+    animation-delay: 4.13s;
+  }
+}
+
+@keyframes lp-wa-pop {
+  from {
+    scale: 0;
+  }
+}
+
+@keyframes lp-wa-slide {
+  from {
+    translate: calc(var(--wa-s) * var(--lp-x) * (100% + 2 * var(--wa-edge))) 0;
+  }
+}
+
+@keyframes lp-wa-grow {
+  from {
+    --wa-k: 0;
+  }
+}
+
+@keyframes lp-wa-sharpen {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+/* 0–20 %: the disc types · 20–30 %: the glass opens · 30–84 %: the line holds · then folds */
+@keyframes lp-wa-open {
+  0%,
+  20% {
+    --wa-k: 0;
+    animation-timing-function: var(--lp-spring);
+  }
+  30%,
+  84% {
+    --wa-k: 1;
+    animation-timing-function: var(--lp-smooth);
+  }
+  93%,
+  100% {
+    --wa-k: 0;
+  }
+}
+
+@keyframes lp-wa-say {
+  0%,
+  22% {
+    opacity: 0;
+    filter: blur(5px);
+    translate: calc(var(--wa-s) * var(--lp-x) * 0.6rem) 0;
+    animation-timing-function: var(--lp-smooth);
+  }
+  31%,
+  82% {
+    opacity: 1;
+    filter: blur(0);
+    translate: 0 0;
+  }
+  87%,
+  100% {
+    opacity: 0;
+    filter: blur(5px);
+    translate: 0 0;
+  }
+}
+
+@keyframes lp-wa-glyph {
+  0%,
+  21%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+  3%,
+  18% {
+    opacity: 0;
+    scale: 0.5;
+  }
+}
+
+@keyframes lp-wa-dots {
+  0%,
+  22%,
+  100% {
+    opacity: 0;
+    scale: 0.6;
+  }
+  4%,
+  18% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes lp-wa-type {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+    translate: 0 -0.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-wa,
+  .lp-wa__cap,
+  .lp-wa__tab,
+  .lp-wa__say,
+  .lp-wa__disc {
+    transition: none;
+  }
+}
+
+@media print {
+  .lp-wa {
+    display: none;
+  }
+}

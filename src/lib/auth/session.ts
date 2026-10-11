@@ -1,0 +1,224 @@
+/**
+ * Server-side sessions (DB rows keyed by sha256(token); the raw 256-bit token only lives in the cookie).
+ *  - sliding idle expiry (7 d), refreshed at most every 10 min
+ *  - absolute expiry 30 d from creation
+ *  - pending-2FA sessions live 10 min and never slide
+ * Pure data layer — cookie handling lives in ./cookies.ts.
+ */
+import "server-only";
+import { createHash } from "node:crypto";
+import { and, desc, eq, lt, ne, or, inArray } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { sessions, users } from "@/lib/db/schema";
+import { newToken } from "@/lib/db/ids";
+import { hashIp } from "@/lib/security/crypto";
+import {
+  MAX_SESSIONS_PER_USER,
+  MFA_PENDING_TTL_MS,
+  SESSION_ABSOLUTE_TTL_MS,
+  SESSION_IDLE_TTL_MS,
+  SESSION_TOUCH_INTERVAL_MS,
+} from "./config";
+import type { Role } from "./permissions";
+
+/** newToken(32) → 43 base64url chars */
+const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+
+export interface ClientMeta {
+  ip?: string | null;
+  ua?: string | null;
+}
+
+export interface IssuedSession {
+  /** raw token for the cookie — never store or log it */
+  token: string;
+  id: string;
+  userId: string;
+  mfaPassed: boolean;
+  /** when the cookie should expire */
+  cookieExpiresAt: Date;
+}
+
+export interface ValidSession {
+  id: string;
+  userId: string;
+  mfaPassed: boolean;
+  createdAt: Date;
+  expiresAt: Date;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+    totpEnabled: boolean;
+  };
+}
+
+export function hashSessionToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+export function isWellFormedToken(token: unknown): token is string {
+  return typeof token === "string" && TOKEN_RE.test(token);
+}
+
+function meta(client: ClientMeta | undefined) {
+  let ip: string | null = null;
+  if (client?.ip) {
+    try {
+      ip = hashIp(client.ip);
+    } catch {
+      ip = null;
+    }
+  }
+  const ua = client?.ua ? client.ua.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 300) : null;
+  return { ip, ua: ua || null };
+}
+
+export async function createSession(
+  userId: string,
+  opts: { mfaPassed: boolean } & ClientMeta,
+): Promise<IssuedSession> {
+  const token = newToken(32);
+  const id = hashSessionToken(token);
+  const now = Date.now();
+  const absolute = now + SESSION_ABSOLUTE_TTL_MS;
+  const expires = opts.mfaPassed ? Math.min(now + SESSION_IDLE_TTL_MS, absolute) : now + MFA_PENDING_TTL_MS;
+  const { ip, ua } = meta(opts);
+
+  await db.insert(sessions).values({
+    id,
+    userId,
+    mfaPassed: opts.mfaPassed,
+    createdAt: new Date(now),
+    expiresAt: new Date(expires),
+    lastSeenAt: new Date(now),
+    ip,
+    ua,
+  });
+  await pruneUserSessions(userId);
+
+  return {
+    token,
+    id,
+    userId,
+    mfaPassed: opts.mfaPassed,
+    cookieExpiresAt: new Date(opts.mfaPassed ? absolute : expires),
+  };
+}
+
+/**
+ * Resolves a cookie token to a live session + user. Deletes the row when it is expired or the
+ * user was disabled; extends the idle window (rate-limited writes) for fully authenticated sessions.
+ */
+export async function validateSessionToken(token: string | null | undefined): Promise<ValidSession | null> {
+  if (!isWellFormedToken(token)) return null;
+  const id = hashSessionToken(token);
+
+  const rows = await db
+    .select({
+      id: sessions.id,
+      userId: sessions.userId,
+      mfaPassed: sessions.mfaPassed,
+      createdAt: sessions.createdAt,
+      expiresAt: sessions.expiresAt,
+      lastSeenAt: sessions.lastSeenAt,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      totpEnabled: users.totpEnabled,
+      disabled: users.disabled,
+    })
+    .from(sessions)
+    .innerJoin(users, eq(users.id, sessions.userId))
+    .where(eq(sessions.id, id))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+
+  const now = Date.now();
+  const absolute = row.createdAt.getTime() + SESSION_ABSOLUTE_TTL_MS;
+  if (row.disabled || row.expiresAt.getTime() <= now || absolute <= now) {
+    await deleteSession(id);
+    return null;
+  }
+
+  let expiresAt = row.expiresAt;
+  if (row.mfaPassed && now - row.lastSeenAt.getTime() >= SESSION_TOUCH_INTERVAL_MS) {
+    expiresAt = new Date(Math.min(now + SESSION_IDLE_TTL_MS, absolute));
+    await db.update(sessions).set({ lastSeenAt: new Date(now), expiresAt }).where(eq(sessions.id, id));
+  }
+
+  return {
+    id,
+    userId: row.userId,
+    mfaPassed: row.mfaPassed,
+    createdAt: row.createdAt,
+    expiresAt,
+    user: { id: row.userId, email: row.email, name: row.name, role: row.role, totpEnabled: row.totpEnabled },
+  };
+}
+
+/**
+ * Replaces a session with a fresh token (login completion, 2FA changes, password change):
+ * an attacker who planted or observed the old token gains nothing.
+ */
+export async function rotateSession(
+  old: { id: string; userId: string },
+  opts: { mfaPassed: boolean } & ClientMeta,
+): Promise<IssuedSession> {
+  const fresh = await createSession(old.userId, opts);
+  await deleteSession(old.id);
+  return fresh;
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  await db.delete(sessions).where(eq(sessions.id, id));
+}
+
+export async function deleteSessionByToken(token: string | null | undefined): Promise<string | null> {
+  if (!isWellFormedToken(token)) return null;
+  const id = hashSessionToken(token);
+  await deleteSession(id);
+  return id;
+}
+
+/** Ends every session of a user (role change, disable, password reset…), optionally keeping one. */
+export async function revokeUserSessions(userId: string, opts: { exceptId?: string } = {}): Promise<number> {
+  const where = opts.exceptId
+    ? and(eq(sessions.userId, userId), ne(sessions.id, opts.exceptId))
+    : eq(sessions.userId, userId);
+  const [result] = await db.delete(sessions).where(where);
+  return result.affectedRows;
+}
+
+/** Keeps the newest MAX_SESSIONS_PER_USER sessions of a user and drops expired ones. */
+async function pruneUserSessions(userId: string): Promise<void> {
+  await db.delete(sessions).where(and(eq(sessions.userId, userId), lt(sessions.expiresAt, new Date())));
+  const overflow = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+    .orderBy(desc(sessions.createdAt))
+    .limit(1000)
+    .offset(MAX_SESSIONS_PER_USER);
+  if (overflow.length) {
+    await db.delete(sessions).where(
+      inArray(
+        sessions.id,
+        overflow.map((s) => s.id),
+      ),
+    );
+  }
+}
+
+/** Housekeeping (boot / cron): removes idle-expired and absolutely-expired sessions. */
+export async function purgeExpiredSessions(): Promise<number> {
+  const now = Date.now();
+  const [result] = await db
+    .delete(sessions)
+    .where(
+      or(lt(sessions.expiresAt, new Date(now)), lt(sessions.createdAt, new Date(now - SESSION_ABSOLUTE_TTL_MS))),
+    );
+  return result.affectedRows;
+}

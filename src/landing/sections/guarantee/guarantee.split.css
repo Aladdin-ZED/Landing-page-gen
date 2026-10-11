@@ -1,0 +1,440 @@
+/* guarantee · split — rules only this variant renders (inlined after guarantee.css on pages whose markup
+   carries .lp-guarantee--split; the admin preview loads every variant). Shared rules live in guarantee.css. */
+
+.lp-guarantee__panel {
+  position: relative;
+  border: 1px solid var(--mx-hair);
+  border-radius: var(--g-radius);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  background-image: linear-gradient(to bottom, var(--g-sheen), transparent 42%);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 24px 48px -24px rgb(0 0 0 / 0.28));
+}
+
+/* ==========================================================================
+   split — photo with a live price chip; heading and a raised panel beside it,
+   the panel stepping over the photo's edge.
+   One frame at every width (portrait 4:5, landscape 4:3, a circle on circle
+   pages): the subject-fitted crop and the chip's quiet spot hold everywhere.
+   ========================================================================== */
+.lp-guarantee__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lp-guarantee__stage > .lp-guarantee__head {
+  margin-block-end: var(--g-gap);
+}
+
+/* no stacking context of its own: a chip crossing the photo's foot rides over the panel */
+.lp-guarantee__media {
+  position: relative;
+  margin: 0;
+}
+
+.lp-guarantee__pic {
+  box-shadow: var(--lp-shadow-l, 0 24px 48px -24px rgb(0 0 0 / 0.28));
+}
+
+/* the circle stays a true circle, held to a portrait's width while stacked */
+.lp-guarantee__stage[data-shape="circle"] .lp-guarantee__media {
+  justify-self: center;
+  inline-size: min(100%, 30rem);
+}
+
+/* ---------- the price chip, in the photo's quiet spot ----------------------------
+   data-at (phones) / data-at-lg (side by side): block t · m · b, inline s · e · c.
+   Insets are fractions of the photo (absolute insets resolve % against the box), the
+   same numbers the spot was chosen with (story/fit.ts quietSpot). */
+.lp-guarantee__float {
+  --fx: 4.5%;
+  --fy: 3.5%;
+  --ft: 3.5%;
+  --fb: 3.5%;
+  --lift: 12%;
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  max-inline-size: calc(100% - 2 * var(--fx));
+  pointer-events: none;
+}
+
+.lp-guarantee__stage:is([data-shape="arch"], [data-shape="pill"], [data-shape="circle"], [data-shape="blob"]) .lp-guarantee__float {
+  --ft: 9%;
+}
+
+.lp-guarantee__stage:is([data-shape="pill"], [data-shape="circle"], [data-shape="blob"]) .lp-guarantee__float {
+  --fb: 9%;
+}
+
+.lp-guarantee__float[data-at^="t"] {
+  inset-block-start: var(--ft);
+}
+
+.lp-guarantee__float[data-at^="m"] {
+  inset-block-start: 50%;
+  translate: 0 -50%;
+}
+
+.lp-guarantee__float[data-at^="b"] {
+  inset-block-end: calc(var(--fb) + var(--lift));
+}
+
+/* crossing the foot: centred on the panel's top edge (phones — the panel's own overlap) */
+.lp-guarantee__float[data-at^="x"] {
+  inset-block-end: clamp(2rem, 9cqi, 3.5rem);
+  translate: 0 50%;
+}
+
+.lp-guarantee__float[data-at$="s"] {
+  inset-inline-start: var(--fx);
+}
+
+.lp-guarantee__float[data-at$="e"] {
+  inset-inline-end: var(--fx);
+}
+
+.lp-guarantee__float[data-at$="c"] {
+  inset-inline: var(--fx);
+  justify-content: center;
+}
+
+.lp-guarantee__chip {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  min-inline-size: 0;
+  padding-block: 0.4rem;
+  padding-inline: 0.4rem 1.05rem;
+  border-radius: 999px;
+  pointer-events: auto;
+}
+
+.lp-guarantee__chip-ico {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.4rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, inset 0 1px 0 rgb(255 255 255 / 0.25)), 0 6px 14px -6px var(--mx-btn-2);
+}
+
+.lp-guarantee__chip-txt {
+  display: grid;
+  gap: 0.1rem;
+  min-inline-size: 0;
+  line-height: 1.15;
+}
+
+.lp-guarantee__chip-price {
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--lp-step-1) * 1.04 * var(--lp-script-scale-display));
+  font-weight: var(--lp-display-weight);
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+
+.lp-guarantee__chip-note {
+  overflow: hidden;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.86;
+}
+
+/* compact chip (a crowded photo): the price alone, the “at the door” line left to the panel */
+.lp-guarantee__float[data-compact] .lp-guarantee__chip-note {
+  display: none;
+}
+
+.lp-guarantee__float[data-compact] .lp-guarantee__chip {
+  padding-inline-end: 0.9rem;
+}
+
+/* the panel rises over the photo's foot on phones */
+.lp-guarantee--split .lp-guarantee__panel {
+  z-index: 1;
+  margin-block-start: -2.5rem;
+  margin-inline: 0.75rem;
+  margin-block-start: clamp(-3.5rem, -9cqi, -2rem);
+  margin-inline: clamp(0.5rem, 3cqi, 1.25rem);
+  padding: var(--g-pad);
+}
+
+/* frosted where it crosses the photo; opaque card elsewhere and without backdrop-filter */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) and (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-guarantee--split .lp-guarantee__stage:has(.lp-guarantee__media) .lp-guarantee__panel {
+    background-color: color-mix(in oklab, var(--sec-card) 88%, transparent);
+    -webkit-backdrop-filter: blur(28px) saturate(130%);
+    backdrop-filter: blur(28px) saturate(130%);
+  }
+}
+
+/* a chip riding the panel's top edge (phones): the first promise starts below it */
+.lp-guarantee--split .lp-guarantee__stage[data-seam] .lp-guarantee__panel {
+  padding-block-start: calc(var(--g-pad) + 1.6rem);
+}
+
+.lp-guarantee__wrap--solo .lp-guarantee__stage {
+  display: block;
+}
+
+.lp-guarantee__wrap--solo .lp-guarantee__panel {
+  margin: 0;
+}
+
+/* one hairline threads the icons: each row draws the segment down to the next disc */
+.lp-guarantee__thread {
+  --g-ico: 3.1rem;
+  --pt: clamp(1.1rem, 0.9rem + 0.8vw, 1.5rem);
+}
+
+.lp-guarantee__thread .lp-guarantee__item {
+  --top: var(--pt);
+  z-index: 1;
+  padding-block: var(--pt);
+}
+
+.lp-guarantee__thread .lp-guarantee__item:first-child {
+  --top: 0px;
+  padding-block-start: 0;
+}
+
+.lp-guarantee__thread .lp-guarantee__item:last-child {
+  padding-block-end: 0;
+}
+
+.lp-guarantee__thread .lp-guarantee__item + .lp-guarantee__item::after {
+  content: none;
+}
+
+.lp-guarantee__thread .lp-guarantee__item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  inset-block: calc(var(--top) + var(--g-ico) / 2) calc(-1 * (var(--pt) + var(--g-ico) / 2));
+  inset-inline-start: calc(var(--g-ico) / 2 - 0.75px);
+  z-index: -1;
+  inline-size: 1.5px;
+  border-radius: 2px;
+  background: var(--g-ring);
+  transform-origin: 50% 0;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-guarantee__thread .lp-guarantee__item:not(:last-child)::before {
+    background: linear-gradient(var(--g-thread), var(--g-ring));
+  }
+}
+
+/* side by side: the photo holds the start columns; the panel steps one column over its edge */
+@container (min-width: 40rem) {
+  .lp-guarantee__stage {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(1rem, 2.4cqi, 1.75rem);
+  }
+
+  .lp-guarantee__stage > .lp-guarantee__head {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .lp-guarantee__media,
+  .lp-guarantee__stage[data-shape="circle"] .lp-guarantee__media {
+    grid-column: 1 / 8;
+    grid-row: 2;
+    align-self: start;
+    justify-self: stretch;
+    inline-size: auto;
+  }
+
+  .lp-guarantee--split .lp-guarantee__panel,
+  .lp-guarantee--split .lp-guarantee__stage[data-seam] .lp-guarantee__panel {
+    grid-column: 7 / 13;
+    grid-row: 2;
+    align-self: center;
+    margin: 0;
+    padding: clamp(1.75rem, 3.6cqi, 2.75rem);
+  }
+
+  .lp-guarantee__stage--wide .lp-guarantee__media {
+    grid-column: 1 / 9;
+  }
+
+  .lp-guarantee--split .lp-guarantee__stage--wide .lp-guarantee__panel {
+    grid-column: 8 / 13;
+  }
+
+  .lp-guarantee__wrap--solo .lp-guarantee__panel {
+    padding: clamp(2rem, 4cqi, 3.25rem);
+  }
+
+  /* chip spots for the side-by-side layout (data-at-lg, data-compact-lg) */
+  .lp-guarantee__float[data-at-lg] {
+    inset: auto;
+    translate: none;
+    justify-content: flex-start;
+  }
+
+  .lp-guarantee__float[data-at-lg] .lp-guarantee__chip-note {
+    display: block;
+  }
+
+  .lp-guarantee__float[data-at-lg] .lp-guarantee__chip {
+    padding-inline-end: 1.05rem;
+  }
+
+  .lp-guarantee__float[data-compact-lg] .lp-guarantee__chip-note {
+    display: none;
+  }
+
+  .lp-guarantee__float[data-compact-lg] .lp-guarantee__chip {
+    padding-inline-end: 0.9rem;
+  }
+
+  .lp-guarantee__float[data-at-lg^="t"] {
+    inset-block-start: var(--ft);
+  }
+
+  .lp-guarantee__float[data-at-lg^="m"] {
+    inset-block-start: 50%;
+    translate: 0 -50%;
+  }
+
+  .lp-guarantee__float[data-at-lg^="b"] {
+    inset-block-end: var(--fb);
+  }
+
+  .lp-guarantee__float[data-at-lg^="x"] {
+    inset-block-end: 0;
+    translate: 0 50%;
+  }
+
+  .lp-guarantee__float[data-at-lg$="s"] {
+    inset-inline-start: var(--fx);
+  }
+
+  .lp-guarantee__float[data-at-lg$="e"] {
+    inset-inline-end: var(--fx);
+  }
+
+  .lp-guarantee__float[data-at-lg$="c"] {
+    inset-inline: var(--fx);
+    justify-content: center;
+  }
+
+  /* no photo: the promises run side by side, the thread turns horizontal */
+  .lp-guarantee__wrap--solo .lp-guarantee__thread {
+    --cg: clamp(1.5rem, 3.5cqi, 3rem);
+  }
+
+  .lp-guarantee__wrap--solo .lp-guarantee__thread .lp-guarantee__list {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    column-gap: var(--cg);
+  }
+
+  .lp-guarantee__wrap--solo .lp-guarantee__thread .lp-guarantee__item {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+  }
+
+  .lp-guarantee__wrap--solo .lp-guarantee__thread .lp-guarantee__item:not(:last-child)::before {
+    inset-block: calc(var(--g-ico) / 2 - 0.75px) auto;
+    inset-inline: calc(var(--g-ico) + 0.75rem) calc(-1 * var(--cg) + 0.75rem);
+    inline-size: auto;
+    block-size: 1.5px;
+    background: var(--g-ring);
+    transform-origin: 0 50%;
+  }
+
+  [dir="rtl"] .lp-guarantee__wrap--solo .lp-guarantee__thread .lp-guarantee__item:not(:last-child)::before {
+    transform-origin: 100% 50%;
+  }
+}
+
+/* wide screens, portrait photo: the heading joins the panel's column — its first line level with the
+   photo's top, the panel under it stepping over the photo's edge and settling past its foot */
+@container (min-width: 56rem) {
+  .lp-guarantee__stage:not(.lp-guarantee__stage--wide) {
+    grid-template-rows: auto 1fr;
+  }
+
+  .lp-guarantee__stage:not(.lp-guarantee__stage--wide) > .lp-guarantee__head {
+    grid-column: 8 / 13;
+    grid-row: 1;
+    align-self: start;
+    margin-block-end: clamp(2rem, 3.5cqi, 3rem);
+    padding-block-start: clamp(0.5rem, 2cqi, 1.5rem);
+  }
+
+  .lp-guarantee__stage:not(.lp-guarantee__stage--wide) .lp-guarantee__media {
+    grid-column: 1 / 7;
+    grid-row: 1 / 3;
+  }
+
+  /* the panel settles a step past the photo's foot (the stage keeps that step inside its own box) */
+  .lp-guarantee__stage:not(.lp-guarantee__stage--wide) {
+    --hang: clamp(2rem, 4.5cqi, 3.75rem);
+    padding-block-end: var(--hang);
+  }
+
+  .lp-guarantee--split .lp-guarantee__stage:not(.lp-guarantee__stage--wide) .lp-guarantee__panel {
+    grid-column: 6 / 13;
+    grid-row: 2;
+    align-self: end;
+    margin-block-end: calc(-1 * var(--hang));
+  }
+}
+
+/* 320px phones: the inset panel gives a little of its side padding to the order button */
+@media (max-width: 22.5rem) {
+  .lp-guarantee--split .lp-guarantee__panel {
+    padding-inline: 1rem;
+  }
+
+  .lp-guarantee__chip-ico {
+    inline-size: 2.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* split: the icon discs pop onto the thread, then the thread grows down to the next disc */
+  html.lp-js:not([data-motion="off"]) .lp-guarantee__thread .lp-guarantee__item[data-in] .lp-guarantee__ico {
+    animation: lp-g-pop calc(var(--lp-dur-m) * 1.2) var(--lp-spring-pop) calc(var(--d, 0ms) + 80ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-guarantee__thread .lp-guarantee__item[data-in]::before {
+    animation: lp-g-grow calc(var(--lp-dur-l) * 1.1) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-m)) backwards;
+  }
+
+  @container (min-width: 40rem) {
+    html.lp-js:not([data-motion="off"]) .lp-guarantee__wrap--solo .lp-guarantee__thread .lp-guarantee__item[data-in]::before {
+      animation-name: lp-g-grow-x;
+    }
+  }
+}
+
+@keyframes lp-g-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes lp-g-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes lp-g-pop {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}

@@ -1,0 +1,350 @@
+/* specs · accordion — rules only this variant renders (inlined after specs.css on pages whose markup
+   carries .lp-specs--accordion; the admin preview loads every variant). Shared rules live in specs.css. */
+
+.lp-specs__grid {
+  display: grid;
+  gap: clamp(2rem, 1.4rem + 2.4vw, 3.5rem);
+}
+
+.lp-specs__lead .lp-specs__chips {
+  margin-block-start: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+}
+.lp-specs__snum {
+  display: none;
+  color: var(--sec-accent);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-variant-numeric: tabular-nums;
+}
+
+[data-arch="circuit"] .lp-specs__snum,
+[data-arch="editorial"] .lp-specs__snum,
+[data-arch="garage"] .lp-specs__snum,
+[data-arch="kinetic"] .lp-specs__snum {
+  display: inline;
+}
+
+/* inside a group the group itself is numbered: rows stay quiet */
+.lp-specs__content .lp-specs__i {
+  display: none;
+}
+.lp-specs__content {
+  container-type: inline-size;
+}
+
+/* ==========================================================================
+   accordion
+   ========================================================================== */
+.lp-specs__acc {
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-specs__side {
+  display: contents;
+}
+
+.lp-specs__acc .lp-specs__visual {
+  --tile-r: 4 / 3;
+}
+
+/* an upright shot keeps a portrait tile (parts.tsx tileRatios), at a calmer size */
+:root:not([data-mask="pill"], [data-mask="circle"], [data-mask="blob"]) .lp-specs__acc .lp-specs__visual[data-upright] {
+  --tile-r: 4 / 5;
+  inline-size: min(100%, 19rem);
+  margin-inline: auto;
+}
+
+/* round and pill masks keep their own proportions, at a calmer size */
+:root:is([data-mask="circle"], [data-mask="blob"], [data-mask="pill"]) .lp-specs__acc .lp-specs__visual {
+  inline-size: min(100%, 22rem);
+}
+
+.lp-specs__acc .lp-specs__list {
+  order: 2;
+}
+
+.lp-specs__acc .lp-specs__side > .lp-specs__buy {
+  order: 3;
+  margin: 0;
+}
+
+.lp-specs__list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+/* closed: a quiet row · open: lifted into a raised card with a tinted glow */
+.lp-specs__item {
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair);
+  transition: box-shadow var(--lp-dur-l) var(--lp-smooth), translate var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-specs__item[open] {
+  box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1.5px var(--mx-tint-2), var(--lp-shadow-l), 0 28px 60px -36px var(--mx-btn-2);
+}
+
+.lp-specs__sum {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-block-size: 4.75rem;
+  padding: 0.9rem clamp(0.9rem, 0.7rem + 1vw, 1.5rem);
+  border-radius: inherit;
+  list-style: none;
+  cursor: pointer;
+}
+
+.lp-specs__sum::-webkit-details-marker {
+  display: none;
+}
+
+/* a mouse/tap focus never rings (Chromium keeps base.css's :focus ring after a click on a summary);
+   keyboard focus keeps its ring below */
+.lp-specs__sum:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.lp-specs__sum:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-specs__ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: 50%;
+  background: var(--mx-tint);
+  color: var(--sec-accent);
+  transition: background-color var(--lp-dur-m) var(--lp-smooth), color var(--lp-dur-m) var(--lp-smooth), scale var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-specs__stitle {
+  flex: 1;
+  min-inline-size: 0;
+  display: grid;
+}
+
+.lp-specs__sline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case);
+  line-height: 1.2;
+}
+
+.lp-specs__snum {
+  font-size: 0.6em;
+  letter-spacing: 0.04em;
+}
+
+/* one-line preview: folds away as the group opens */
+.lp-specs__peek {
+  overflow: hidden;
+  max-block-size: 1.6em;
+  margin-block-start: 0.2rem;
+  font-size: calc(max(0.85rem, var(--lp-step--1)) * var(--lp-script-scale));
+  line-height: 1.5;
+  color: var(--sec-ink-soft);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity var(--lp-dur-m) var(--lp-smooth), max-block-size var(--lp-dur-l) var(--lp-smooth), margin var(--lp-dur-l) var(--lp-smooth);
+}
+
+.lp-specs__item[open] .lp-specs__peek {
+  max-block-size: 0;
+  margin-block-start: 0;
+  opacity: 0;
+}
+
+/* +/− : the vertical bar folds into the horizontal one */
+.lp-specs__pm {
+  flex: none;
+  position: relative;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  transition: background-color var(--lp-dur-m) var(--lp-smooth), color var(--lp-dur-m) var(--lp-smooth), box-shadow var(--lp-dur-m) var(--lp-smooth), rotate var(--lp-dur-l) var(--lp-spring), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+/* press: the disc gives under the finger */
+.lp-specs__sum:active .lp-specs__pm {
+  scale: 0.92;
+}
+
+.lp-specs__pm::before,
+.lp-specs__pm::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  inline-size: 0.8rem;
+  block-size: 1.5px;
+  margin: auto;
+  border-radius: 1px;
+  background: currentColor;
+  transition: rotate var(--lp-dur-l) var(--lp-spring);
+}
+
+.lp-specs__pm::after {
+  rotate: 90deg;
+}
+
+.lp-specs__item[open] .lp-specs__pm {
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  box-shadow: none;
+  rotate: 180deg;
+}
+
+.lp-specs__item[open] .lp-specs__pm::after {
+  rotate: 0deg;
+}
+
+.lp-specs__item[open] .lp-specs__ico {
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 8px 18px -8px var(--mx-btn-2);
+}
+
+@media (hover: hover) {
+  .lp-specs__item:not([open]):hover {
+    translate: 0 -2px;
+    box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-line), var(--lp-shadow-m);
+  }
+
+  .lp-specs__item:not([open]):hover .lp-specs__ico {
+    scale: 1.06;
+  }
+}
+
+.lp-specs__content {
+  padding: 0 clamp(0.9rem, 0.7rem + 1vw, 1.5rem) clamp(1.1rem, 0.9rem + 0.8vw, 1.6rem);
+}
+
+.lp-specs__content .lp-specs__dl--rows .lp-specs__row::before {
+  inset-inline: -0.6rem;
+}
+
+@media (min-width: 40rem) {
+  /* text aligns with the title, past the icon disc */
+  .lp-specs__content {
+    padding-inline-start: calc(clamp(0.9rem, 0.7rem + 1vw, 1.5rem) + 3.65rem);
+  }
+}
+
+@media (min-width: 60rem) {
+  .lp-specs__acc {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: clamp(3rem, 6vw, 6.5rem);
+    align-items: start;
+  }
+
+  .lp-specs__side {
+    position: sticky;
+    inset-block-start: clamp(1rem, 4vh, 3rem);
+    display: grid;
+    container-type: inline-size;
+    gap: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
+  }
+
+  .lp-specs__acc .lp-specs__visual {
+    --tile-r: 6 / 5;
+  }
+
+  :root:not([data-mask="pill"], [data-mask="circle"], [data-mask="blob"]) .lp-specs__acc .lp-specs__visual[data-upright] {
+    inline-size: min(100%, 22rem);
+    margin-inline: 0;
+  }
+
+  :root:is([data-mask="circle"], [data-mask="blob"], [data-mask="pill"]) .lp-specs__acc .lp-specs__visual {
+    inline-size: min(100%, 24rem);
+  }
+
+  /* overlays take their wide-screen spots; the key figure breaks over the tile's edge */
+  .lp-specs__acc .lp-specs__tag[data-at-lg],
+  .lp-specs__acc .lp-specs__kf[data-at-lg] {
+    inset: auto;
+    translate: none;
+    margin-inline: 0;
+    inline-size: auto;
+  }
+
+  .lp-specs__acc .lp-specs__tag[data-at-lg^="b"] {
+    inset-block-end: var(--fb);
+  }
+
+  .lp-specs__acc .lp-specs__tag[data-at-lg^="t"] {
+    inset-block-start: var(--ft);
+  }
+
+  .lp-specs__acc .lp-specs__tag[data-at-lg$="s"] {
+    inset-inline-start: var(--fx);
+  }
+
+  .lp-specs__acc .lp-specs__tag[data-at-lg$="e"] {
+    inset-inline-end: var(--fx);
+  }
+
+  .lp-specs__acc .lp-specs__tag[data-at-lg$="c"] {
+    inset-inline: 0;
+    inline-size: fit-content;
+    margin-inline: auto;
+  }
+
+  .lp-specs__acc .lp-specs__kf[data-at-lg^="t"] {
+    inset-block-start: var(--ft, 5%);
+  }
+
+  .lp-specs__acc .lp-specs__kf[data-at-lg^="m"] {
+    inset-block-start: 50%;
+    translate: 0 -50%;
+  }
+
+  .lp-specs__acc .lp-specs__kf[data-at-lg$="e"] {
+    inset-inline-end: clamp(-2.5rem, -2.6vw, -1.5rem);
+  }
+
+  .lp-specs__acc .lp-specs__kf[data-at-lg$="s"] {
+    inset-inline-start: clamp(-2.5rem, -2.6vw, -1.5rem);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* accordion: the opened content rises in while its height eases open */
+  html:not([data-motion="off"]) .lp-specs__item[open] .lp-specs__content {
+    animation: lp-specs-in var(--lp-dur-l) var(--lp-smooth) 60ms backwards;
+  }
+}
+
+@supports selector(::details-content) {
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-motion="off"]) .lp-specs__item::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition: block-size var(--lp-dur-l) var(--lp-smooth), content-visibility var(--lp-dur-l) allow-discrete;
+    }
+
+    html:not([data-motion="off"]) .lp-specs__item[open]::details-content {
+      block-size: auto;
+    }
+  }
+}
+
+@keyframes lp-specs-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+    filter: blur(6px);
+  }
+}

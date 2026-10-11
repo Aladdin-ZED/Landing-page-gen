@@ -1,0 +1,226 @@
+/*
+ * COD Studio admin — material layer on top of the shadcn tokens (src/app/globals.css).
+ * Plain CSS on purpose (no Tailwind directives): surfaces, light, grain and entrance motion that
+ * would be unreadable as utility soup. Everything reads the theme tokens, so dark mode follows.
+ */
+
+:root {
+  --adm-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --adm-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --adm-radius: 1.25rem;
+  --adm-shadow-tint: 20 22 34;
+  --adm-highlight: rgb(255 255 255 / 0.7);
+  --adm-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.dark {
+  --adm-shadow-tint: 0 0 0;
+  --adm-highlight: rgb(255 255 255 / 0.06);
+}
+
+/* ------------------------------------------------------------------ */
+/* surfaces                                                            */
+/* ------------------------------------------------------------------ */
+
+/* raised card: hairline ring, inner top highlight, two soft tinted shadows */
+.adm-surface {
+  position: relative;
+  border-radius: var(--adm-radius);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow:
+    inset 0 1px 0 var(--adm-highlight),
+    0 0 0 1px color-mix(in oklab, var(--border) 92%, transparent),
+    0 1px 2px rgb(var(--adm-shadow-tint) / 0.04),
+    0 12px 32px -18px rgb(var(--adm-shadow-tint) / 0.16);
+}
+
+.adm-surface-flat {
+  border-radius: var(--adm-radius);
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 70%, transparent);
+}
+
+/* hover lift with a spring settle (cards, tiles) */
+.adm-lift {
+  transition:
+    transform 420ms var(--adm-spring),
+    box-shadow 420ms var(--adm-ease);
+  will-change: transform;
+}
+@media (hover: hover) {
+  .adm-lift:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      inset 0 1px 0 var(--adm-highlight),
+      0 0 0 1px color-mix(in oklab, var(--border) 70%, var(--foreground) 8%),
+      0 2px 6px rgb(var(--adm-shadow-tint) / 0.06),
+      0 24px 48px -24px rgb(var(--adm-shadow-tint) / 0.28);
+  }
+}
+.adm-lift:active {
+  transform: translateY(-1px) scale(0.995);
+}
+
+/* frosted glass for floating bars and chips over content */
+.adm-glass {
+  background: color-mix(in oklab, var(--background) 92%, transparent);
+  box-shadow:
+    inset 0 1px 0 var(--adm-highlight),
+    0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent),
+    0 16px 40px -20px rgb(var(--adm-shadow-tint) / 0.3);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .adm-glass {
+    background: color-mix(in oklab, var(--background) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(1.6);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* light & texture                                                     */
+/* ------------------------------------------------------------------ */
+
+/* one soft jade key light from the top corner, a faint cool pistachio bounce opposite (empty
+   states, hero tiles). Static on purpose: calm surfaces, no drifting blobs. Never warm/orange. */
+.adm-aurora {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.adm-aurora::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 70% at 12% -10%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 70%),
+    radial-gradient(45% 55% at 105% 110%, color-mix(in oklab, var(--chart-3) 12%, transparent), transparent 72%);
+}
+.dark .adm-aurora::before {
+  opacity: 0.85;
+}
+
+/* neutral stage behind live page previews (generator direction cards): one soft white key light
+   from the top over the muted surface, like a photo table. Color-neutral on purpose: the page's own
+   palette stays inside the phone and never tints the studio. */
+.adm-stage {
+  background:
+    radial-gradient(70% 50% at 50% 0%, color-mix(in oklab, var(--card) 92%, transparent), transparent 75%),
+    color-mix(in oklab, var(--muted) 80%, var(--background));
+}
+.dark .adm-stage {
+  background:
+    radial-gradient(70% 50% at 50% 0%, oklch(1 0 0 / 0.05), transparent 75%),
+    color-mix(in oklab, var(--muted) 90%, var(--foreground) 4%);
+}
+
+/* ultra-subtle film grain (only over gradient fields) */
+.adm-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: var(--adm-grain);
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+/* faint dot grid that fades out from the center */
+.adm-dots {
+  background-image: radial-gradient(color-mix(in oklab, var(--foreground) 14%, transparent) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 20%, transparent 75%);
+}
+
+/* the primary-action material (.adm-brand-glow) lives in src/app/globals.css (@layer components),
+   shared with the builder and Button variant="brand" */
+
+/* ------------------------------------------------------------------ */
+/* entrance motion (server-rendered content, no JS)                    */
+/* ------------------------------------------------------------------ */
+
+/* "backwards", not "both": a forwards fill would pin transform/filter after the entrance and
+   silently cancel hover transforms such as .adm-lift */
+.adm-rise {
+  animation: adm-rise 640ms var(--adm-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.adm-fade {
+  animation: adm-fade 480ms var(--adm-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes adm-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes adm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* skeleton shimmer (smoother than a pulse) */
+.adm-shimmer {
+  background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in oklab, var(--background) 60%, transparent) 50%,
+      transparent 80%
+    )
+    color-mix(in oklab, var(--muted) 85%, transparent);
+  background-size: 220% 100%;
+  animation: adm-shimmer 1.6s linear infinite;
+}
+@keyframes adm-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* line draw for checklist / sparkline marks */
+.adm-draw {
+  stroke-dasharray: var(--len, 120);
+  stroke-dashoffset: var(--len, 120);
+  animation: adm-draw 900ms var(--adm-ease) forwards;
+  animation-delay: calc(var(--i, 0) * 60ms + 120ms);
+}
+@keyframes adm-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* thin, quiet scrollbars inside panels */
+.adm-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-rise,
+  .adm-fade,
+  .adm-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .adm-lift,
+  .adm-lift:hover {
+    transform: none;
+  }
+}

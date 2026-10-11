@@ -1,0 +1,373 @@
+/* ==========================================================================
+   problem — crossed · chat · split · quote (v2 · modern)
+   Tokens only; logical properties; reveals keyed on [data-reveal][data-in]
+   under html.lp-js with motion allowed (static final state otherwise).
+   Rules every variant uses. A variant's own rules live in problem.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* light and floating chips may hang past their hosts, never past the page edge */
+.lp-problem {
+  overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  .lp-problem {
+    overflow-x: clip;
+  }
+}
+
+/* One accent per block. On a nested accent / pop block (the "with" panel of the split view) the theme's
+   --sec-accent is the brand's second hue: check discs and marks there take the block's own ink
+   instead, so no block ever carries two loud colors. */
+.lp-problem :is([data-bg="accent"], [data-bg="pop"]) {
+  --sec-accent: var(--sec-ink);
+  --sec-accent-ink: var(--sec-bg);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-problem :is([data-bg="accent"], [data-bg="pop"]) {
+    --mx-on-accent: color-mix(in oklab, var(--sec-ink) 16%, transparent);
+    --mx-btn-1: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 30%, transparent);
+    --mx-btn-2: color-mix(in oklab, color-mix(in oklab, var(--sec-bg) 55%, #000) 45%, transparent);
+  }
+}
+
+/* ---------- the turn (shared) ---------------------------------------------- */
+.lp-problem__turn {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 1.25rem;
+  margin-block-start: clamp(2.5rem, 2rem + 2.5vw, 4rem);
+}
+
+.lp-problem__tbody {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: start;
+  min-inline-size: 0;
+}
+
+.lp-problem__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0;
+  font-weight: 600;
+}
+
+.lp-problem__notemark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.75em;
+  block-size: 1.75em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-problem__solution {
+  margin: 0;
+  max-inline-size: 26ch;
+  letter-spacing: var(--lp-display-tracking);
+}
+
+.lp-problem__turn--line {
+  grid-template-columns: var(--idx-w) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(0.55rem, 0.4rem + 0.5vw, 0.85rem) 0;
+  margin-block-start: 0;
+  padding-block-start: clamp(1.75rem, 1.2rem + 2.4vw, 3.25rem);
+}
+
+.lp-problem__tnote,
+.lp-problem__turn--line > .lp-problem__solution,
+.lp-problem__turn--line > .lp-problem__tcta {
+  grid-column: 2;
+}
+
+.lp-problem__tnote .lp-problem__note {
+  font-size: calc(max(0.8rem, var(--lp-step--1)) * var(--lp-script-scale));
+}
+
+/* display-size type (the title, the standing solution): the "color" emphasis is the accent itself
+   (large type keeps its contrast), not the running-text underline that breaks word by word */
+:root[data-emphasis="color"] .lp-problem .lp-sh__title :is(.lp-em, .lp-em__w),
+:root[data-emphasis="color"] :is(.lp-problem__turn--line, .lp-problem__turn--center) .lp-problem__solution :is(.lp-em, .lp-em__w) {
+  color: var(--sec-accent);
+  text-decoration: none;
+}
+
+.lp-problem__ok {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  block-size: var(--line-box);
+}
+
+.lp-problem__okdisc {
+  display: grid;
+  place-items: center;
+  inline-size: clamp(1.85rem, 1.45rem + 1.3vw, 2.85rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: 0 0 0 clamp(4px, 0.5vw, 7px) var(--mx-tint), 0 12px 26px -12px var(--mx-btn-2);
+}
+
+.lp-problem__turn--line .lp-problem__solution {
+  max-inline-size: 24ch;
+  font-size: var(--pain-fs);
+  line-height: var(--pain-lh);
+  color: var(--sec-ink);
+}
+
+.lp-problem__turn--line .lp-problem__tcta {
+  margin-block-start: clamp(0.6rem, 0.3rem + 1.2vw, 1.4rem);
+}
+
+/* phones: the order button takes the full width of the ledger */
+@media (max-width: 39.99rem) {
+  .lp-problem__turn--line > .lp-problem__tcta {
+    grid-column: 1 / -1;
+  }
+
+  .lp-problem__turn--line .lp-btn {
+    inline-size: 100%;
+  }
+}
+
+/* the product, inset in the line as an image pill */
+.lp-problem__pill {
+  display: inline-block;
+  /* as wide as its subject allows (--pr: the pill's aspect, solved from the photo) */
+  inline-size: calc(0.9em * var(--pr, 2.28));
+  block-size: 0.9em;
+  margin-inline-end: 0.24em;
+  vertical-align: -0.08em;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--mx-stage);
+  box-shadow: inset 0 0 0 1px var(--mx-hair), 0 0.1em 0.42em -0.14em var(--mx-contact);
+  transition: scale var(--lp-dur-m) var(--lp-spring), rotate var(--lp-dur-m) var(--lp-spring);
+}
+
+:lang(ar) .lp-problem__pill {
+  vertical-align: -0.22em;
+}
+
+.lp-problem__pill .lp-pic {
+  inline-size: 100%;
+  block-size: 100%;
+  aspect-ratio: auto;
+}
+
+.lp-problem__pill--cutout {
+  background: radial-gradient(90% 120% at 50% 20%, var(--mx-stage-hi), var(--mx-stage));
+}
+
+.lp-problem__pill--cutout .lp-pic__img {
+  padding-block: 0.06em;
+}
+
+@media (hover: hover) {
+  .lp-problem__turn--line:hover .lp-problem__pill {
+    scale: 1.1;
+    rotate: calc(var(--lp-x, 1) * -4deg);
+  }
+}
+
+.lp-problem__turn--center {
+  justify-items: center;
+  text-align: center;
+}
+
+.lp-problem__turn--center .lp-problem__tbody {
+  justify-items: center;
+}
+
+.lp-problem__turn--center .lp-problem__solution {
+  max-inline-size: 28ch;
+  font-size: calc(var(--lp-step-2) * 0.95 * var(--lp-script-scale-display));
+  line-height: calc(var(--lp-display-lh) + 0.1);
+}
+
+:lang(ar) .lp-problem__turn--center .lp-problem__solution {
+  line-height: 1.5;
+}
+
+/* ---------- quote: the raised answer card ---------------------------------- */
+.lp-problem__turn--card {
+  --cp: clamp(0.45rem, 0.35rem + 0.4vw, 0.7rem);
+  --cr: var(--lp-sq-xl);
+  align-content: start;
+  gap: 0;
+  margin: 0;
+  padding: var(--cp);
+  border: var(--lp-hairline) solid var(--mx-edge, var(--mx-hair));
+  border-radius: var(--cr);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+}
+
+.lp-problem__turn--card .lp-problem__tmedia {
+  position: relative;
+  overflow: hidden;
+  border-radius: max(var(--lp-sq-xs), calc(var(--cr) - var(--cp) * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+}
+
+.lp-problem__turn--card.lp-problem__turn--cutout .lp-problem__tmedia {
+  background: radial-gradient(80% 85% at 50% 30%, var(--mx-stage-hi), var(--mx-stage));
+}
+
+.lp-problem__turn--cutout .lp-problem__tpic .lp-pic__img {
+  padding: 6% 10% 4%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* the turn label rides the photo as a glass chip */
+.lp-problem__tchip {
+  position: absolute;
+  inset-block-start: 0.7rem;
+  inset-inline-start: 0.7rem;
+}
+
+/* the chip takes the photo's quiet corner (data-corner: block · inline, solved from the subject) */
+.lp-problem__tchip[data-corner^="e"] {
+  inset-block: auto 0.7rem;
+}
+
+.lp-problem__tchip[data-corner$="e"] {
+  inset-inline: auto 0.7rem;
+}
+
+.lp-problem__tchip {
+  padding: 0.35rem 0.85rem 0.35rem 0.4rem;
+  border-radius: 999px;
+}
+
+[dir="rtl"] .lp-problem__tchip {
+  padding: 0.35rem 0.4rem 0.35rem 0.85rem;
+}
+
+.lp-problem__turn--card .lp-problem__tbody {
+  gap: 0.7rem;
+  padding: clamp(1rem, 0.8rem + 0.8vw, 1.4rem) clamp(0.7rem, 0.55rem + 0.6vw, 1rem) 0;
+}
+
+.lp-problem__turn--card .lp-problem__solution {
+  max-inline-size: none;
+  font-size: calc(var(--lp-step-1) * 1.12 * var(--lp-script-scale-display));
+  line-height: max(1.18, calc(var(--lp-display-lh) + 0.12));
+  text-wrap: pretty;
+}
+
+:lang(ar) .lp-problem__turn--card .lp-problem__solution {
+  line-height: 1.55;
+}
+
+.lp-problem__turn--card .lp-problem__tcta {
+  padding: clamp(1rem, 0.8rem + 0.8vw, 1.35rem) clamp(0.3rem, 0.2rem + 0.4vw, 0.5rem) clamp(0.3rem, 0.2rem + 0.4vw, 0.5rem);
+}
+
+.lp-problem__turn--card .lp-btn {
+  inline-size: 100%;
+}
+
+/* tablets: the card turns wide — photo beside the answer */
+@media (min-width: 40rem) and (max-width: 59.99rem) {
+  .lp-problem__turn--card.lp-problem__turn--media {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    column-gap: clamp(0.75rem, 2vw, 1.5rem);
+  }
+
+  .lp-problem__turn--card.lp-problem__turn--media .lp-problem__tmedia {
+    grid-row: 1 / -1;
+  }
+
+  .lp-problem__turn--card.lp-problem__turn--media .lp-problem__tbody {
+    align-self: center;
+    padding-inline: 0 clamp(0.5rem, 1.5vw, 1rem);
+  }
+
+  .lp-problem__turn--card.lp-problem__turn--media .lp-problem__tcta {
+    padding-inline: 0 clamp(0.3rem, 1vw, 0.6rem);
+  }
+}
+
+@media (hover: hover) {
+  .lp-problem__turn--card .lp-problem__tpic {
+    transition: scale calc(var(--lp-dur-l) * 1.2) var(--lp-smooth);
+  }
+
+  .lp-problem__turn--card:hover .lp-problem__tpic {
+    scale: 1.04;
+  }
+}
+
+.lp-problem__msg--them[data-pos="first"],
+.lp-problem__msg--them[data-pos="mid"] {
+  border-end-start-radius: 0.35rem;
+}
+
+.lp-problem__msg--them[data-pos="mid"],
+.lp-problem__msg--them[data-pos="last"] {
+  border-start-start-radius: 0.35rem;
+}
+
+.lp-problem__msg--them[data-pos="solo"],
+.lp-problem__msg--them[data-pos="last"] {
+  border-end-start-radius: 0.35rem;
+}
+
+.lp-problem__msg--them {
+  justify-self: start;
+  background: var(--mx-field);
+  color: var(--sec-card-ink);
+  box-shadow: inset 0 0 0 1px var(--mx-hair), 0 8px 20px -16px var(--mx-contact);
+}
+
+.lp-problem__msg--them {
+  transform-origin: 0 100%;
+}
+
+[dir="rtl"] .lp-problem__msg--them {
+  transform-origin: 100% 100%;
+}
+
+/* ==========================================================================
+   motion (progressive: hidden pre-states only with JS + motion allowed)
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+
+  /* the product pill opens from a dot into the line */
+  html.lp-js:not([data-motion="off"]) .lp-problem__pill[data-reveal][data-in] {
+    animation: lp-problem-pill calc(var(--lp-dur-l) * 1.1) var(--lp-spring) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__pill[data-in] .lp-pic__img {
+    animation: lp-rv-zoom calc(var(--lp-dur-l) * 1.6) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  /* quote: the answer card's photo settles from a slight zoom as the card lands */
+  html.lp-js:not([data-motion="off"]) .lp-problem__turn--card[data-in] .lp-problem__tpic .lp-pic__img {
+    animation: lp-rv-zoom calc(var(--lp-dur-l) * 1.6) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+}
+
+@keyframes lp-problem-pill {
+  from {
+    opacity: 0;
+    scale: 0.2 0.6;
+  }
+  30% {
+    opacity: 1;
+  }
+}

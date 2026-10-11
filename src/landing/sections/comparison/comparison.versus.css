@@ -1,0 +1,557 @@
+/* comparison · versus — rules only this variant renders (inlined after comparison.css on pages whose markup
+   carries .lp-comparison--versus; the admin preview loads every variant). Shared rules live in comparison.css. */
+
+.lp-comparison__ctitle {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case, none);
+}
+
+.lp-comparison__ilabel {
+  font-family: var(--lp-font-label, inherit);
+  letter-spacing: var(--lp-label-tracking, 0);
+  text-transform: var(--lp-label-case, none);
+}
+:lang(ar) .lp-comparison__ilabel {
+  font-family: var(--lp-font-body);
+}
+
+@media (hover: hover) {
+  .lp-comparison__item:hover .lp-comparison__mark--yes {
+    scale: 1.12;
+  }
+}
+
+.lp-comparison__cell--us {
+  color: var(--sec-card-ink);
+  font-weight: 500;
+}
+
+.lp-comparison__cell--them {
+  color: var(--sec-ink-soft);
+}
+
+/* ==========================================================================
+   versus — a vivid card and a quiet one, split by a VS disc
+   ========================================================================== */
+.lp-comparison__arena {
+  --vs: clamp(4rem, 3.4rem + 2vw, 5.25rem);
+  --g: clamp(1.1rem, 0.8rem + 1.5vw, 2rem);
+  --pad: clamp(1.25rem, 0.9rem + 1.6vw, 2.25rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto 0 auto auto;
+  grid-template-areas: "head" "us" "vs" "them" "foot";
+  row-gap: var(--g);
+}
+
+.lp-comparison__arena--novs {
+  grid-template-rows: none;
+  grid-template-areas: "head" "us" "them" "foot";
+}
+
+.lp-comparison__arena > .lp-comparison__head {
+  grid-area: head;
+  margin-block-end: clamp(0.75rem, 1.5vw, 1.5rem);
+}
+
+.lp-comparison__arena > .lp-comparison__foot {
+  grid-area: foot;
+  margin-block-start: 0.5rem;
+}
+
+.lp-comparison__card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 0.8rem + 0.8vw, 1.4rem);
+  min-inline-size: 0;
+  padding: var(--pad);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-comparison__card--us {
+  grid-area: us;
+  overflow: hidden;
+  /* top light on the vivid block, then the soft lift */
+  background: linear-gradient(rgb(255 255 255 / 0.08), transparent 45%) var(--sec-bg);
+  color: var(--sec-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  transition: translate var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-comparison__card--us:hover {
+    translate: 0 -4px;
+    box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-glow, 0 0 #0000), var(--lp-shadow-l);
+  }
+}
+
+.lp-comparison__card--them {
+  grid-area: them;
+  border: 1px solid var(--mx-line);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+}
+
+/* media inset by a hair, its radius concentric with the card's */
+.lp-comparison__media {
+  position: relative;
+  margin: calc(var(--pad) * -1 + 0.5rem);
+  margin-block-end: 0;
+}
+
+/* concentric with the card: inner = outer − inset × the corner factor (continuous corners, §2b) */
+.lp-comparison__vpic {
+  aspect-ratio: 4 / 3;
+  border-radius: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - 0.5rem * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+}
+
+.lp-comparison__media--cutout .lp-comparison__vpic {
+  aspect-ratio: 5 / 4;
+  background: radial-gradient(60% 70% at 50% 45%, var(--mx-stage-hi), transparent);
+}
+
+.lp-comparison__media--cutout .lp-pic__img {
+  padding: 6%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* the name chip, in the photo's quiet corner (story/fit.ts placeOverlay) */
+.lp-comparison__mchipat {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  max-inline-size: calc(100% - 1.5rem);
+}
+
+.lp-comparison__mchipat[data-at^="b"] {
+  inset-block-end: 0.75rem;
+}
+
+.lp-comparison__mchipat[data-at^="t"] {
+  inset-block-start: 0.75rem;
+}
+
+.lp-comparison__mchipat[data-at$="s"] {
+  inset-inline-start: 0.75rem;
+}
+
+.lp-comparison__mchipat[data-at$="e"] {
+  inset-inline-end: 0.75rem;
+}
+
+.lp-comparison__mchip {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+/* a long name ends in “…” at its own logical end (a Latin name on an Arabic page included) */
+.lp-comparison__mname {
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-comparison__ctitle {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  margin: 0;
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  line-height: 1.1;
+}
+
+.lp-comparison__cmark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.45em;
+  block-size: 1.45em;
+  border-radius: 50%;
+  font-size: 0.62em;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-comparison__card--them .lp-comparison__cmark {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--mx-line);
+  color: var(--sec-ink-soft);
+}
+
+.lp-comparison__card--them .lp-comparison__ctitle {
+  color: var(--sec-ink-soft);
+}
+
+.lp-comparison__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-comparison__item {
+  --mk: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding-block: 0.8rem;
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-comparison__item:first-child {
+  border-block-start: 0;
+  padding-block-start: 0;
+}
+
+.lp-comparison__item .lp-comparison__mark {
+  margin-block-start: 0.1rem;
+}
+
+.lp-comparison__itext {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+/* small labels keep full ink (AA); hierarchy comes from size and case */
+.lp-comparison__ilabel {
+  /* never below 12px: sentence-case label faces read small at the uppercase size */
+  font-size: max(0.75rem, calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale)));
+}
+
+.lp-comparison__ivalue {
+  font-weight: var(--lp-strong-weight, 600);
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: 1.35;
+}
+
+.lp-comparison__card--them .lp-comparison__ilabel,
+.lp-comparison__card--them .lp-comparison__ivalue {
+  color: var(--sec-ink-soft);
+  font-weight: 400;
+}
+
+.lp-comparison__cardcta {
+  inline-size: 100%;
+  margin-block-start: 0.25rem;
+}
+
+/* phones: the button spans the card, its label centred; slimmer sides keep it on one line, and on
+   320px phones the arrow gives its room to the label */
+@media (max-width: 39.99rem) {
+  .lp-comparison__cardcta.lp-btn {
+    --btn-px: 1em;
+  }
+}
+
+@media (max-width: 22.5rem) {
+  .lp-comparison__cardcta.lp-btn {
+    --btn-px: 0.75em;
+    --btn-fs: calc(var(--lp-step-0) * 0.94);
+  }
+
+  .lp-comparison__cardcta .lp-btn__icon {
+    display: none;
+  }
+}
+
+/* phones: the disc bridges the stacked cards; their padding makes room for it */
+.lp-comparison__arena--vs .lp-comparison__card--us {
+  padding-block-end: calc(var(--pad) + var(--vs) * 0.3);
+}
+
+.lp-comparison__arena--vs .lp-comparison__card--them {
+  padding-block-start: calc(var(--pad) + var(--vs) * 0.3);
+}
+
+/* the disc: solid ink, a ring of the page color sets it into the seam */
+.lp-comparison__vs {
+  position: relative;
+  z-index: 3;
+  grid-area: vs;
+  justify-self: center;
+  inline-size: var(--vs);
+  block-size: var(--vs);
+  margin-block: calc(var(--vs) / -2);
+}
+
+.lp-comparison__disc {
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 50%;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--vs) * 0.3);
+  line-height: 1;
+  box-shadow: 0 0 0 clamp(4px, 0.6vw, 7px) var(--sec-bg), var(--lp-shadow-m);
+}
+
+.lp-comparison__rings {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: -1;
+  inline-size: 200%;
+  transform: translate(calc(-50% * var(--lp-x)), -50%);
+}
+
+/* tablet: heading on top, the two cards side by side, the disc on the seam */
+@media (min-width: 48rem) {
+  .lp-comparison__arena {
+    grid-template-columns: minmax(0, 1.2fr) 0 minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "head head head" "us vs them" "foot foot foot";
+    column-gap: var(--g);
+  }
+
+  .lp-comparison__arena--novs {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas: "head head" "us them" "foot foot";
+  }
+
+  .lp-comparison__arena--vs .lp-comparison__card {
+    padding-block: var(--pad);
+  }
+
+  /* side by side, the shorter card centers on the taller one (never stretched hollow) */
+  .lp-comparison__card {
+    align-self: center;
+  }
+
+  .lp-comparison__vpic {
+    aspect-ratio: 16 / 10;
+  }
+
+  .lp-comparison__vs {
+    align-self: center;
+    justify-self: start;
+    margin-block: 0;
+    margin-inline-start: calc(var(--vs) / -2);
+  }
+}
+
+/* desktop: asymmetric — heading over the alternatives in the start column, our card the full
+   height of the end column */
+@media (min-width: 62rem) {
+  .lp-comparison__arena {
+    grid-template-columns: minmax(0, 0.94fr) 0 minmax(0, 1.06fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "head . us" "them vs us" "foot . us";
+    column-gap: calc(var(--g) * 1.25);
+  }
+
+  .lp-comparison__arena--novs {
+    grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+    grid-template-areas: "head us" "them us" "foot us";
+  }
+
+  .lp-comparison__arena > .lp-comparison__head {
+    margin-block-end: 0;
+  }
+
+  .lp-comparison__arena > .lp-comparison__foot {
+    align-self: end;
+    margin-block-start: 0;
+  }
+}
+
+/* side by side, one set of row tracks for both cards (subgrid): the titles share a baseline row, row
+   N of ours sits level with row N of theirs (every hairline runs across the duel at one height), our
+   photo and button take rows of their own above and below. The arena's rows: [media] [title]
+   [row × --n] [button]; the heading and the note take the free cells beside them. Gaps become
+   margins so the shared tracks carry no gutters of their own. */
+@supports (grid-template-rows: subgrid) {
+  @media (min-width: 48rem) {
+    .lp-comparison__arena {
+      --cg: clamp(1rem, 0.8rem + 0.8vw, 1.4rem);
+      grid-template-areas: none;
+      row-gap: 0;
+    }
+
+    .lp-comparison__arena > .lp-comparison__card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: subgrid;
+      row-gap: 0;
+      align-self: stretch;
+    }
+
+    /* ours: media · title · rows · button (local lines = the arena's: it spans every card row) */
+    .lp-comparison__card--us > .lp-comparison__media {
+      grid-row: 1;
+      align-self: start;
+    }
+
+    .lp-comparison__card--us > .lp-comparison__ctitle {
+      grid-row: 2;
+    }
+
+    .lp-comparison__card--us > .lp-comparison__list {
+      grid-row: 3 / -2;
+    }
+
+    /* theirs ends with the last row: its bottom padding already opens that row, the button needs little more */
+    .lp-comparison__card--us > .lp-comparison__cardcta {
+      grid-row: -2 / -1;
+      align-self: end;
+      margin-block-start: 0.25rem;
+    }
+
+    /* theirs: title · rows */
+    .lp-comparison__card--them > .lp-comparison__ctitle {
+      grid-row: 1;
+    }
+
+    .lp-comparison__card--them > .lp-comparison__list {
+      grid-row: 2 / -1;
+    }
+
+    /* the cards' paddings land on their edge rows: titles sit on the row's end so both read level */
+    .lp-comparison__arena > .lp-comparison__card > .lp-comparison__ctitle {
+      align-self: end;
+      padding-block-end: var(--cg);
+    }
+
+    .lp-comparison__arena > .lp-comparison__card > .lp-comparison__list {
+      grid-template-rows: subgrid;
+    }
+
+    .lp-comparison__arena > .lp-comparison__card .lp-comparison__item {
+      align-self: stretch;
+    }
+
+    .lp-comparison__arena > .lp-comparison__vs {
+      align-self: center;
+    }
+  }
+
+  /* tablet: [heading] [media] [title] [rows] [button] [note] — ours start, theirs end */
+  @media (min-width: 48rem) and (max-width: 61.99rem) {
+    .lp-comparison__arena {
+      grid-template-rows: auto auto auto repeat(var(--n), auto) auto auto;
+    }
+
+    .lp-comparison__arena > .lp-comparison__head {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      margin-block-end: calc(var(--g) + clamp(0.75rem, 1.5vw, 1.5rem));
+    }
+
+    .lp-comparison__card--us {
+      grid-column: 1;
+      grid-row: 2 / -2;
+    }
+
+    .lp-comparison__card--them {
+      grid-column: -2 / -1;
+      grid-row: 3 / -3;
+    }
+
+    .lp-comparison__arena > .lp-comparison__vs {
+      grid-column: 2;
+      grid-row: 3 / -3;
+    }
+
+    .lp-comparison__arena > .lp-comparison__foot {
+      grid-column: 1 / -1;
+      grid-row: -2 / -1;
+      margin-block-start: calc(var(--g) + 0.5rem);
+    }
+
+    .lp-comparison__arena--novs .lp-comparison__card--them {
+      grid-column: 2;
+    }
+  }
+
+  /* desktop: heading over theirs in the start column, ours the full height of the end column */
+  @media (min-width: 62rem) {
+    .lp-comparison__arena {
+      grid-template-rows: auto auto repeat(var(--n), auto) auto;
+    }
+
+    .lp-comparison__arena > .lp-comparison__head {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: start;
+      margin-block-end: var(--g);
+    }
+
+    .lp-comparison__card--us {
+      grid-column: -2 / -1;
+      grid-row: 1 / -1;
+    }
+
+    .lp-comparison__card--them {
+      grid-column: 1;
+      grid-row: 2 / -2;
+    }
+
+    .lp-comparison__arena > .lp-comparison__vs {
+      grid-column: 2;
+      grid-row: 2 / -2;
+    }
+
+    .lp-comparison__arena > .lp-comparison__foot {
+      grid-column: 1;
+      grid-row: -2 / -1;
+      align-self: end;
+      margin-block-start: var(--g);
+    }
+  }
+}
+
+/* no order button in our card: it ends with its last row, level with theirs (never a hollow foot) */
+@supports (grid-template-rows: subgrid) {
+  @media (min-width: 48rem) {
+    .lp-comparison__arena--nocta .lp-comparison__card--us > .lp-comparison__list {
+      grid-row: 3 / -1;
+    }
+  }
+
+  @media (min-width: 48rem) and (max-width: 61.99rem) {
+    .lp-comparison__arena--nocta .lp-comparison__card--us {
+      grid-row: 2 / -3;
+    }
+  }
+
+  @media (min-width: 62rem) {
+    .lp-comparison__arena--nocta .lp-comparison__card--us {
+      grid-row: 1 / -2;
+    }
+  }
+}
+
+.lp-comparison__key--us {
+  font-weight: var(--lp-strong-weight, 600);
+}
+
+.lp-comparison__key--them {
+  color: var(--sec-ink-soft);
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    html:not([data-motion="off"]) .lp-comparison__vs {
+      animation: lp-comparison-tilt linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 50%;
+    }
+  }
+}
+
+@keyframes lp-comparison-tilt {
+  from {
+    rotate: calc(-24deg * var(--lp-x));
+  }
+}

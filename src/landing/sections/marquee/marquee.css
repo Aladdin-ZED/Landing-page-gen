@@ -1,0 +1,278 @@
+/* ==========================================================================
+   marquee — tape (bold strip) · outline (giant outline through a lens) ·
+   double (color band + outlined echo) — v2 · modern
+   The section root is itself `.lp-marquee` (its type class) and so is the
+   MarqueeTrack primitive's root: root rules use `.lp-section.lp-marquee`,
+   track rules are scoped under `.lp-marquee__stage`. A side effect we rely on:
+   hovering anywhere in the section pauses every track in it together.
+   Rules every variant uses. A variant's own rules live in marquee.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* clip, not hidden: a scroll container would capture the scroll timeline of the shear below */
+.lp-section.lp-marquee {
+  overflow: clip;
+}
+
+@supports not (overflow: clip) {
+  .lp-section.lp-marquee {
+    overflow: hidden;
+  }
+}
+
+.lp-marquee__stage {
+  --mq-outline: var(--sec-line-strong);
+  --mq-stroke: clamp(1px, 0.0125em, 2px);
+  --mq-edge-w: clamp(4rem, 9vw, 10rem);
+  position: relative;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  font-variant-numeric: lining-nums;
+  font-kerning: normal;
+  line-height: 1.12;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-marquee__stage {
+    --mq-outline: color-mix(in oklab, var(--sec-ink) 66%, transparent);
+  }
+}
+
+/* display kufi faces set tight spaces: open them a touch at strip sizes */
+:lang(ar) .lp-marquee__stage {
+  line-height: 1.6;
+  word-spacing: 0.06em;
+}
+
+.lp-marquee__stage .lp-marquee {
+  --mq-gap: 0.5em;
+  padding-block: 0.06em;
+}
+
+/* items that carry their own separator space it like the track does */
+.lp-marquee__stage .lp-marquee__content {
+  gap: var(--mq-gap);
+}
+
+.lp-marquee__stage .lp-marquee__sep {
+  color: var(--sec-accent);
+}
+
+.lp-marquee__word {
+  display: inline-block;
+}
+
+/* filled strips keep the theme's emphasis (underline, marker, italic): on blocks whose accent is the
+   ink itself, color alone would not show */
+.lp-marquee__stage .lp-em {
+  color: var(--sec-accent);
+}
+
+/* ---- marks: small crisp shapes between the words, drawn in the accent ---------------------- */
+.lp-marquee__mark {
+  display: block;
+  flex: none;
+  inline-size: 0.24em;
+  block-size: 0.24em;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* quiet luxury: a hairline rule */
+.lp-marquee__mark[data-mark="rule"] {
+  inline-size: 0.72em;
+  block-size: max(1px, 0.03em);
+  border-radius: 1px;
+}
+
+.lp-marquee__mark[data-mark="ring"] {
+  inline-size: 0.34em;
+  block-size: 0.34em;
+  border: max(1.5px, 0.05em) solid currentColor;
+  background: none;
+}
+
+/* modern Moroccan: a solid arch silhouette */
+.lp-marquee__mark[data-mark="arch"] {
+  inline-size: 0.3em;
+  block-size: 0.42em;
+  border-radius: 0.15em 0.15em 0.03em 0.03em;
+}
+
+.lp-marquee__mark[data-mark="pill"] {
+  inline-size: 0.58em;
+  block-size: 0.27em;
+  border-radius: 999px;
+  rotate: calc(-28deg * var(--lp-x, 1));
+}
+
+.lp-marquee__mark[data-mark="slash"] {
+  inline-size: 0.085em;
+  block-size: 0.74em;
+  border-radius: 999px;
+  rotate: calc(20deg * var(--lp-x, 1));
+}
+
+.lp-marquee__mark[data-mark="dash"] {
+  inline-size: 0.5em;
+  block-size: 0.13em;
+  border-radius: 999px;
+  transform: skewX(calc(-20deg * var(--lp-x, 1)));
+}
+
+.lp-marquee__mark[data-mark="plus"] {
+  inline-size: 0.36em;
+  block-size: 0.36em;
+  border-radius: 0;
+  background:
+    linear-gradient(currentColor, currentColor) center / 100% max(1.5px, 0.06em) no-repeat,
+    linear-gradient(currentColor, currentColor) center / max(1.5px, 0.06em) 100% no-repeat;
+}
+
+/* beauty: a glossy bead lit from the top-start */
+.lp-marquee__mark[data-mark="bead"] {
+  inline-size: 0.32em;
+  block-size: 0.32em;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-marquee__mark[data-mark="bead"] {
+    background: radial-gradient(
+      circle at calc(50% - 16% * var(--lp-x, 1)) 30%,
+      color-mix(in oklab, currentColor 30%, #fff) 0 9%,
+      currentColor 52%,
+      color-mix(in oklab, currentColor 74%, #000)
+    );
+  }
+}
+
+/* organic: a clean leaf (two arcs), leaning toward the reading end */
+.lp-marquee__mark[data-mark="leaf"] {
+  inline-size: 0.42em;
+  block-size: 0.42em;
+  border-radius: 0 100%;
+  scale: var(--lp-x, 1) 1;
+}
+
+.lp-marquee__mark[data-mark="square"] {
+  inline-size: 0.22em;
+  block-size: 0.22em;
+  border-radius: 0.025em;
+}
+
+/* industrial: a solid machined hexagon (a slanted bar would read as the Arabic digit ١) */
+.lp-marquee__mark[data-mark="hex"] {
+  inline-size: 0.4em;
+  block-size: 0.35em;
+  border-radius: 0;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+}
+
+/* ---- product photo in a pill: soft lift, hairline ring + 1px top light over the pixels ----- */
+.lp-marquee__thumb {
+  position: relative;
+  display: block;
+  inline-size: 1.6em;
+  block-size: 0.88em;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--mx-tint);
+  box-shadow: var(--lp-shadow-s, 0 0 #0000);
+}
+
+.lp-marquee__thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--mx-hair), inset 0 1px 0 var(--mx-rim);
+}
+
+.lp-marquee__thumb .lp-pic {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-marquee__thumb--cut {
+  inline-size: 1.05em;
+  block-size: 1.05em;
+  overflow: visible;
+  background: none;
+  box-shadow: none;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+.lp-marquee__thumb--cut::after {
+  content: none;
+}
+
+/* ---- depth-of-field ends: a two-step progressive blur where the words enter and leave ------- */
+.lp-marquee__edge {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .lp-marquee__edge {
+      position: absolute;
+      z-index: 3;
+      inset-block: 0;
+      display: block;
+      inline-size: var(--mq-edge-w);
+      pointer-events: none;
+    }
+
+    .lp-marquee__edge--l {
+      left: 0;
+      --mq-edge-to: 90deg;
+    }
+
+    .lp-marquee__edge--r {
+      right: 0;
+      --mq-edge-to: 270deg;
+    }
+
+    .lp-marquee__edge::before,
+    .lp-marquee__edge::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+    }
+
+    .lp-marquee__edge::before {
+      -webkit-backdrop-filter: blur(2.5px);
+      backdrop-filter: blur(2.5px);
+      -webkit-mask-image: linear-gradient(var(--mq-edge-to), #000 35%, transparent);
+      mask-image: linear-gradient(var(--mq-edge-to), #000 35%, transparent);
+    }
+
+    .lp-marquee__edge::after {
+      -webkit-backdrop-filter: blur(9px);
+      backdrop-filter: blur(9px);
+      -webkit-mask-image: linear-gradient(var(--mq-edge-to), #000, transparent 55%);
+      mask-image: linear-gradient(var(--mq-edge-to), #000, transparent 55%);
+    }
+  }
+}
+
+/* ---- scroll shear (progressive): rows slide a few vw as the strip crosses the viewport ------ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"]) .lp-marquee__drift {
+      margin-inline: -6vw;
+      animation: lp-mq-drift linear both;
+      animation-timeline: view();
+    }
+  }
+}
+
+@keyframes lp-mq-drift {
+  from {
+    translate: calc(4.5vw * var(--lp-x, 1) * var(--mq-way, 1)) 0;
+  }
+  to {
+    translate: calc(-4.5vw * var(--lp-x, 1) * var(--mq-way, 1)) 0;
+  }
+}

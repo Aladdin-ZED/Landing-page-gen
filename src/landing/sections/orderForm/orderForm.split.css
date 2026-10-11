@@ -1,0 +1,54 @@
+/* orderForm · split — rules only this variant renders (inlined after orderForm.css on pages whose markup
+   carries .lp-orderForm--split; the admin preview loads every variant). Shared rules live in orderForm.css. */
+
+@container of (min-width: 34rem) {
+  .lp-orderForm--split .lp-of__step > :not(legend) {
+    margin-inline-start: 2.9rem;
+  }
+
+  /* the checkout continues the steps' content column: fields, add-on and button share one edge
+     (the checkout block is as wide as the steps block, so the same query holds for it) */
+  .lp-orderForm--split .lp-of__checkout > * {
+    margin-inline-start: 2.9rem;
+  }
+
+  .lp-orderForm--split .lp-of__step:not(:last-child)::before,
+.lp-orderForm--split .lp-of__step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    /* the containing block starts under the rendered <legend> and its 1.15rem margin: pull back
+       up for one even 0.6rem of air under this disc and above the next one */
+    inset-block: calc(0.6rem - 1.15rem) calc(-1 * var(--of-gap) + 0.6rem);
+    inset-inline-start: calc(1rem - 1px);
+    inline-size: 2px;
+    border-radius: 2px;
+    transform-origin: 50% 0;
+  }
+
+  .lp-orderForm--split .lp-of__step:not(:last-child)::before {
+    background: var(--mx-hair);
+    transition: scale calc(var(--lp-dur-l) * 1.4) var(--lp-smooth) 0.25s;
+  }
+
+  .lp-orderForm--split .lp-of__step:not(:last-child)::after {
+    background: linear-gradient(var(--sec-accent), color-mix(in oklab, var(--sec-accent) 25%, transparent));
+    scale: 1 calc(var(--of-done, 0));
+    transition: scale calc(var(--lp-dur-l) * 1.2) var(--lp-smooth);
+  }
+}
+
+.lp-orderForm--split .lp-of__head {
+  grid-area: copy;
+}
+
+@media (min-width: 64rem) {
+  .lp-orderForm--split .lp-of__wrap {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    align-items: start;
+    gap: clamp(2.5rem, 5vw, 5.5rem);
+  }
+
+  .lp-orderForm--split .lp-of__title {
+    font-size: min(calc(var(--lp-step-4) * 0.78 * var(--lp-script-scale-display)), 4.4vw);
+  }
+}

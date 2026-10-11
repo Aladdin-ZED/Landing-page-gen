@@ -1,0 +1,296 @@
+/* stickyCta · pill — rules only this variant renders (inlined after stickyCta.css on pages whose markup
+   carries .lp-stickyCta--pill; the admin preview loads every variant). Shared rules live in stickyCta.css. */
+
+/* ==========================================================================
+   pill — one luminous capsule: product disc · label over a reassurance line ·
+   price · arrow end-cap
+   ========================================================================== */
+.lp-sticky__pill {
+  --st-h: 3.5rem;
+  --st-pad: 0.3125rem;
+  --st-in: 999px;
+  --st-tile: calc(var(--st-h) - 2 * var(--st-pad));
+  --st-div: var(--mx-on-accent);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-inline-size: 0;
+  max-inline-size: min(100%, 25rem);
+  min-block-size: var(--st-h);
+  padding: var(--st-pad);
+  padding-inline-start: 1.35rem;
+  border-radius: 999px;
+  /* the [data-bg] hook paints the page colour; the capsule draws its own layers */
+  background: none;
+  color: var(--sec-accent-ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-sticky__pill--thumb {
+  padding-inline-start: var(--st-pad);
+}
+
+/* the fill (unfolds on entrance) and the depth (fades in after it) are separate layers */
+.lp-sticky__pill::before,
+.lp-sticky__pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* top-lit gloss, an inner highlight and a soft shaded underside: the capsule reads as a solid object */
+.lp-sticky__pill::before {
+  z-index: -1;
+  background-color: var(--sec-accent);
+  background-image: var(--st-gloss);
+  box-shadow:
+    var(--lp-highlight-accent, inset 0 1px 0 var(--st-light)),
+    inset 0 -1px 0 var(--st-shade);
+}
+
+/* a hairline of the page colour keeps the capsule apart from a section painted in the same accent;
+   the accent glow and the theme's long shadow do the rest */
+.lp-sticky__pill::after {
+  --st-halo: var(--sec-bg);
+  z-index: -2;
+  box-shadow:
+    0 0 0 1px var(--st-halo),
+    var(--lp-shadow-glow, 0 8px 22px -8px var(--mx-btn-2)),
+    var(--lp-shadow-l, 0 18px 40px -18px var(--mx-contact));
+}
+
+.lp-sticky__pill:focus-visible {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 4px;
+}
+
+.lp-sticky__pill .lp-sticky__thumb {
+  background: radial-gradient(110% 100% at 50% 10%, var(--mx-stage-hi), var(--mx-stage));
+  box-shadow: 0 0 0 2px var(--mx-on-accent);
+}
+
+.lp-sticky__pill .lp-sticky__qty {
+  background: var(--sec-accent-ink);
+  color: var(--sec-accent);
+}
+
+.lp-sticky__pill .lp-sticky__qty--badge {
+  inset-block-start: -0.15rem;
+  inset-inline-end: -0.25rem;
+  box-shadow: 0 0 0 2px var(--sec-accent);
+}
+
+.lp-sticky__pill .lp-sticky__qty--inline {
+  min-inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+.lp-sticky__text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  line-height: 1.2;
+}
+
+.lp-sticky__label {
+  overflow: hidden;
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-sticky__pill .lp-sticky__notes {
+  font-size: calc(var(--lp-step--1) * 0.78 * var(--lp-script-scale));
+  line-height: 1.35;
+}
+
+.lp-sticky__pill .lp-sticky__note::before {
+  background: currentColor;
+}
+
+/* the price sits on the capsule itself, set off by one hairline */
+.lp-sticky__tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+  padding-block: 0.3rem;
+  padding-inline-start: 0.85rem;
+  border-inline-start: 1px solid var(--st-div);
+}
+
+.lp-sticky__pill .lp-sticky__price {
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step-0) * 1.06 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.lp-sticky__go {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--st-tile);
+  block-size: var(--st-tile);
+  border-radius: 50%;
+  background: var(--sec-accent-ink);
+  color: var(--sec-accent);
+  box-shadow: 0 2px 6px -2px var(--mx-contact);
+  transition: transform var(--lp-dur-m) var(--lp-spring);
+}
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+
+  .lp-sticky__pill {
+    --st-div: color-mix(in oklab, var(--sec-accent-ink) 26%, transparent);
+  }
+
+  .lp-sticky__pill::after {
+    --st-halo: color-mix(in oklab, var(--sec-bg) 50%, transparent);
+  }
+}
+@media (hover: hover) {
+  .lp-sticky__pill:hover .lp-sticky__thumb[data-kind="photo"] .lp-pic__img {
+    transform: scale(1.08);
+  }
+
+  .lp-sticky__pill:hover .lp-sticky__thumb[data-kind="cutout"] .lp-sticky__pic {
+    transform: translateY(-0.12rem) scale(1.05);
+  }
+
+  .lp-sticky__pill:hover {
+    transform: translateY(-2px);
+  }
+
+  .lp-sticky__pill:hover .lp-sticky__go {
+    transform: rotate(calc(var(--lp-x) * -45deg)) scale(1.06);
+  }
+}
+
+/* press settles on a spring (after hover, so it wins while the pointer is down) */
+.lp-sticky__pill:active {
+  transform: scale(0.97);
+}
+@media (max-width: 22.49rem) {
+
+  .lp-sticky__pill {
+    --st-h: 3.25rem;
+    gap: 0.55rem;
+    padding-inline-end: 0.4rem;
+  }
+
+  .lp-sticky__tag {
+    padding-inline-start: 0.6rem;
+  }
+
+  .lp-sticky__pill .lp-sticky__notes,
+.lp-sticky__go {
+    display: none;
+  }
+}
+@media (min-width: 48rem) {
+
+  .lp-sticky--pill {
+    --st-edge: 1.5rem;
+  }
+
+  .lp-sticky__pill {
+    --st-h: 3.875rem;
+    gap: 0.9rem;
+    max-inline-size: 28rem;
+  }
+
+  .lp-sticky__tag {
+    padding-inline-start: 1rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* pill: rises as a disc, unfolds into the capsule, the contents land, then one glint crosses it */
+  .lp-sticky[data-visible] .lp-sticky__pill::before {
+    background-image: linear-gradient(100deg, transparent 42%, var(--mx-rim) 50%, transparent 58%), var(--st-gloss);
+    background-repeat: no-repeat;
+    background-size: 250% 100%, auto;
+    background-position: var(--st-start) 0, 0 0;
+    animation:
+      lp-st-unfold var(--lp-dur-l) var(--lp-smooth) calc(var(--lp-dur-l) * 0.3) backwards,
+      lp-st-sheen calc(var(--lp-dur-l) * 2.2) var(--lp-sway) calc(var(--lp-dur-l) * 1.4) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__pill::after {
+    animation: lp-st-fade var(--lp-dur-l) var(--lp-ease) calc(var(--lp-dur-l) * 0.8) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__pill > .lp-sticky__thumb {
+    animation: lp-st-pop var(--lp-dur-l) var(--st-pop) calc(var(--lp-dur-l) * 0.7) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__go {
+    animation: lp-st-spin var(--lp-dur-l) var(--st-pop) calc(var(--lp-dur-l) * 0.7) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__text {
+    animation: lp-st-in var(--lp-dur-m) var(--lp-smooth) calc(var(--lp-dur-l) * 0.8) backwards;
+  }
+
+  .lp-sticky[data-visible] .lp-sticky__tag {
+    animation: lp-st-in var(--lp-dur-m) var(--lp-smooth) calc(var(--lp-dur-l) * 0.9) backwards;
+  }
+}
+
+@keyframes lp-st-pop {
+  from {
+    opacity: 0;
+    transform: scale(var(--st-from, 0.4));
+  }
+}
+
+@keyframes lp-st-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+    filter: blur(4px);
+  }
+}
+
+@keyframes lp-st-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lp-st-spin {
+  from {
+    opacity: 0;
+    transform: rotate(calc(var(--lp-x) * -120deg)) scale(0.5);
+  }
+}
+
+@keyframes lp-st-unfold {
+  from {
+    clip-path: inset(0 calc(50% - var(--st-h) / 2) round 999px);
+  }
+
+  to {
+    clip-path: inset(0 0 round 999px);
+  }
+}
+
+/* one light streak travelling with the reading direction */
+@keyframes lp-st-sheen {
+  from {
+    background-position: var(--st-end) 0, 0 0;
+  }
+
+  to {
+    background-position: var(--st-start) 0, 0 0;
+  }
+}

@@ -1,0 +1,1317 @@
+/* urgency · stock — rules only this variant renders (inlined after urgency.css on pages whose markup
+   carries .lp-urgency--stock; the admin preview loads every variant). Shared rules live in urgency.css. */
+
+/* --- layout: headline → live visual → CTA (mobile); copy + CTA | visual (desktop) ------- */
+.lp-urg__wrap {
+  display: grid;
+  grid-template-areas:
+    "copy"
+    "visual"
+    "go";
+  gap: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
+}
+
+.lp-urg__copy {
+  grid-area: copy;
+  display: grid;
+  justify-items: start;
+  gap: 0.9rem;
+  min-inline-size: 0;
+  max-inline-size: 34rem;
+}
+
+.lp-urg__visual {
+  grid-area: visual;
+  container: urg / inline-size;
+  min-inline-size: 0;
+}
+
+.lp-urg__go {
+  grid-area: go;
+  display: grid;
+  justify-items: start;
+  gap: 0.8rem;
+  min-inline-size: 0;
+}
+
+.lp-urg__title {
+  max-inline-size: 18ch;
+  text-wrap: balance;
+}
+
+/* headings: the accent color alone carries the emphasis (no running-text underline) */
+:root[data-emphasis="color"] .lp-urg__title .lp-em,
+:root[data-emphasis="color"] .lp-urg__title .lp-em__w {
+  color: var(--sec-accent);
+  text-decoration-line: none;
+}
+
+/* long (plain) emphasis in a word-split heading: the underline must reach the word boxes too */
+.lp-urg__title .lp-em--plain .lp-word {
+  text-decoration: inherit;
+}
+
+/* a swoosh under a word must clear the next line, even with tight display leading */
+:root[data-emphasis="swoosh"] .lp-urg__title:has(.lp-em) {
+  line-height: max(1.08, calc(var(--lp-display-lh) + 0.1));
+}
+
+.lp-urg__lead {
+  max-inline-size: 32rem;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-urg__cod {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  color: var(--sec-ink-soft);
+}
+
+.lp-urg__cod .lp-icon,
+.lp-urg__status .lp-icon {
+  flex: none;
+  color: var(--sec-accent);
+}
+
+@media (max-width: 39.99rem) {
+  .lp-urg__go {
+    justify-items: stretch;
+  }
+
+  .lp-urg__cod {
+    justify-self: center;
+  }
+}
+
+@media (min-width: 56rem) {
+  /* copy + CTA sit as one group, centered against the visual */
+  .lp-urg__wrap {
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    grid-template-rows: 1fr auto auto 1fr;
+    grid-template-areas:
+      ". visual"
+      "copy visual"
+      "go visual"
+      ". visual";
+    column-gap: clamp(3rem, 6vw, 6.5rem);
+    row-gap: 0;
+  }
+
+  .lp-urg__go {
+    margin-block-start: clamp(1.5rem, 2.4vw, 2.25rem);
+  }
+
+  /* stock leads with the number: the visual takes the start side */
+  .lp-urgency--stock .lp-urg__wrap {
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    grid-template-areas:
+      "visual ."
+      "visual copy"
+      "visual go"
+      "visual .";
+  }
+}
+
+/* --- shared bits ------------------------------------------------------------- */
+.lp-urg__status {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.2;
+}
+
+/* ==========================================================================
+   Countdown
+   ========================================================================== */
+.lp-urg__clock {
+  display: grid;
+  justify-items: start;
+  gap: clamp(0.9rem, 3cqi, 1.25rem);
+  min-inline-size: 0;
+}
+
+.lp-urg__stage {
+  --stage-r: var(--lp-sq-xl);
+  --stage-p: clamp(0.85rem, 3.6cqi, 1.6rem);
+  /* tiles nest concentrically in the stage (continuous corners: the gap × --lp-corner-d) */
+  --tile-r: max(0.6rem, calc(var(--stage-r) - var(--stage-p) * var(--lp-corner-d)));
+  --cd-fs: clamp(1.7rem, 9.6cqi, 4.4rem);
+  position: relative;
+  display: grid;
+  align-content: space-between;
+  justify-items: start;
+  gap: clamp(1.75rem, 8cqi, 4rem);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: var(--stage-p);
+  overflow: hidden;
+  border-radius: var(--stage-r);
+  corner-shape: var(--lp-corner);
+  color: var(--sec-ink);
+}
+
+@supports (overflow: clip) {
+  .lp-urg__stage {
+    overflow: clip;
+  }
+}
+
+/* glass & soft without a photo: tiles frost over a drifting product-hued light */
+.lp-urg--glass .lp-urg__stage,
+.lp-urg--soft .lp-urg__stage {
+  min-block-size: clamp(15rem, 62cqi, 23rem);
+  background-color: var(--urg-tint);
+  background-image: linear-gradient(to bottom, var(--urg-tint), var(--urg-tint-2));
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+}
+
+.lp-urg__light {
+  position: absolute;
+  inset: 6% -14% -8%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side, var(--urg-l1), transparent) 16% 58% / 50% 80% no-repeat,
+    radial-gradient(closest-side, var(--urg-l2), transparent) 86% 66% / 46% 72% no-repeat;
+}
+
+.lp-urg__tex {
+  z-index: -1;
+}
+
+/* the drop card (glass & soft faces with a product photo): a lit card that holds the photo in a
+   concentric window — the live label heads the card, the tiles straddle the window's lower edge and
+   the real last day closes it. Nothing ever floats over the photo's body: the window is fitted
+   subject-first (Picture frame), so heads, faces and hands stay whole and clear of every overlay.
+   Wide cards: photo | panel (the date on top, the live label and a 2 × 2 grid of tiles at the foot). */
+.lp-urg .lp-urg__stage--photo {
+  --stage-r: var(--lp-sq-xl);
+  --stage-p: clamp(0.7rem, 3cqi, 1rem);
+  --win-r: max(var(--lp-sq-s), calc(var(--stage-r) - var(--stage-p) * var(--lp-corner-d)));
+  /* how deep the tiles sink into the window: about a third of a tile */
+  --ov: clamp(1.5rem, 7.4cqi, 2.1rem);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto var(--ov) auto auto;
+  align-content: start;
+  justify-items: stretch;
+  gap: 0;
+  min-block-size: 0;
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  background-image: linear-gradient(to bottom, var(--mx-rim), transparent 34%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l), inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+  color: var(--sec-card-ink);
+}
+
+.lp-urg__stage--photo > .lp-urg__status {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: start;
+  padding: 0.15rem 0.35rem 0.8rem;
+  color: inherit;
+}
+
+.lp-urg__photo {
+  grid-row: 2 / span 2;
+  grid-column: 1;
+  position: relative;
+  z-index: 0;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--win-r);
+  corner-shape: var(--lp-corner);
+  background-color: var(--mx-tint);
+}
+
+.lp-urg__photo .lp-pic {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+  corner-shape: inherit;
+}
+
+/* a wide product: a landscape window (fit.ts) */
+.lp-urg__photo[data-wide] {
+  aspect-ratio: 5 / 4;
+}
+
+/* a product shown whole (fit.ts): its own dominant color fills the window around it */
+.lp-urg__photo .lp-pic--letterbox {
+  background-color: var(--ph, var(--mx-tint));
+}
+
+/* the window's edge, drawn over the photo (a pale photo on a pale card keeps a crisp silhouette) */
+.lp-urg__photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge);
+  pointer-events: none;
+}
+
+.lp-urg__stage--photo > .lp-urg__cd {
+  grid-row: 3 / span 2;
+  grid-column: 1;
+  align-self: end;
+  padding-inline: clamp(0.45rem, 2.2cqi, 0.8rem);
+}
+
+.lp-urg__stage--photo > .lp-urg__until {
+  grid-row: 5;
+  grid-column: 1;
+  justify-self: start;
+  padding: clamp(0.85rem, 3.4cqi, 1.1rem) 0.35rem 0.2rem;
+  color: var(--sec-card-ink);
+}
+
+@container urg (min-width: 30rem) {
+  .lp-urg .lp-urg__stage--photo {
+    --stage-p: clamp(0.85rem, 2.4cqi, 1.15rem);
+    --cd-fs: clamp(2.1rem, 7.2cqi, 3.5rem);
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: clamp(1rem, 4cqi, 1.9rem);
+  }
+
+  .lp-urg__photo {
+    grid-row: 1 / -1;
+    grid-column: 1;
+  }
+
+  /* a landscape window takes a wider column and rides the card's middle */
+  .lp-urg .lp-urg__stage--photo:has(> .lp-urg__photo[data-wide]) {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+
+  .lp-urg__photo[data-wide] {
+    align-self: center;
+  }
+
+  .lp-urg__stage--photo > .lp-urg__until {
+    grid-row: 1;
+    grid-column: 2;
+    padding: clamp(0.4rem, 1.4cqi, 0.7rem) 0 0;
+  }
+
+  .lp-urg__stage--photo > .lp-urg__status {
+    grid-row: 3;
+    grid-column: 2;
+    padding: 0 0 0.85rem;
+  }
+
+  .lp-urg__stage--photo > .lp-urg__cd {
+    grid-row: 4;
+    grid-column: 2;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0;
+  }
+
+  /* under a day left: the hours take the whole first row */
+  .lp-urg__stage--photo > .lp-urg__cd:not(:has([data-unit="d"])) [data-unit="h"] {
+    grid-column: 1 / -1;
+  }
+
+  /* beside the photo (not over it) the tiles are quiet wells of the card */
+  .lp-urg .lp-urg__stage--photo .lp-cd__unit {
+    border-color: var(--mx-hair);
+    background-color: var(--urg-tint);
+    background-image: linear-gradient(to bottom, var(--mx-rim), transparent 46%);
+    box-shadow: var(--lp-highlight, 0 0 #0000);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* --- the digits: one grid of units, each unit is its own tile (digits + label inside) --- */
+.lp-urg__cd {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(0.35rem, 1.6cqi, 0.75rem);
+  inline-size: 100%;
+}
+
+.lp-urg__cd .lp-cd__sep {
+  display: none;
+}
+
+.lp-urg__cd .lp-cd__unit {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: clamp(0.3rem, 1.4cqi, 0.55rem);
+  min-inline-size: 0;
+  padding: clamp(0.75rem, 3.4cqi, 1.3rem) 0.3rem clamp(0.65rem, 2.8cqi, 1.05rem);
+  border: var(--lp-hairline) solid var(--sec-glass-border, var(--mx-hair));
+  border-radius: var(--tile-r);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  background-image: linear-gradient(to bottom, var(--mx-rim), transparent 42%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-urg__cd .lp-cd__unit {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+.lp-urg__cd .lp-cd__num {
+  display: block;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-size: var(--cd-fs);
+  letter-spacing: min(0em, var(--lp-display-tracking));
+  line-height: 0.92;
+}
+
+.lp-urg__cd .lp-cd__lab {
+  max-inline-size: 100%;
+  overflow: hidden;
+  font-size: calc(max(0.66rem, var(--lp-step--1) * 0.8) * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: inherit;
+}
+
+/* the running seconds: a small live light in the tile corner */
+.lp-urg__cd [data-unit="s"]::after {
+  content: "";
+  position: absolute;
+  inset-block-start: clamp(0.4rem, 1.6cqi, 0.65rem);
+  inset-inline-end: clamp(0.4rem, 1.6cqi, 0.65rem);
+  inline-size: 0.38rem;
+  block-size: 0.38rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 0.2rem var(--urg-glow);
+}
+
+/* under a day left: three tiles, set larger */
+.lp-urg__cd:not(:has([data-unit="d"])) {
+  --cd-fs: clamp(2.1rem, 12.5cqi, 5.6rem);
+}
+
+/* soft (bloom · hearth): pillowy tiles, rounder than the card that holds them */
+.lp-urg--soft .lp-urg__stage {
+  --tile-r: clamp(1rem, 6cqi, 1.9rem);
+}
+
+/* --- the real last day, under the timer, with a calendar tile -------------------------- */
+.lp-urg__until {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  max-inline-size: 100%;
+  margin: 0;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--sec-ink-soft);
+  text-wrap: balance;
+}
+
+.lp-urg__cal {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.65rem;
+  padding-block-start: 0.5rem;
+  border-radius: min(0.7rem, var(--lp-radius-m));
+  background-color: var(--sec-card);
+  background-image: linear-gradient(to bottom, var(--sec-accent) 0.5rem, transparent 0.5rem);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s), inset 0 0 0 1px var(--mx-hair);
+  color: var(--sec-card-ink);
+}
+
+/* --- hairline (maison · editorial): open numerals between hairlines, no box ------------ */
+.lp-urg--hairline .lp-urg__stage {
+  --cd-fs: clamp(2.6rem, 13.5cqi, 6.75rem);
+  gap: clamp(1.4rem, 5cqi, 2.4rem);
+  padding: clamp(1.1rem, 4cqi, 1.75rem) 0 clamp(1.25rem, 4.5cqi, 2rem);
+  overflow: visible;
+  border-radius: 0;
+  background: radial-gradient(closest-side, var(--mx-stage-hi), transparent) 50% 70% / 90% 140% no-repeat;
+}
+
+/* the two rules that frame the numerals (drawn across on reveal) */
+.lp-urg--hairline .lp-urg__stage::before,
+.lp-urg--hairline .lp-urg__stage::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  block-size: 1px;
+  background: var(--mx-line);
+  transform-origin: left center;
+}
+
+.lp-urg--hairline .lp-urg__stage::before {
+  inset-block-start: 0;
+}
+
+.lp-urg--hairline .lp-urg__stage::after {
+  inset-block-end: 0;
+}
+
+[dir="rtl"] .lp-urg--hairline .lp-urg__stage::before,
+[dir="rtl"] .lp-urg--hairline .lp-urg__stage::after {
+  transform-origin: right center;
+}
+
+.lp-urg--hairline .lp-urg__cd {
+  gap: 0;
+}
+
+.lp-urg--hairline .lp-urg__cd .lp-cd__unit {
+  gap: clamp(0.5rem, 2cqi, 0.85rem);
+  padding: 0 0.2rem;
+  border: 0;
+  border-inline-start: 1px solid var(--mx-hair);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--sec-ink);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lp-urg--hairline .lp-urg__cd .lp-cd__unit:first-child {
+  border-inline-start: 0;
+}
+
+.lp-urg--hairline .lp-urg__cd .lp-cd__num {
+  line-height: 0.86;
+}
+
+.lp-urg--hairline .lp-urg__cd .lp-cd__lab {
+  font-family: var(--lp-font-label);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-urg--hairline .lp-urg__cd [data-unit="s"]::after {
+  display: none;
+}
+
+.lp-urg--hairline .lp-urg__cd [data-unit="s"] .lp-cd__lab {
+  color: var(--sec-accent);
+}
+
+/* --- instrument (kinetic · circuit · garage): one smoked slab cut into cells -------------- */
+.lp-urg--instrument .lp-urg__stage {
+  --stage-r: var(--lp-sq-l);
+  --cd-fs: clamp(2.3rem, 12.5cqi, 5.8rem);
+  gap: clamp(1.5rem, 7cqi, 3.25rem);
+  background-color: var(--sec-bg);
+  background-image:
+    radial-gradient(90% 70% at 50% 108%, var(--urg-tint-2), transparent 72%),
+    linear-gradient(to bottom, var(--mx-hair), transparent 30%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l), inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-urg--instrument .lp-urg__light {
+  inset: 42% 6% -40%;
+  opacity: 0.5;
+}
+
+.lp-urg--instrument .lp-urg__cd {
+  gap: 0;
+}
+
+.lp-urg--instrument .lp-urg__cd .lp-cd__unit {
+  justify-items: start;
+  align-content: end;
+  gap: clamp(0.6rem, 2.6cqi, 1.1rem);
+  padding: 0.1rem clamp(0.55rem, 3cqi, 1.25rem) 0;
+  border: 0;
+  border-inline-start: 1px solid var(--mx-line);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--sec-ink);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lp-urg--instrument .lp-urg__cd .lp-cd__unit:first-child {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+
+.lp-urg--instrument .lp-urg__cd .lp-cd__lab {
+  order: -1;
+  font-family: var(--lp-font-label);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-urg--instrument .lp-urg__cd .lp-cd__num {
+  line-height: 0.84;
+}
+
+.lp-urg--instrument .lp-urg__cd [data-unit="s"] .lp-cd__num {
+  color: var(--sec-accent);
+}
+
+.lp-urg--instrument .lp-urg__cd [data-unit="s"]::after {
+  inset-block-start: 0.2rem;
+  inset-inline-end: 0;
+}
+
+/* --- clay (playground): color blocks set down slightly askew ---------------------------- */
+.lp-urg--clay .lp-urg__stage {
+  --tile-r: clamp(1rem, 6cqi, 1.75rem);
+  min-block-size: 0;
+  gap: clamp(1.5rem, 6cqi, 2.5rem);
+  padding-block: clamp(1.25rem, 5cqi, 2.25rem);
+  background-color: var(--urg-tint);
+  background-image: radial-gradient(70% 90% at 50% 100%, var(--urg-tint-2), transparent 70%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+}
+
+.lp-urg--clay .lp-urg__cd {
+  gap: clamp(0.5rem, 2.4cqi, 1rem);
+}
+
+.lp-urg--clay .lp-urg__cd .lp-cd__unit {
+  border: 0;
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(to bottom, var(--mx-on-accent), transparent 55%);
+  box-shadow:
+    var(--lp-highlight-accent, 0 0 #0000),
+    inset 0 -0.3rem 0 rgb(0 0 0 / 0.12),
+    0 0.7rem 1.4rem -0.6rem var(--urg-ring);
+  color: var(--sec-accent-ink);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lp-urg--clay .lp-urg__cd .lp-cd__unit:nth-child(4n + 3) {
+  background-color: var(--lp-pop);
+  color: var(--lp-pop-ink);
+}
+
+.lp-urg--clay .lp-urg__cd .lp-cd__unit:nth-child(4n + 1) {
+  rotate: -3deg;
+}
+
+.lp-urg--clay .lp-urg__cd .lp-cd__unit:nth-child(4n + 3) {
+  rotate: 2.5deg;
+}
+
+.lp-urg--clay .lp-urg__cd .lp-cd__lab {
+  font-size: calc(max(0.74rem, var(--lp-step--1) * 0.86) * var(--lp-script-scale));
+  font-weight: 700;
+}
+
+.lp-urg--clay .lp-urg__cd [data-unit="s"]::after {
+  background: currentColor;
+  box-shadow: none;
+  opacity: 0.85;
+}
+
+/* ==========================================================================
+   Stock
+   ========================================================================== */
+.lp-urg__stock {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "status"
+    "count"
+    "note"
+    "meter";
+  justify-items: start;
+  align-items: center;
+  gap: clamp(1.1rem, 4cqi, 1.6rem) 1rem;
+  margin: 0;
+  padding: clamp(1.35rem, 5.5cqi, 2.6rem);
+  overflow: hidden;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  /* light from above, like every raised surface of the kit (no tinted corner cloud: a dark accent
+     turned it into a grey smudge) */
+  background-image: linear-gradient(to bottom, var(--mx-rim), transparent 38%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l), inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+  color: var(--sec-card-ink);
+}
+
+.lp-urg__stock > .lp-urg__status {
+  grid-area: status;
+  color: var(--sec-card-ink);
+}
+
+.lp-urg__note {
+  grid-area: note;
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--lp-radius-pill, 999px);
+  background: var(--urg-tint-2);
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.lp-urg__count {
+  grid-area: count;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.9rem;
+  margin: 0;
+}
+
+.lp-urg__n {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: clamp(5rem, 2.6rem + 22cqi, 11rem);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 0.82;
+}
+
+.lp-urg__unit {
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.25;
+  color: var(--sec-accent);
+}
+
+.lp-urg__meter {
+  grid-area: meter;
+  display: grid;
+  gap: 0.8rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+/* the tray: ten to a row, the partial row on top (flush to the end, set inline) */
+.lp-urg__dots {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 10), minmax(0, 1fr));
+  gap: clamp(0.3rem, 1.7cqi, 0.6rem);
+  inline-size: min(100%, 18.5rem);
+}
+
+.lp-urg__dots[data-size="few"] {
+  gap: clamp(0.4rem, 1.9cqi, 0.6rem);
+  inline-size: min(100%, calc(var(--cols, 1) * 2.05rem));
+}
+
+.lp-urg__dots[data-size="dense"] {
+  gap: clamp(0.22rem, 1.1cqi, 0.4rem);
+  inline-size: min(100%, 15rem);
+}
+
+/* one crisp disc per piece: a flat accent face lit from above by a soft inner highlight (the clay
+   face keeps rounder, toy-like beads) */
+.lp-urg__dots i,
+.lp-urg__legend i {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(to bottom, var(--mx-on-accent), transparent 62%);
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+}
+
+.lp-urg--clay .lp-urg__dots i {
+  background-image: radial-gradient(circle at 34% 28%, var(--mx-on-accent), transparent 60%);
+  box-shadow: inset 0 1px 0 var(--mx-on-accent), 0 0.22rem 0.5rem -0.2rem var(--urg-ring);
+}
+
+/* the next piece to go wears a halo (and opens the partial top row, flush to the end) */
+.lp-urg__dots i:first-child {
+  grid-column-start: var(--start, auto);
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-edge), 0 0 0 0.2rem var(--urg-glow);
+}
+
+.lp-urg--instrument .lp-urg__dots i,
+.lp-urg--instrument .lp-urg__legend i,
+:root[data-arch="editorial"] .lp-urg__dots i,
+:root[data-arch="editorial"] .lp-urg__legend i {
+  border-radius: 24%;
+}
+
+.lp-urg__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  font-weight: 600;
+  color: var(--sec-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-urg__legend i {
+  inline-size: 0.6rem;
+}
+
+/* level meter: segments are a ruler, the fill is exact (a part-lit segment shows the rest) */
+.lp-urg__gauge {
+  display: grid;
+  grid-template-columns: repeat(var(--segs, 20), minmax(0, 1fr));
+  gap: clamp(2px, 0.7cqi, 5px);
+  block-size: clamp(1.6rem, 6.5cqi, 2.4rem);
+}
+
+.lp-urg__gauge i {
+  position: relative;
+  overflow: hidden;
+  border-radius: clamp(3px, 1cqi, 6px);
+  background: var(--urg-tint-2);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-urg__gauge i:first-child {
+  border-start-start-radius: var(--lp-radius-pill, 999px);
+  border-end-start-radius: var(--lp-radius-pill, 999px);
+}
+
+.lp-urg__gauge i:last-child {
+  border-start-end-radius: var(--lp-radius-pill, 999px);
+  border-end-end-radius: var(--lp-radius-pill, 999px);
+}
+
+.lp-urg__gauge i[data-on]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: calc(var(--f, 1) * 100%);
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(to bottom, var(--mx-on-accent), transparent 70%);
+}
+
+.lp-urg__gauge i[data-on] {
+  box-shadow: 0 0.35rem 0.8rem -0.45rem var(--urg-ring);
+}
+
+.lp-urg__legend--gauge {
+  font-size: calc(var(--lp-step-0) * 0.92 * var(--lp-script-scale));
+  color: var(--sec-card-ink);
+}
+
+/* wide cards: the note joins the status row; the tray sits beside the number, on its baseline */
+@container urg (min-width: 30rem) {
+  .lp-urg__stock {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "status note"
+      "count count"
+      "meter meter";
+  }
+
+  .lp-urg__note {
+    justify-self: end;
+  }
+
+  .lp-urg__stock:not(.lp-urg__stock--gauge, .lp-urg__stock--solo) {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "status note"
+      "count meter";
+    align-items: end;
+    column-gap: clamp(1.5rem, 7cqi, 3.5rem);
+  }
+
+  .lp-urg__stock:not(.lp-urg__stock--gauge, .lp-urg__stock--solo) .lp-urg__count {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lp-urg__stock:not(.lp-urg__stock--gauge, .lp-urg__stock--solo) .lp-urg__meter {
+    justify-items: end;
+    padding-block-end: 0.3rem;
+  }
+}
+
+/* ==========================================================================
+   Delivery route
+   ========================================================================== */
+.lp-urg__route {
+  --pin: 3.25rem;
+  padding: clamp(1.35rem, 5.5cqi, 2.6rem);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  background-image: radial-gradient(80% 70% at 100% 100%, var(--urg-card-glow), transparent 72%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l), inset 0 0 0 var(--lp-hairline) var(--mx-edge);
+  color: var(--sec-card-ink);
+}
+
+[dir="rtl"] .lp-urg__route {
+  background-image: radial-gradient(80% 70% at 0% 100%, var(--urg-card-glow), transparent 72%);
+}
+
+.lp-urg__stops {
+  position: relative;
+  display: grid;
+  gap: clamp(1.4rem, 5cqi, 2rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* the path: a hairline that warms into the accent at the door; ::after is the travelling light */
+.lp-urg__stops::before,
+.lp-urg__stops::after {
+  content: "";
+  position: absolute;
+  inset-block: calc(var(--pin) / 2);
+  inset-inline-start: calc(var(--pin) / 2 - 1px);
+  inline-size: 2px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.lp-urg__stops::before {
+  background: linear-gradient(to bottom, var(--mx-line), var(--sec-accent));
+}
+
+.lp-urg__stops::after {
+  opacity: 0;
+  background: linear-gradient(to bottom, transparent, var(--sec-accent) 46%, var(--sec-accent) 54%, transparent) 0 -40% / 100% 30% no-repeat;
+  filter: drop-shadow(0 0 4px var(--urg-ring));
+}
+
+.lp-urg__stop {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--pin) minmax(0, 1fr);
+  grid-template-areas:
+    "pin when"
+    "pin what";
+  align-items: center;
+  column-gap: 1.1rem;
+  row-gap: 0.15rem;
+}
+
+.lp-urg__pin {
+  grid-area: pin;
+  display: grid;
+  place-items: center;
+  inline-size: var(--pin);
+  block-size: var(--pin);
+  border-radius: 50%;
+  background-color: var(--sec-card);
+  background-image: linear-gradient(to bottom, var(--mx-rim), transparent 60%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s), inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-accent);
+}
+
+:root[data-radius="none"] .lp-urg__pin,
+:root[data-radius="subtle"] .lp-urg__pin {
+  border-radius: var(--lp-radius-m);
+}
+
+.lp-urg__stop:last-child .lp-urg__pin {
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(to bottom, var(--mx-on-accent), transparent 60%);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 0 0 0.4rem var(--urg-glow), 0 0.7rem 1.4rem -0.55rem var(--urg-ring);
+  color: var(--sec-accent-ink);
+}
+
+[dir="rtl"] .lp-urg__stop .lp-urg__pin .lp-icon {
+  scale: -1 1;
+}
+
+.lp-urg__when {
+  grid-area: when;
+  align-self: end;
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.88 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-accent);
+}
+
+.lp-urg__what {
+  grid-area: what;
+  align-self: start;
+  font-size: calc(var(--lp-step-0) * 1.04 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.32;
+  text-wrap: pretty;
+}
+
+@container urg (min-width: 34rem) {
+  .lp-urg__stops:not([data-n="4"]) {
+    grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+    column-gap: 1.25rem;
+  }
+
+  .lp-urg__stops:not([data-n="4"])::before,
+.lp-urg__stops:not([data-n="4"])::after {
+    inset-block: calc(var(--pin) / 2 - 1px) auto;
+    inset-inline: calc(var(--pin) / 2) calc(100% / var(--n, 3) - var(--pin) / 2);
+    inline-size: auto;
+    block-size: 2px;
+  }
+
+  .lp-urg__stops:not([data-n="4"])::before {
+    background: linear-gradient(to right, var(--mx-line), var(--sec-accent));
+  }
+
+  [dir="rtl"] .lp-urg__stops:not([data-n="4"])::before {
+    background: linear-gradient(to left, var(--mx-line), var(--sec-accent));
+  }
+
+  .lp-urg__stops:not([data-n="4"])::after {
+    background: linear-gradient(to right, transparent, var(--sec-accent) 46%, var(--sec-accent) 54%, transparent) -40% 0 / 30% 100% no-repeat;
+  }
+
+  .lp-urg__stops:not([data-n="4"]) .lp-urg__stop {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "pin"
+      "when"
+      "what";
+    justify-items: start;
+    row-gap: 0.4rem;
+  }
+
+  .lp-urg__stops:not([data-n="4"]) .lp-urg__when {
+    margin-block-start: 0.6rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  :root:not([data-motion="off"]) .lp-urg__cd [data-unit="s"]::after {
+    animation: lp-urg-tick 1s var(--lp-sway) infinite;
+  }
+
+  :root:not([data-motion="off"]) .lp-urg__light {
+    animation: lp-urg-drift 16s var(--lp-sway) infinite alternate;
+  }
+
+  :root[data-motion="calm"] .lp-urg__light {
+    animation-duration: 28s;
+  }
+
+  /* the drop card opens from a rounded inset while the photo settles from a slight zoom into its
+     fitted crop */
+  html.lp-js:not([data-motion="off"]) .lp-urg .lp-urg__stage--photo[data-in] {
+    animation-name: lp-urg-open;
+    animation-duration: calc(var(--lp-dur-l) * 1.4);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-urg__stage--photo[data-in] .lp-pic__img {
+    animation: lp-urg-settle calc(var(--lp-dur-l) * 2.2) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  /* hairline: the rules draw across, the bottom one a beat later */
+  html.lp-js:not([data-motion="off"]) .lp-urg--hairline .lp-urg__stage[data-in]::before,
+html.lp-js:not([data-motion="off"]) .lp-urg--hairline .lp-urg__stage[data-in]::after {
+    animation: lp-urg-rule calc(var(--lp-dur-l) * 1.6) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-urg--hairline .lp-urg__stage[data-in]::after {
+    animation-delay: calc(var(--d, 0ms) + 180ms);
+  }
+
+  /* tiles land one after another, sharpening from a blur */
+  .lp-urg__cd [data-unit="d"] {
+    --k: 0;
+  }
+
+  .lp-urg__cd [data-unit="h"] {
+    --k: 1;
+  }
+
+  .lp-urg__cd [data-unit="m"] {
+    --k: 2;
+  }
+
+  .lp-urg__cd [data-unit="s"] {
+    --k: 3;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-urg__stage[data-in] .lp-cd__unit {
+    animation: lp-urg-tile calc(var(--lp-dur-l) * 1.1) var(--lp-spring) calc(var(--d, 0ms) + 260ms + var(--k, 0) * 70ms) backwards;
+  }
+
+  /* dots light up one after another once the tray is in view; the next to go keeps breathing */
+  html.lp-js:not([data-motion="off"]) .lp-urg__dots[data-in] i {
+    animation: lp-urg-dot var(--lp-dur-m) var(--lp-spring) calc(var(--d, 0ms) + var(--i, 0) * 16ms) backwards;
+  }
+
+  :root:not([data-motion="off"]) .lp-urg__dots i:first-child {
+    animation: lp-urg-breathe 2.4s var(--lp-sway) infinite;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-urg__dots[data-in] i:first-child {
+    animation:
+      lp-urg-dot var(--lp-dur-m) var(--lp-spring) var(--d, 0ms) backwards,
+      lp-urg-breathe 2.4s var(--lp-sway) calc(var(--d, 0ms) + 1.2s) infinite;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-urg__gauge[data-in] i[data-on]::before {
+    transform-origin: left center;
+    animation: lp-urg-fill var(--lp-dur-m) var(--lp-smooth) calc(var(--d, 0ms) + 120ms + var(--i, 0) * 45ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"] .lp-urg__gauge[data-in] i[data-on]::before {
+    transform-origin: right center;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-urg__route[data-in] .lp-urg__stops::before {
+    animation: lp-urg-grow calc(var(--lp-dur-l) * 1.8) var(--lp-smooth) calc(var(--d, 0ms) + 200ms) backwards;
+  }
+
+  /* a light travels the route, door-bound, with a long rest between trips */
+  :root:not([data-motion="off"]) .lp-urg__stops::after {
+    animation: lp-urg-travel 5.5s var(--lp-sway) 1.6s infinite;
+  }
+
+  :root[data-motion="calm"] .lp-urg__stops::after {
+    animation-duration: 8s;
+  }
+
+  @container urg (min-width: 34rem) {
+    html.lp-js:not([data-motion="off"]) .lp-urg__route[data-in] .lp-urg__stops:not([data-n="4"])::before {
+      animation-name: lp-urg-grow-x;
+    }
+
+    html.lp-js:not([data-motion="off"])[dir="rtl"] .lp-urg__route[data-in] .lp-urg__stops:not([data-n="4"])::before {
+      animation-name: lp-urg-grow-x-rtl;
+    }
+
+    :root:not([data-motion="off"]) .lp-urg__stops:not([data-n="4"])::after {
+      animation-name: lp-urg-travel-x;
+    }
+
+    :root:not([data-motion="off"])[dir="rtl"] .lp-urg__stops:not([data-n="4"])::after {
+      animation-name: lp-urg-travel-x-rtl;
+    }
+  }
+
+  .lp-urg__cd .lp-cd__unit,
+.lp-urg__pin {
+    transition:
+      translate var(--lp-dur-m) var(--lp-spring),
+      rotate var(--lp-dur-m) var(--lp-spring),
+      box-shadow var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  @media (hover: hover) {
+    /* tiles lift in a wave */
+    .lp-urg__stage:hover .lp-cd__unit {
+      translate: 0 -4px;
+      transition-delay: calc(var(--k, 0) * 40ms);
+    }
+
+    .lp-urg--clay .lp-urg__stage:hover .lp-cd__unit {
+      rotate: 0deg;
+    }
+
+    .lp-urg--hairline .lp-urg__stage:hover .lp-cd__unit,
+.lp-urg--instrument .lp-urg__stage:hover .lp-cd__unit {
+      translate: none;
+    }
+
+    .lp-urg__stop:hover .lp-urg__pin {
+      translate: 0 -3px;
+    }
+  }
+}
+
+@keyframes lp-urg-tick {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes lp-urg-drift {
+  from {
+    transform: translate3d(-6%, 2%, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(6%, -3%, 0) scale(1.08);
+  }
+}
+
+@keyframes lp-urg-open {
+  from {
+    opacity: 0;
+    clip-path: inset(6% 6% 6% 6% round var(--stage-r));
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round var(--stage-r));
+  }
+}
+
+@keyframes lp-urg-rule {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes lp-urg-settle {
+  from {
+    scale: 1.08;
+  }
+}
+
+@keyframes lp-urg-tile {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    translate: 0 0.9rem;
+  }
+}
+
+@keyframes lp-urg-dot {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+@keyframes lp-urg-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes lp-urg-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes lp-urg-grow {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+
+@keyframes lp-urg-grow-x {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@keyframes lp-urg-grow-x-rtl {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
+@keyframes lp-urg-travel {
+  0% {
+    opacity: 0;
+    background-position: 0 -40%;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  55% {
+    opacity: 1;
+    background-position: 0 140%;
+  }
+
+  62%,
+  100% {
+    opacity: 0;
+    background-position: 0 140%;
+  }
+}
+
+@keyframes lp-urg-travel-x {
+  0% {
+    opacity: 0;
+    background-position: -40% 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  55% {
+    opacity: 1;
+    background-position: 140% 0;
+  }
+
+  62%,
+  100% {
+    opacity: 0;
+    background-position: 140% 0;
+  }
+}
+
+@keyframes lp-urg-travel-x-rtl {
+  0% {
+    opacity: 0;
+    background-position: 140% 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  55% {
+    opacity: 1;
+    background-position: -40% 0;
+  }
+
+  62%,
+  100% {
+    opacity: 0;
+    background-position: -40% 0;
+  }
+}

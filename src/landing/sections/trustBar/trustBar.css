@@ -1,0 +1,56 @@
+/* ==========================================================================
+   Trust bar — COD promises right under the hero (v2 · modern)
+   chips  · glass dock: one frosted capsule, a segment per promise; the accent
+            thumb marks the lead and glides under the pointer; bento on phones
+   stamps · medals on a hairline with a travelling pulse of light; rotating
+            ring text (Latin) or words arched upright over the disc (Arabic)
+   ledger · Swiss columns: frame rules draw across, dividers grow down, the
+            accent bar stretches on hover; a precise list on phones
+   ribbon · a color band: the lead promise pinned as an inverted capsule, the
+            others sliding under it; a floating band runs to the screen edges
+   Tokens only (--sec-*, --mx-*, --lp-*); logical properties; motion gated.
+   Rules every variant uses. A variant's own rules live in trustBar.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* a strip, not a chapter: a tighter rhythm than a full section, still scaled by data-space */
+.lp-trustBar {
+  padding-block: calc(clamp(2rem, 1.2rem + 3vw, 3.5rem) * var(--space-k, 1));
+}
+
+/* on a rounded panel the strip keeps at least the panel's corner radius above and below it: the
+   dock, the medals and the ledger's frame rules never crowd the curved corners (inner radius =
+   outer − padding stays positive). The ribbon is a band that runs past the panel: it keeps its own. */
+:root[data-surfaces="panels"] .lp-trustBar:not(.lp-section--flush, .lp-trustBar--ribbon) {
+  padding-block: max(calc(clamp(2rem, 1.2rem + 3vw, 3.5rem) * var(--space-k, 1)), min(var(--lp-radius-panel, 0px), 2.25rem));
+}
+
+.lp-trustBar__wrap {
+  position: relative;
+  container: tb / inline-size;
+}
+
+.lp-trustBar__title {
+  margin-block-end: clamp(1.25rem, 0.9rem + 1.6vw, 2rem);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display, 1));
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  line-height: max(1.15, var(--lp-display-lh));
+  text-align: center;
+  text-wrap: balance;
+}
+
+.lp-trustBar__name {
+  font-weight: var(--lp-strong-weight, 600);
+  font-size: calc(var(--lp-step-0) * 0.98 * var(--lp-script-scale, 1));
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.lp-trustBar__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+}

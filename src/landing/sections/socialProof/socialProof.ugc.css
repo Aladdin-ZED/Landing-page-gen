@@ -1,0 +1,432 @@
+/* socialProof · ugc — rules only this variant renders (inlined after socialProof.css on pages whose markup
+   carries .lp-socialProof--ugc; the admin preview loads every variant). Shared rules live in socialProof.css. */
+
+.lp-sp__reel {
+  display: grid;
+  grid-auto-flow: column;
+  gap: clamp(0.9rem, 0.6rem + 1.4vw, 1.5rem);
+  margin: 0;
+  /* room for the soft shadows inside the scroller, given back below */
+  padding: 1rem var(--lp-gutter) 5.5rem;
+  margin-block-end: -3rem;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--lp-gutter);
+  scrollbar-width: none;
+}
+
+.lp-sp__reel::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-sp__reel[data-count="1"] {
+  justify-content: center;
+}
+
+.lp-sp__cell {
+  scroll-snap-align: center;
+}
+
+/* merchant-written names keep their own direction: a Latin name on an Arabic page is cut at its
+   end ("Anne-Sophie Benk…"), never at its start */
+.lp-sp__cname,
+.lp-sp__csub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+}
+
+/* ==========================================================================
+   ugc — 9:16 story frames
+   ========================================================================== */
+.lp-sp__reel {
+  grid-auto-columns: min(64vw, 16rem);
+}
+
+.lp-sp__cell {
+  position: relative;
+  container-type: inline-size;
+}
+
+.lp-sp__story {
+  --st-ink: #fff;
+  --st-dim: rgb(255 255 255 / 0.38);
+  position: relative;
+  isolation: isolate;
+  display: block;
+  margin: 0;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: calc(1.3rem * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--lp-dark);
+  color: var(--st-ink);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 0 0 1px var(--mx-hair), var(--lp-shadow-m, 0 20px 40px -24px rgb(0 0 0 / 0.35));
+  font-size: 0.8rem;
+  line-height: 1.25;
+  transition: transform var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+@supports (width: 1cqi) {
+  .lp-sp__story {
+    border-radius: calc(clamp(1rem, 8cqi, 1.6rem) * var(--lp-corner-k));
+    font-size: clamp(0.68rem, 5.1cqi, 0.92rem);
+  }
+}
+
+.lp-sp__shot {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  block-size: 100%;
+}
+
+.lp-sp__shot .lp-pic__img {
+  transition: scale calc(var(--lp-dur-l) * 1.5) var(--lp-smooth);
+}
+
+.lp-sp__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(rgb(0 0 0 / 0.46), rgb(0 0 0 / 0) 25% 60%, rgb(0 0 0 / 0.52));
+}
+
+/* a photo whose faces would sit under the story header: shown as the app shows a photo that is not
+   9:16 — a shared-post card in the middle, over its own blurred light */
+.lp-sp__blur {
+  position: absolute;
+  inset: -12%;
+  z-index: -2;
+  filter: blur(22px) saturate(125%) brightness(0.74);
+}
+
+.lp-sp__blur > .lp-pic {
+  block-size: 100%;
+}
+
+.lp-sp__post {
+  position: absolute;
+  inset-inline: 7%;
+  inset-block-start: 47%;
+  z-index: 0;
+  translate: 0 -50%;
+  border-radius: calc(clamp(0.6rem, 5cqi, 1rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 18px 40px -18px rgb(0 0 0 / 0.6);
+}
+
+.lp-sp__story[data-post] .lp-sp__scrim {
+  z-index: -1;
+  background: linear-gradient(rgb(0 0 0 / 0.28), rgb(0 0 0 / 0) 20% 80%, rgb(0 0 0 / 0.32));
+}
+
+@media (hover: hover) {
+  .lp-sp__story:hover {
+    transform: translateY(-6px);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 0 0 1px var(--mx-hair), var(--lp-shadow-l, 0 30px 60px -30px rgb(0 0 0 / 0.4));
+  }
+
+  .lp-sp__story:hover .lp-pic__img {
+    scale: 1.05;
+  }
+}
+
+.lp-sp__prog {
+  position: absolute;
+  inset: 0.8em 0.85em auto;
+  display: flex;
+  gap: 0.28em;
+}
+
+.lp-sp__seg {
+  flex: 1;
+  block-size: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--st-dim);
+}
+
+.lp-sp__fill {
+  display: block;
+  block-size: 100%;
+  background: var(--st-ink);
+  transform: scaleX(0);
+  transform-origin: 0 0;
+}
+
+[dir="rtl"] .lp-sp__fill {
+  transform-origin: 100% 0;
+}
+
+.lp-sp__seg[data-state="done"] .lp-sp__fill {
+  transform: none;
+}
+
+.lp-sp__seg[data-state="now"] .lp-sp__fill {
+  transform: scaleX(var(--p, 0.5));
+}
+
+.lp-sp__who {
+  position: absolute;
+  inset: 1.55em 0.85em auto;
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+.lp-sp__ring {
+  flex: none;
+  padding: 1.5px;
+  border-radius: 50%;
+  background: var(--st-ink);
+}
+
+/* the story playing now wears the product-lit ring: the accent's own ramp with a white glint, never
+   the accent swept into the pop (a crimson-to-gold sweep passes through orange on its way) */
+.lp-sp__story[data-lead] .lp-sp__ring {
+  padding: 2px;
+  background: conic-gradient(from 210deg, var(--lp-accent), var(--lp-a-300, var(--lp-accent)) 40%, #fff 55%, var(--lp-a-300, var(--lp-accent)) 70%, var(--lp-accent));
+  background: conic-gradient(in oklab from 210deg, var(--lp-accent), var(--lp-a-300, var(--lp-accent)) 40%, #fff 55%, var(--lp-a-300, var(--lp-accent)) 70%, var(--lp-accent));
+}
+
+.lp-sp__who .lp-sp__av {
+  font-size: 0.82em;
+  text-shadow: none;
+}
+
+.lp-sp__story[data-lead] .lp-sp__av {
+  box-shadow: 0 0 0 1.5px var(--lp-dark);
+}
+
+.lp-sp__id {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.lp-sp__who .lp-sp__cname {
+  font-weight: 700;
+}
+
+.lp-sp__who .lp-sp__csub {
+  font-size: 0.86em;
+  opacity: 0.86;
+}
+
+/* caption sticker: on the first calm band under the faces (--cap-y, computed from the photo's
+   people), across the card's lower edge on a shared post */
+.lp-sp__cap {
+  position: absolute;
+  inset-block-start: calc(var(--cap-y, 0.58) * 100%);
+  inset-inline: 0.9em;
+  display: flex;
+  justify-content: center;
+  rotate: var(--cap-rot, 0deg);
+}
+
+.lp-sp__cap-t {
+  padding: 0.4em 0.8em 0.46em;
+  border-radius: 0.6em;
+  background: var(--st-ink);
+  box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.5);
+  color: var(--lp-n-950, #111);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(1.22em * var(--lp-script-scale-display));
+  line-height: 1.3;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.lp-sp__story[data-tone="1"] .lp-sp__cap-t {
+  background: var(--lp-accent);
+  color: var(--lp-accent-ink);
+}
+
+.lp-sp__story[data-tone="2"] .lp-sp__cap-t {
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-sp__story[data-tone="2"] .lp-sp__cap-t {
+    background: rgb(0 0 0 / 0.36);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: blur(12px) saturate(150%);
+  }
+}
+
+.lp-sp__reply {
+  position: absolute;
+  inset: auto 0.85em 0.95em;
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.lp-sp__reply .lp-sp__field {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 0.6em 1.05em;
+  overflow: hidden;
+  border: 1px solid var(--st-dim);
+  border-radius: 2em;
+  font-size: 0.86em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-sp__reply .lp-icon {
+  flex: none;
+}
+
+/* no photo: a type-only story on a color block lit by the product's aurora */
+.lp-sp__story[data-text] {
+  --st-ink: var(--sec-ink);
+  --st-dim: var(--mx-line);
+  background: var(--sec-bg);
+}
+
+.lp-sp__story[data-text] .lp-sp__aura {
+  z-index: -2;
+}
+
+.lp-sp__story[data-text] .lp-sp__scrim {
+  display: none;
+}
+
+.lp-sp__story[data-text] .lp-sp__who {
+  text-shadow: none;
+}
+
+.lp-sp__story[data-text] .lp-sp__cap {
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  rotate: none;
+}
+
+.lp-sp__story[data-text] .lp-sp__cap-t {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-size: calc(1.75em * var(--lp-script-scale-display));
+  line-height: 1.16;
+  letter-spacing: var(--lp-display-tracking);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:lang(ar) .lp-sp__story[data-text] .lp-sp__cap-t {
+  line-height: 1.45;
+}
+
+/* desktop: a spotlight reel — the story playing now stands large in the middle, the others
+   step down in size on both sides (Instagram's desktop viewer, composed) */
+@media (min-width: 56rem) {
+  .lp-sp__reel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(0.9rem, 1.7vw, 1.5rem);
+    inline-size: min(100% - 2 * var(--lp-gutter), var(--lp-container));
+    margin-block: 0;
+    margin-inline: auto;
+    padding: 1rem 0 2rem;
+    overflow: visible;
+    isolation: isolate;
+  }
+
+  .lp-sp__cell {
+    flex: 1 1 0;
+    order: var(--o, 0);
+    min-inline-size: 0;
+    max-inline-size: 15rem;
+  }
+
+  .lp-sp__cell[data-d="0"] {
+    flex-grow: 1.42;
+    max-inline-size: 20.5rem;
+  }
+
+  .lp-sp__cell[data-d="2"] {
+    flex-grow: 0.8;
+    max-inline-size: 12.5rem;
+  }
+
+  /* a soft product-tinted halo behind the story playing now */
+  .lp-sp__cell[data-d="0"]::before {
+    content: "";
+    position: absolute;
+    inset: -4% -42%;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--mx-btn-2) 40%, rgb(0 0 0 / 0));
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  html.lp-js:not([data-motion="off"]) .lp-sp__cell[data-in] .lp-sp__seg[data-state="now"] .lp-sp__fill {
+    animation: lp-sp-play 2.6s linear calc(var(--d, 0ms) + var(--lp-dur-m)) backwards;
+  }
+
+  /* lively pages keep the forward story playing: its bar loops, its photo breathes */
+  html.lp-js[data-motion="lively"] .lp-sp__cell[data-in] .lp-sp__story[data-lead] .lp-sp__seg[data-state="now"] .lp-sp__fill {
+    animation: lp-sp-loop 6s linear calc(var(--d, 0ms) + var(--lp-dur-m)) infinite;
+  }
+
+  html[data-motion="lively"] .lp-sp__story[data-lead] .lp-sp__shot .lp-pic__img {
+    animation: lp-sp-breathe 12s var(--lp-sway) infinite alternate;
+  }
+}
+@supports (animation-timeline: view()) {
+
+  @media (prefers-reduced-motion: no-preference) and (max-width: 55.99rem) {
+    html:not([data-motion="off"]):not(.lp-qa) .lp-sp__reel .lp-sp__story {
+      animation: lp-sp-flow-in linear backwards, lp-sp-flow-out linear forwards;
+      animation-timeline: view(inline), view(inline);
+      animation-range: entry, exit;
+    }
+  }
+}
+
+@keyframes lp-sp-play {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes lp-sp-loop {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes lp-sp-breathe {
+  to {
+    scale: 1.07;
+  }
+}
+
+@keyframes lp-sp-flow-in {
+  from {
+    opacity: 0.7;
+    scale: 0.88;
+  }
+}
+
+@keyframes lp-sp-flow-out {
+  to {
+    opacity: 0.7;
+    scale: 0.88;
+  }
+}

@@ -1,0 +1,592 @@
+/* offer · stacked — rules only this variant renders (inlined after offer.css on pages whose markup
+   carries .lp-offer--stacked; the admin preview loads every variant). Shared rules live in offer.css. */
+
+.lp-ofr__list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-ofr__li {
+  display: flex;
+  min-inline-size: 0;
+}
+
+/* raised surfaces (stacked cards) follow html[data-card] */
+.lp-ofr__raised {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--card-ring, 0 0 #0000), var(--card-shadow);
+}
+
+:root[data-card="flat"] .lp-ofr__raised {
+  --card-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+:root[data-card="outlined"] .lp-ofr__raised {
+  --card-shadow: inset 0 0 0 1px var(--mx-line), var(--lp-shadow-s);
+}
+
+:root[data-card="raised"] .lp-ofr__raised {
+  --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+}
+
+:root[data-card="glass"] .lp-ofr__raised {
+  --card-shadow: inset 0 0 0 1px var(--sec-glass-border, var(--mx-hair)), var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+}
+
+@media (hover: hover) {
+
+  .lp-ofr__raised:hover {
+    --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  }
+
+  /* the action answers the whole pack: lift + glow, the arrow nudges forward */
+  .lp-ofr__card:hover .lp-ofr__go {
+    box-shadow: var(--btn-shadow-hover);
+  }
+
+  .lp-ofr__card:hover .lp-ofr__go.lp-btn--secondary {
+    --btn-line: var(--sec-ink);
+  }
+
+  .lp-ofr__card:hover .lp-ofr__go .lp-btn__icon {
+    translate: calc(var(--lp-x) * 0.2em) 0;
+  }
+}
+
+/* small labels: badge pills, pass field labels */
+.lp-ofr__flag {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.68rem, var(--lp-step--1) * 0.8) * var(--lp-script-scale));
+  line-height: 1.15;
+}
+
+/* saving pill */
+.lp-ofr__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.34em 0.7em 0.3em;
+  border-radius: 999px;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 6px 14px -8px var(--mx-btn-2);
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.lp-ofr__go {
+  pointer-events: none;
+}
+
+/* --- badge: a floating pill on the pack's top edge ------------------------------- */
+.lp-ofr__flag {
+  --flag-bg: var(--lp-pop);
+  --flag-ink: var(--lp-pop-ink);
+  position: absolute;
+  z-index: 25;
+  inset-block-start: 0;
+  inset-inline-start: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  max-inline-size: calc(100% - 4rem);
+  padding: 0.45em 0.85em 0.42em;
+  border-radius: 999px;
+  background: var(--flag-bg);
+  color: var(--flag-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), var(--lp-shadow-s);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.lp-ofr__flag > bdi {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-ofr__flag .lp-icon {
+  flex: none;
+}
+
+[data-badge="popular"] .lp-ofr__flag {
+  --flag-bg: var(--ofr-ring);
+  --flag-ink: var(--ofr-ring-ink);
+}
+
+[data-badge="best"] .lp-ofr__flag {
+  --flag-bg: var(--ofr-ink);
+  --flag-ink: var(--ofr-bg);
+}
+
+/* stack: the front sheet, its copies peeking out above it — each one narrower and further into
+   the well's light. The box is a grid item standing on the well's floor row, sized by the well's
+   height, so the sheets keep their shape in every card layout. */
+.lp-ofv--stack {
+  --peek: 8%;
+  --open: 1;
+  position: relative;
+  inset: auto;
+  grid-area: 1 / 1;
+  align-self: end;
+  block-size: var(--stk-h, 76%);
+  aspect-ratio: 4 / 5;
+}
+
+/* fewer layers: the front sheet takes the room the peeks would have used */
+.lp-ofv--stack[data-n="1"] {
+  block-size: calc(var(--stk-h, 76%) + 7%);
+}
+
+/* a wide product stands in landscape sheets (fit.ts): shorter, so the stack keeps its width */
+.lp-ofv--stack[data-wide] {
+  aspect-ratio: 5 / 4;
+  block-size: calc(var(--stk-h, 76%) * 0.92);
+}
+
+.lp-ofv--stack[data-wide][data-n="1"] {
+  block-size: calc((var(--stk-h, 76%) + 7%) * 0.92);
+}
+
+.lp-ofv__sheet {
+  position: absolute;
+  inset: 0;
+  z-index: calc(10 - var(--l));
+  overflow: hidden;
+  border-radius: max(0.5rem, calc(var(--lp-sq-media) * 0.5));
+  corner-shape: var(--lp-corner);
+  box-shadow: 0 -0.3rem 0.8rem -0.45rem var(--mx-contact), var(--lp-shadow-s);
+  transform-origin: 50% 0;
+  transform: translateY(calc(var(--l) * var(--peek) * var(--open) * -1)) scale(calc(1 - var(--l) * 0.08));
+  transition: transform var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-ofv__sheet[data-l="0"] {
+  box-shadow: 0 -0.3rem 0.8rem -0.45rem var(--mx-contact), var(--lp-shadow-m);
+}
+
+.lp-ofv__sheet > .lp-pic {
+  position: absolute;
+  inset: 0;
+}
+
+/* receding sheets dissolve into the well; the front sheet carries a crisp rim of light */
+.lp-ofv__sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--ofr-well-hi);
+  opacity: calc(var(--l) * 0.3);
+  pointer-events: none;
+}
+
+.lp-ofv__sheet[data-l="0"]::after {
+  background: none;
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+  opacity: 1;
+}
+
+.lp-ofv--stack > .lp-ofv__more {
+  inset-block: auto 0.45rem;
+  inset-inline: auto 0.45rem;
+}
+
+.lp-ofr__card:is(:hover, [data-selected]) .lp-ofv--stack {
+  --open: 1.4;
+}
+
+/* ==========================================================================
+   stacked — phones: compact cards (well | details). From 44rem: a row of tall
+   cards, the favourite raised. From 56rem with 3–4 packs: a bento — the
+   favourite as the hero card, the others as wide compact cards beside it.
+   ========================================================================== */
+.lp-stk > .lp-ofr__li {
+  container: stk / inline-size;
+}
+
+.lp-stk__card {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  grid-template-areas: "media body" "gift gift" "go go";
+  align-items: center;
+  gap: 0.85rem 1rem;
+  padding: 0.5rem 0.5rem 0.6rem;
+}
+
+/* the lit well: product glow over a recess, a floor and a rim of light */
+.lp-stk__media {
+  /* floor row (fraction of the well's height) and the stack's height over it */
+  --stk-b: 11%;
+  --stk-h: 76%;
+  grid-area: media;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template: minmax(0, 1fr) var(--stk-b) / minmax(0, 1fr);
+  justify-items: center;
+  align-self: start;
+  aspect-ratio: 1 / 1.08;
+  overflow: hidden;
+  border-radius: max(0.5rem, calc(var(--lp-sq-xl) - 0.5rem * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  background:
+    radial-gradient(38% 6% at 50% calc(100% - var(--stk-b) + 1%), var(--mx-floor), transparent),
+    var(--lp-stage-glow, radial-gradient(closest-side, var(--mx-tint-2), transparent)) 50% 30% / 120% 100% no-repeat,
+    linear-gradient(var(--ofr-well-hi), var(--ofr-well));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+}
+
+/* cutouts stand on the well's floor row, sized by its height (never cropped by a wide well) */
+.lp-stk__media .lp-ofv--line {
+  position: relative;
+  inset: auto;
+  grid-area: 1 / 1;
+  align-self: end;
+  block-size: 84%;
+  max-inline-size: 94%;
+  aspect-ratio: var(--lr, 1) / 1;
+}
+
+/* no picture at all: the quantity, set huge in the lit well */
+.lp-stk__num {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 4.5rem;
+  font-size: clamp(3.5rem, 30cqi, 8rem);
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  color: var(--sec-accent);
+}
+
+/* frosted quantity chip, bottom-start; the saving pill, top-end */
+.lp-stk__x {
+  position: absolute;
+  z-index: 20;
+  inset-block-end: 0.5rem;
+  inset-inline-start: 0.5rem;
+  padding: 0.32em 0.62em 0.26em;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  letter-spacing: -0.01em;
+}
+
+.lp-stk__chip {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: 0.5rem;
+  inset-inline-end: 0.5rem;
+}
+
+.lp-stk__body {
+  grid-area: body;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  padding-block: 0.3rem;
+}
+
+.lp-stk__card .lp-ofr__go {
+  grid-area: go;
+  inline-size: 100%;
+}
+
+.lp-stk__card > .lp-ofr__gift {
+  grid-area: gift;
+}
+
+/* the price scales with the card, never with the page */
+@container stk (min-width: 12rem) {
+  .lp-stk__card .lp-ofr__now {
+    font-size: min(calc(var(--lp-step-3) * var(--lp-script-scale-display)), 13cqi);
+  }
+}
+
+/* wide compact card (a lone pack, the bento's side cards): the well spans the card's height,
+   details, gift and action stacked beside it */
+@container stk (min-width: 26rem) {
+  .lp-stk__card {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+    grid-template-rows: 1fr auto auto;
+    grid-template-areas: "media body" "media gift" "media go";
+    align-items: start;
+    gap: 0.75rem 1.4rem;
+    padding: 0.55rem;
+    padding-inline-end: 1.4rem;
+  }
+
+  .lp-stk__media {
+    align-self: stretch;
+    aspect-ratio: auto;
+    min-block-size: 13.5rem;
+  }
+
+  .lp-stk__body {
+    align-self: center;
+    padding-block: 0.9rem 0;
+  }
+
+  .lp-stk__card .lp-ofr__go {
+    justify-self: start;
+    inline-size: auto;
+    margin-block-end: 0.85rem;
+  }
+
+  .lp-stk__card .lp-ofr__now {
+    font-size: min(calc(var(--lp-step-3) * var(--lp-script-scale-display)), 9cqi);
+  }
+}
+
+/* slim cards (4–5 side by side): a compact action that never wraps */
+@container stk (max-width: 14.5rem) {
+  .lp-stk__card .lp-ofr__go {
+    --btn-px: 0.9em;
+    --btn-fs: calc(var(--lp-step--1) * 1.08);
+    white-space: nowrap;
+  }
+
+  .lp-stk__card .lp-ofr__go .lp-btn__icon {
+    display: none;
+  }
+}
+
+/* row of tall cards */
+@container ofr (min-width: 44rem) {
+  .lp-stk:not([data-n="1"]) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: clamp(1.1rem, 2.4cqi, 1.75rem);
+    padding-block-start: 1.25rem;
+  }
+
+  .lp-stk:not([data-n="1"]) > .lp-ofr__li {
+    flex: 1 1 14rem;
+    max-inline-size: 21rem;
+  }
+
+  .lp-stk:not([data-n="1"]) > [data-feat] {
+    flex-grow: 1.25;
+    max-inline-size: 24rem;
+  }
+
+  .lp-stk:is([data-n="4"], [data-n="5"]) > .lp-ofr__li {
+    flex-basis: 12rem;
+  }
+
+  .lp-stk:not([data-n="1"]) .lp-stk__card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto auto;
+    grid-template-areas: "media" "body" "gift" "go";
+    align-items: stretch;
+    gap: 0.85rem;
+    padding: 0.5rem 0.5rem 0.7rem;
+  }
+
+  .lp-stk:not([data-n="1"]) .lp-stk__media {
+    aspect-ratio: 1 / 0.94;
+    min-block-size: 0;
+  }
+
+  .lp-stk:not([data-n="1"]) .lp-stk__body {
+    align-self: start;
+    padding: 0.2rem 0.55rem 0;
+  }
+
+  .lp-stk:not([data-n="1"]) .lp-stk__card > .lp-ofr__gift {
+    margin-inline: 0.15rem;
+  }
+
+  .lp-stk:not([data-n="1"]) .lp-stk__card .lp-ofr__go {
+    justify-self: stretch;
+    inline-size: auto;
+    margin: 0 0.15rem;
+  }
+
+  .lp-stk:not([data-n="1"]) .lp-ofr__flag {
+    inset-inline-start: 50%;
+    transform: translate(calc(var(--lp-x) * -50%), -50%);
+  }
+
+  /* the favourite stands taller */
+  .lp-stk:not([data-n="1"]) .lp-stk__card[data-featured] {
+    --raise: 1rem;
+    --card-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  }
+
+  /* a lone pack: one wide card */
+  .lp-stk[data-n="1"] {
+    max-inline-size: 50rem;
+    margin-inline: auto;
+  }
+
+  .lp-stk[data-n="1"] .lp-stk__media {
+    min-block-size: 20rem;
+  }
+}
+
+/* bento: the hero card spans the side column's height */
+@container ofr (min-width: 56rem) {
+  .lp-stk:is([data-n="3"], [data-n="4"]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+    gap: clamp(1rem, 1.6cqi, 1.4rem);
+    padding-block-start: 0.75rem;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) > .lp-ofr__li {
+    grid-column: 2;
+    max-inline-size: none;
+  }
+
+  .lp-stk[data-n="3"] > [data-feat] {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .lp-stk[data-n="4"] > [data-feat] {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  /* side cards: wide compact */
+  .lp-stk:is([data-n="3"], [data-n="4"]) > :not([data-feat]) .lp-stk__card {
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
+    grid-template-rows: 1fr auto auto;
+    grid-template-areas: "media body" "media gift" "media go";
+    align-items: start;
+    gap: 0.7rem 1.4rem;
+    padding: 0.5rem;
+    padding-inline-end: 1.4rem;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) > :not([data-feat]) .lp-stk__media {
+    align-self: stretch;
+    aspect-ratio: auto;
+    min-block-size: 12.5rem;
+  }
+
+  .lp-stk[data-n="4"] > :not([data-feat]) .lp-stk__media {
+    min-block-size: 10rem;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) > :not([data-feat]) .lp-stk__body {
+    align-self: center;
+    padding: 0.85rem 0 0;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) > :not([data-feat]) .lp-ofr__go {
+    justify-self: start;
+    margin: 0 0 0.8rem;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) > :not([data-feat]) .lp-ofr__flag {
+    inset-inline-start: 1.25rem;
+    transform: translateY(-50%);
+  }
+
+  /* hero card: the big lit well, the name opposite the price */
+  .lp-stk:is([data-n="3"], [data-n="4"]) .lp-stk__card[data-featured] {
+    --raise: 0px;
+    grid-template-rows: minmax(0, 1fr) auto auto auto;
+    gap: 1rem;
+    padding: 0.6rem 0.6rem 0.75rem;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-stk__media {
+    --stk-h: 78%;
+    --stk-b: 10%;
+    aspect-ratio: auto;
+    min-block-size: 18rem;
+  }
+
+  /* the hero's sheets open up to a square: more product in the big well */
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-ofv--stack {
+    aspect-ratio: 1 / 1;
+    max-inline-size: 64%;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-stk__x {
+    inset-block-end: 0.85rem;
+    inset-inline-start: 0.85rem;
+    font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-stk__chip {
+    inset-block-start: 0.85rem;
+    inset-inline-end: 0.85rem;
+    font-size: calc(var(--lp-step--1) * 1.1 * var(--lp-script-scale));
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-stk__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "id price" "perks perks";
+    align-items: end;
+    gap: 0.6rem 1.5rem;
+    padding: 0.35rem 0.85rem 0;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-ofr__id {
+    grid-area: id;
+    align-self: center;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-ofr__name {
+    font-size: calc(var(--lp-step-1) * var(--lp-script-scale));
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-ofr__price {
+    grid-area: price;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-ofr__now {
+    font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 11cqi);
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-ofr__perks {
+    grid-area: perks;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] > .lp-ofr__gift {
+    margin-inline: 0.25rem;
+  }
+
+  .lp-stk:is([data-n="3"], [data-n="4"]) [data-featured] .lp-ofr__go {
+    --btn-h: 3.4rem;
+    margin: 0 0.25rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) [data-in] .lp-ofv__sheet:not([data-l="0"]) {
+    animation: lp-ofr-peek var(--lp-dur-l) var(--lp-spring) calc(var(--d, 0ms) + 260ms + var(--l) * 90ms) backwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-ofv__sheet {
+    transition: none;
+  }
+}
+
+@keyframes lp-ofr-peek {
+  from {
+    transform: translateY(0) scale(calc(1 - var(--l) * 0.08));
+  }
+}

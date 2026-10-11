@@ -1,0 +1,119 @@
+/* announcement · static — rules only this variant renders (inlined after announcement.css on pages whose markup
+   carries .lp-announcement--static; the admin preview loads every variant). Shared rules live in announcement.css. */
+
+/* static & split: never more than two lines (balanced), even with long messages on a 320px phone */
+.lp-announcement--static .lp-announcement__text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  text-wrap: balance;
+}
+
+/* ---------- static: one line over a light seam ------------------------ */
+.lp-announcement__line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-block-size: var(--ann-h);
+  padding-block: 0.4rem;
+}
+
+/* every message sits in the same cell; only the first shows until the loop runs */
+.lp-announcement__rot {
+  display: grid;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-announcement__slot {
+  display: flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 0;
+  text-align: start;
+}
+
+.lp-announcement__rot[data-n] > .lp-announcement__slot:not(:first-child) {
+  opacity: 0;
+}
+
+@media (min-width: 36rem) {
+  .lp-announcement__line .lp-announcement__pill-label {
+    display: inline;
+  }
+}
+
+/* the seam: a 1px line of light along the bottom edge, brightest in the middle, with a soft bloom */
+.lp-announcement__seam {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 1px;
+  background-image: linear-gradient(90deg, transparent, var(--ann-seam) 50%, transparent);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: min(100%, 56rem) 100%;
+  pointer-events: none;
+}
+
+.lp-announcement__seam::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 0.9rem;
+  background-image: radial-gradient(min(32%, 18rem) 100% at 50% 100%, var(--ann-seam-glow), transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* single line: messages slide up and sharpen in turn while the disc's ring fills; one cycle per
+     message count (data-n picks the keyframes), hover or off-screen (runtime data-paused) pauses it */
+  :root:not([data-motion="off"]) .lp-announcement__rot[data-n] > .lp-announcement__slot {
+    animation: var(--ann-rot, lp-ann-rot2) var(--ann-cycle, 8s) var(--lp-smooth) calc(var(--k, 0) * var(--ann-step, 4s)) infinite backwards;
+    animation-play-state: var(--ann-play, running);
+  }
+
+  :root:not([data-motion="off"]) .lp-announcement__rot[data-n] .lp-announcement__ring circle {
+    animation: var(--ann-ring, lp-ann-ring2) var(--ann-cycle, 8s) linear calc(var(--k, 0) * var(--ann-step, 4s)) infinite backwards;
+    animation-play-state: var(--ann-play, running);
+  }
+
+  .lp-announcement__rot[data-paused],
+  .lp-announcement__rot:hover {
+    --ann-play: paused;
+  }
+
+  /* the seam opens from the middle outward */
+  html.lp-js:not([data-motion="off"]) .lp-announcement__seam[data-reveal][data-in] {
+    --rv-dur: calc(var(--lp-dur-l) * 1.6);
+    animation-name: lp-ann-seam;
+  }
+}
+
+.lp-announcement__rot[data-n="3"] {
+  --ann-rot: lp-ann-rot3;
+  --ann-ring: lp-ann-ring3;
+}
+
+.lp-announcement__rot[data-n="4"] {
+  --ann-rot: lp-ann-rot4;
+  --ann-ring: lp-ann-ring4;
+}
+
+.lp-announcement__rot[data-n="5"] {
+  --ann-rot: lp-ann-rot5;
+  --ann-ring: lp-ann-ring5;
+}
+
+@keyframes lp-ann-seam {
+  from {
+    opacity: 0;
+    scale: 0.12 1;
+  }
+}

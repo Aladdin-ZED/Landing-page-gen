@@ -1,0 +1,335 @@
+/* benefits · bento — rules only this variant renders (inlined after benefits.css on pages whose markup
+   carries .lp-benefits--bento; the admin preview loads every variant). Shared rules live in benefits.css. */
+
+.lp-benefits__idx {
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--sec-accent);
+}
+
+/* icon in a tinted squircle with an inner highlight and a soft colored drop */
+.lp-benefits__ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 3.25rem;
+  aspect-ratio: 1;
+  padding: 0.78rem;
+  border-radius: calc(32% * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  color: var(--sec-accent);
+  background: linear-gradient(160deg, var(--mx-tint-2), var(--mx-tint));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair), 0 10px 20px -12px var(--mx-btn-2);
+  transition: translate var(--lp-dur-m) var(--lp-spring), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+:is(.lp-benefits__ico, .lp-benefits__disc) > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* on a nested color block (tile, card) the squircle turns into a quiet frosted well */
+.lp-benefits [data-bg] .lp-benefits__ico {
+  color: var(--sec-ink);
+  background: var(--mx-on-accent);
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+}
+
+:is(.lp-benefits__thumbchip, .lp-benefits__chip, .lp-benefits__pchip, .lp-benefits__tchip) .lp-benefits__figlabel {
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* ==========================================================================
+   bento — curated tiles
+   ========================================================================== */
+.lp-benefits__bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(0.75rem, 0.5rem + 1vw, 1.25rem);
+}
+
+.lp-benefits__tile {
+  --tile-pad: clamp(1.4rem, 1rem + 1.4vw, 2.25rem);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.75rem;
+  padding: var(--tile-pad);
+  overflow: hidden;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s);
+  transition: translate var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-benefits__tile[data-bg] {
+  background: var(--sec-bg);
+  color: var(--sec-ink);
+}
+
+:root[data-card="outlined"] .lp-benefits__tile:not([data-bg]) {
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+}
+
+.lp-benefits__tile[data-bg] .lp-benefits__idx {
+  color: inherit;
+  opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .lp-benefits__tile:hover {
+    translate: 0 -4px;
+    box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  }
+
+  .lp-benefits__tile:hover .lp-benefits__tilepic .lp-pic__img {
+    scale: 1.045;
+  }
+
+  .lp-benefits__tile:hover .lp-benefits__ico {
+    translate: 0 -2px;
+    scale: 1.05;
+  }
+}
+
+.lp-benefits__tilehead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lp-benefits__foot .lp-benefits__p {
+  max-inline-size: 40ch;
+}
+
+/* photo tile: copy on the card, the photo inset below it with concentric corners — nothing covers
+   the subject (the chip takes the photo's quiet corner) */
+.lp-benefits__tile[data-kind="media"] {
+  --inset: clamp(0.45rem, 0.35rem + 0.35vw, 0.65rem);
+  --bt-media-r: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - var(--inset) * var(--lp-corner-d)));
+  justify-content: flex-start;
+  gap: 0;
+  padding: var(--inset);
+}
+
+.lp-benefits__tile[data-kind="media"] .lp-benefits__foot {
+  padding: calc(var(--tile-pad) - var(--inset)) calc(var(--tile-pad) - var(--inset)) calc(var(--tile-pad) * 0.8);
+}
+
+.lp-benefits__foot > .lp-benefits__idx {
+  display: block;
+  margin-block-end: 0.6rem;
+}
+
+.lp-benefits__tile[data-lead][data-kind="media"] .lp-benefits__t {
+  font-size: calc(var(--lp-step-2) * 0.98 * var(--lp-script-scale-display));
+  line-height: max(1.1, calc(var(--lp-display-lh) + 0.06));
+}
+
+/* phones & tablets: the photo at the exact aspect its crop was fitted to (--mr: 4:5 upright,
+   1:1 squarish, 4:3 landscape) */
+.lp-benefits__tilemedia {
+  position: relative;
+  flex: none;
+  min-block-size: 0;
+  aspect-ratio: var(--mr, 4 / 3);
+  overflow: hidden;
+  border-radius: var(--bt-media-r);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+}
+
+/* a crisp inner edge over the photo, following its corner */
+.lp-benefits__tilemedia::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge, var(--mx-hair));
+  pointer-events: none;
+}
+
+.lp-benefits__tilepic {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.lp-benefits__tilemedia .lp-benefits__tilepic {
+  z-index: 0;
+}
+
+.lp-benefits__tilepic .lp-pic__img {
+  transition: scale 1.2s var(--lp-smooth);
+}
+
+.lp-benefits__tilepic.lp-pic--alpha {
+  padding: 8% 10%;
+}
+
+/* the key figure floats on the photo in a frosted chip, in the corner where it covers no face,
+   hand or cap (data-corner, solved from the photo's subject); its corner concentric with the photo */
+.lp-benefits__tchip {
+  --chip-at: 0.75rem;
+  position: absolute;
+  z-index: 2;
+  inset-block-start: var(--chip-at);
+  inset-inline-start: var(--chip-at);
+  display: grid;
+  gap: 0.15rem;
+  max-inline-size: min(12rem, calc(100% - 2 * var(--chip-at)));
+  padding: 0.65rem 0.9rem 0.75rem;
+  border-radius: max(var(--lp-sq-xs), calc(var(--bt-media-r) - var(--chip-at) * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+}
+
+.lp-benefits__tchip[data-corner^="e"] {
+  inset-block: auto var(--chip-at);
+}
+
+.lp-benefits__tchip[data-corner$="e"] {
+  inset-inline: auto var(--chip-at);
+}
+
+.lp-benefits__tchip .lp-benefits__fig {
+  font-size: calc(var(--lp-step-3) * 0.82 * var(--lp-script-scale-display));
+}
+
+/* figure tile: the number rolls up inside its own product light */
+.lp-benefits__tile .lp-benefits__glow {
+  z-index: -1;
+}
+
+.lp-benefits__big {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+/* statement tile: the benefit set in display type on a color block */
+.lp-benefits__tile[data-kind="statement"] .lp-benefits__t {
+  max-inline-size: 18ch;
+  font-size: calc(var(--lp-step-3) * 0.92 * var(--lp-script-scale-display));
+  line-height: max(1.08, calc(var(--lp-display-lh) + 0.04));
+}
+
+.lp-benefits__tile[data-kind="statement"][data-lead] {
+  min-block-size: 22rem;
+}
+
+.lp-benefits__tile[data-kind="statement"][data-lead] .lp-benefits__t {
+  font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 11vw);
+}
+
+@media (max-width: 35.99rem) {
+  .lp-benefits__tile[data-kind="icon"] {
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 36rem) {
+  .lp-benefits__bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-benefits__tile {
+    grid-column: span var(--t, 1);
+    min-block-size: 15rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .lp-benefits__bento {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: minmax(14.5rem, auto);
+  }
+
+  /* the grid rows size the tiles now (every tile carries data-kind) */
+  .lp-benefits__tile[data-kind] {
+    grid-column: span var(--span, 6);
+    grid-row: span var(--rows, 1);
+    min-block-size: 0;
+  }
+
+  /* photo tiles: the photo's box takes the aspect its crop was fitted for */
+  .lp-benefits__tile[data-shape="stack"] .lp-benefits__tilemedia {
+    aspect-ratio: 16 / 10;
+  }
+
+  /* one-row tile, or a two-row tile with an upright shot: copy and photo side by side, the photo
+     the full height of the tile; the copy's index rides the top, its title and text settle at the foot */
+  .lp-benefits__tile:is([data-shape="wide"], [data-shape="tall"]) {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .lp-benefits__tile[data-shape="tall"] {
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
+  }
+
+  .lp-benefits__tile:is([data-shape="wide"], [data-shape="tall"]) .lp-benefits__foot {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-block-end: calc(var(--tile-pad) - var(--inset));
+  }
+
+  .lp-benefits__tile:is([data-shape="wide"], [data-shape="tall"]) .lp-benefits__foot > .lp-benefits__idx {
+    margin-block-end: auto;
+    padding-block-end: 1.25rem;
+  }
+
+  .lp-benefits__tile:is([data-shape="wide"], [data-shape="tall"]) .lp-benefits__tilemedia {
+    aspect-ratio: auto;
+    block-size: 100%;
+    min-block-size: calc(14.5rem - 2 * var(--inset));
+  }
+
+  /* the chip's corner in the desktop frame (solved for that crop) */
+  .lp-benefits__tchip[data-corner-lg] {
+    inset: var(--chip-at) auto auto;
+    inset-inline-start: var(--chip-at);
+  }
+
+  .lp-benefits__tchip[data-corner-lg^="e"] {
+    inset-block: auto var(--chip-at);
+  }
+
+  .lp-benefits__tchip[data-corner-lg$="e"] {
+    inset-inline: auto var(--chip-at);
+  }
+
+  /* the full-width tile reads as a banner: copy at the start, its icon up at the end */
+  .lp-benefits__tile[data-wide] {
+    flex-direction: row-reverse;
+    align-items: flex-end;
+  }
+
+  .lp-benefits__tile[data-wide] .lp-benefits__tilehead {
+    align-self: flex-start;
+    flex-direction: row-reverse;
+  }
+
+  .lp-benefits__tile[data-wide] .lp-benefits__foot {
+    flex: 1;
+  }
+
+  .lp-benefits__tile[data-wide] .lp-benefits__t {
+    max-inline-size: 24ch;
+  }
+}

@@ -1,0 +1,73 @@
+/* ==========================================================================
+   comparison — table · versus · checklist (v2 · modern)
+   Tokens only; logical properties; reveals keyed on [data-reveal][data-in]
+   under html.lp-js with motion allowed (static final state otherwise).
+   Rules every variant uses. A variant's own rules live in comparison.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* light and the raised column may hang past their hosts, never past the page edge */
+.lp-comparison {
+  overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  .lp-comparison {
+    overflow-x: clip;
+  }
+}
+
+.lp-comparison .lp-comparison__glow {
+  z-index: -1;
+}
+
+/* each view spaces its own blocks */
+.lp-comparison .lp-comparison__head {
+  margin-block-end: 0;
+}
+
+/* ---------- marks (shared) -------------------------------------------------- */
+.lp-comparison__mark {
+  flex: none;
+  inline-size: var(--mk, 1.6rem);
+  block-size: auto;
+  transition: scale var(--lp-dur-m) var(--lp-spring);
+}
+
+/* the check disc floats on a soft drop tinted by the accent */
+.lp-comparison__mark--yes {
+  filter: drop-shadow(0 3px 7px var(--mx-btn-1));
+}
+
+/* ---------- foot (shared) ---------------------------------------------------- */
+.lp-comparison__foot {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  margin-block-start: clamp(2rem, 1.5rem + 2vw, 3rem);
+}
+
+.lp-comparison__note {
+  display: flex;
+  gap: 0.5em;
+  align-items: flex-start;
+  max-inline-size: 44ch;
+  margin: 0;
+  color: var(--sec-ink-soft);
+}
+
+.lp-comparison__noteicon {
+  flex: none;
+  margin-block-start: 0.12em;
+}
+
+/* full-width order button on phones */
+.lp-comparison__foot .lp-btn {
+  inline-size: 100%;
+}
+
+@media (min-width: 40rem) {
+  .lp-comparison__foot .lp-btn {
+    inline-size: auto;
+  }
+}

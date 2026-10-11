@@ -1,0 +1,48 @@
+/* ==========================================================================
+   socialProof — whatsapp · ugc · counter (v2 · modern)
+   Phone screens and story chrome recreate real app UIs, so they keep the
+   apps' own palettes (--wa-*, white story chrome) and shoppers recognise
+   them at a glance. Everything around them runs on section tokens.
+   Rules every variant uses. A variant's own rules live in socialProof.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-sp__sh {
+  margin-block-end: clamp(2rem, 1.2rem + 3vw, 3.5rem);
+}
+
+.lp-sp__cta {
+  display: flex;
+  justify-content: center;
+  margin-block-start: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+}
+
+/* initials avatar — four tones from the product palette */
+.lp-sp__av {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.5em;
+  block-size: 2.5em;
+  border-radius: 50%;
+  background: var(--lp-a-200, var(--lp-accent-soft));
+  color: var(--lp-a-900, var(--lp-ink));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  line-height: 1;
+}
+
+.lp-sp__av[data-tone="1"] {
+  background: var(--lp-a-700, var(--lp-accent));
+  color: var(--lp-a-50, var(--lp-accent-ink));
+}
+
+.lp-sp__av[data-tone="2"] {
+  background: var(--lp-pop);
+  color: var(--lp-pop-ink);
+}
+
+.lp-sp__av[data-tone="3"] {
+  background: var(--lp-n-200, var(--lp-surface-2));
+  color: var(--lp-n-800, var(--lp-ink));
+}

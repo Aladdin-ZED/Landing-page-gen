@@ -1,0 +1,401 @@
+/* reviews · notes — rules only this variant renders (inlined after reviews.css on pages whose markup
+   carries .lp-reviews--notes; the admin preview loads every variant). Shared rules live in reviews.css. */
+
+.lp-rv__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+.lp-rv__arrow {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.875rem;
+  block-size: 2.875rem;
+  border-radius: 50%;
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--rv-hl), var(--rv-ring), var(--lp-shadow-s);
+  transition: translate var(--lp-dur-s) var(--lp-spring), scale var(--lp-dur-s) var(--lp-spring), opacity var(--lp-dur-m) var(--lp-smooth), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-rv__arrow:disabled {
+  opacity: 0.38;
+  box-shadow: 0 0 0 1px var(--mx-hair);
+  cursor: default;
+}
+
+.lp-rv__arrow:not(:disabled):active {
+  scale: 0.92;
+}
+
+.lp-rv__arrow:focus-visible,
+.lp-rv__pip:focus-visible {
+  outline: 2px solid var(--sec-accent);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .lp-rv__arrow:not(:disabled):hover {
+    translate: 0 -2px;
+    box-shadow: var(--rv-hl), 0 0 0 1px var(--mx-line), var(--lp-shadow-m);
+  }
+}
+.lp-rv__deck-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.lp-rv__deck-track::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-rv__deck-track:focus-visible {
+  outline: 2px solid var(--sec-accent);
+  outline-offset: 4px;
+}
+
+.lp-rv__sign-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+}
+
+.lp-rv__arrows {
+  display: flex;
+  flex: none;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+/* ==========================================================================
+   notes → card stack: a swipeable deck with depth
+   ========================================================================== */
+.lp-rv__stack {
+  display: grid;
+  grid-template-areas: "head" "deck" "nav";
+  gap: clamp(1.25rem, 0.9rem + 1.6vw, 2rem);
+}
+
+.lp-rv__stack-head {
+  grid-area: head;
+  margin: 0;
+}
+
+/* the order button closes the stack: after the controls on phones, under them beside the deck on wide
+   screens (the grid gap is its spacing) */
+.lp-rv__stack > .lp-rv__cta--side {
+  grid-area: cta;
+  margin: 0;
+}
+
+.lp-rv__stack--cta {
+  grid-template-areas: "head" "deck" "nav" "cta";
+}
+
+.lp-rv__deck {
+  --pad-i: clamp(0.75rem, 0.5rem + 1vw, 1.25rem);
+  --pad-t: 1rem;
+  --pad-b: 3.5rem;
+  grid-area: deck;
+  position: relative;
+  isolation: isolate;
+  min-inline-size: 0;
+  margin-inline: calc(var(--pad-i) * -1);
+}
+
+/* product-hue light under the deck */
+.lp-rv__deck::before {
+  content: "";
+  position: absolute;
+  inset: 0 5% 8%;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--rv-glow), transparent);
+  pointer-events: none;
+}
+
+.lp-rv__deck-track {
+  position: relative;
+  z-index: 1;
+}
+
+.lp-rv__deck-slide {
+  display: flex;
+  min-inline-size: 0;
+  padding: var(--pad-t) var(--pad-i) var(--pad-b);
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+.lp-rv__note {
+  --n-pad: clamp(1.5rem, 1.15rem + 1.5vw, 2.35rem);
+  --n-bg: var(--sec-card);
+  --n-ink: var(--sec-card-ink);
+  /* hairlines and light drawn in the card's own ink (colored cards) */
+  --n-line: var(--mx-line);
+  --n-glow: transparent;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  inline-size: 100%;
+  min-block-size: clamp(19rem, 16rem + 9vw, 23rem);
+  margin: 0;
+  padding: var(--n-pad);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  overflow: clip;
+  background: var(--n-bg);
+  color: var(--n-ink);
+  box-shadow: var(--rv-hl), var(--rv-ring), var(--lp-shadow-m);
+  /* the dealt card sits almost straight: a hint of the archetype's tilt */
+  rotate: calc(var(--tilt, 0deg) * 0.4);
+  transition: rotate var(--lp-dur-l) var(--lp-spring), scale var(--lp-dur-l) var(--lp-spring), opacity var(--lp-dur-m) var(--lp-smooth), translate var(--lp-dur-l) var(--lp-spring);
+}
+
+/* soft light from the card's top end corner */
+.lp-rv__note::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -50%;
+  inset-inline-end: -25%;
+  z-index: -1;
+  inline-size: 80%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--rv-glow), transparent);
+  pointer-events: none;
+}
+
+.lp-rv__note[data-tone="accent"] {
+  --n-bg: var(--sec-accent);
+  --n-ink: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), var(--lp-shadow-glow, var(--lp-shadow-m));
+}
+
+.lp-rv__note[data-tone="ink"] {
+  --n-bg: var(--sec-ink);
+  --n-ink: var(--sec-bg);
+  box-shadow: var(--lp-shadow-m);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-rv__note {
+    --n-line: color-mix(in oklab, var(--n-ink) 24%, transparent);
+    --n-glow: color-mix(in oklab, var(--n-ink) 13%, transparent);
+  }
+}
+
+/* colored cards: their own light, monochrome details in the card's ink */
+.lp-rv__note:not([data-tone="plain"])::before {
+  background: radial-gradient(closest-side, var(--n-glow), transparent);
+}
+
+.lp-rv__note:not([data-tone="plain"]) {
+  --rv-muted: var(--n-ink);
+}
+
+.lp-rv__note:not([data-tone="plain"]) .lp-rv__meta,
+.lp-rv__note:not([data-tone="plain"]) .lp-rv__detail,
+.lp-rv__note:not([data-tone="plain"]) .lp-rv__count {
+  opacity: 0.78;
+}
+
+.lp-rv__note:not([data-tone="plain"]) .lp-stars {
+  --star-on: currentColor;
+  --star-off: var(--n-line);
+}
+
+.lp-rv__note:not([data-tone="plain"]) .lp-rv__ok {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+  color: inherit;
+}
+
+.lp-rv__note:not([data-tone="plain"]) .lp-rv__av {
+  --av: var(--n-ink);
+  --av-ink: var(--n-bg);
+  box-shadow: none;
+}
+
+.lp-rv__note-quote {
+  max-inline-size: 48ch;
+  font-size: calc(var(--lp-step-0) * 1.08 * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+}
+
+/* inner radius = the card's − its padding: the photo's corners echo the card's */
+.lp-rv__note-photo {
+  border-radius: max(var(--lp-sq-s), calc(var(--lp-sq-xl) - var(--n-pad) * var(--lp-corner-d)));
+}
+
+.lp-rv__note-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-block-start: auto;
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-rv__note:not([data-tone="plain"]) .lp-rv__note-foot {
+  border-color: var(--n-line);
+}
+
+/* the cards waiting behind: real surfaces receding below the dealt one, fanned by the archetype tilt */
+.lp-rv__ghost {
+  position: absolute;
+  inset: var(--pad-t) var(--pad-i) var(--pad-b);
+  z-index: 0;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  box-shadow: var(--rv-hl), var(--rv-ring), var(--lp-shadow-s);
+  transform-origin: 50% 100%;
+  transition: translate var(--lp-dur-l) var(--lp-spring), rotate var(--lp-dur-l) var(--lp-spring), scale var(--lp-dur-l) var(--lp-spring), opacity var(--lp-dur-l) var(--lp-smooth);
+  transition-delay: 140ms;
+}
+
+.lp-rv__ghost[data-k="1"] {
+  opacity: 0.8;
+  translate: 0 1.1rem;
+  scale: 0.94;
+  rotate: calc(var(--tilt, 0deg) * -0.8);
+}
+
+.lp-rv__ghost[data-k="2"] {
+  opacity: 0.5;
+  translate: 0 2.2rem;
+  scale: 0.88;
+  rotate: calc(var(--tilt, 0deg) * 1.2);
+  transition-delay: 220ms;
+}
+
+/* the deck fans out once it has risen into view */
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) .lp-rv__deck[data-reveal]:not([data-in]) .lp-rv__ghost {
+    translate: 0 0;
+    rotate: 0deg;
+    scale: 1;
+  }
+}
+
+/* runtime on: the dealt card settles, the others tip back and fade */
+.lp-rv__stack[data-index] .lp-rv__deck-slide:not([data-active]) .lp-rv__note {
+  opacity: 0.35;
+  scale: 0.9;
+  translate: 0 0.75rem;
+  rotate: calc(var(--tilt, 0deg) * -3);
+}
+
+/* last card: the deck has run out */
+.lp-rv__deck:has(.lp-rv__deck-slide:last-child[data-active]) .lp-rv__ghost {
+  opacity: 0;
+  translate: 0 0;
+  rotate: 0deg;
+  scale: 0.96;
+}
+
+.lp-rv__stack-nav {
+  grid-area: nav;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lp-rv__stack-nav > .lp-rv__arrows {
+  margin-inline-start: auto;
+}
+
+.lp-rv__pips {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-inline-size: 0;
+  max-inline-size: 16rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-rv__pips > li {
+  display: flex;
+  flex: 1 1 0;
+  max-inline-size: 1.6rem;
+  min-inline-size: 0.9rem;
+}
+
+.lp-rv__pip {
+  position: relative;
+  inline-size: 100%;
+  min-block-size: 2.75rem;
+}
+
+.lp-rv__pip::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0.15rem;
+  inset-block-start: 50%;
+  block-size: 0.5rem;
+  border-radius: var(--lp-radius-pill);
+  background: var(--mx-line);
+  translate: 0 -50%;
+  clip-path: inset(0 calc(50% - 0.25rem) round 999px);
+  transition: clip-path var(--lp-dur-m) var(--lp-spring), background-color var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-rv__pip[data-active]::before {
+  background: var(--sec-accent);
+  clip-path: inset(0 0 round 999px);
+}
+
+@media (min-width: 56rem) {
+  /* heading and controls form one group, centered on the deck */
+  .lp-rv__stack {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: 1fr auto auto 1fr;
+    grid-template-areas: ". deck" "head deck" "nav deck" ". deck";
+    column-gap: clamp(2.5rem, 6vw, 6rem);
+    row-gap: clamp(1.75rem, 1rem + 1.5vw, 2.5rem);
+    align-items: start;
+  }
+
+  .lp-rv__stack--cta {
+    grid-template-rows: 1fr auto auto auto 1fr;
+    grid-template-areas: ". deck" "head deck" "nav deck" "cta deck" ". deck";
+  }
+
+  .lp-rv__stack > .lp-rv__cta--side {
+    justify-content: flex-start;
+  }
+
+  /* pips at their own size, the arrows right after them: one compact control */
+  .lp-rv__pips {
+    flex: 0 1 auto;
+  }
+
+  .lp-rv__pips > li {
+    flex: none;
+    inline-size: 1.6rem;
+    max-inline-size: none;
+  }
+
+  .lp-rv__deck {
+    align-self: center;
+  }
+
+  .lp-rv__stack-nav > .lp-rv__arrows {
+    margin-inline-start: 0;
+  }
+}

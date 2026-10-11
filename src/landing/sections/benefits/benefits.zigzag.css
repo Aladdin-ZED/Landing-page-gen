@@ -1,0 +1,245 @@
+/* benefits · zigzag — rules only this variant renders (inlined after benefits.css on pages whose markup
+   carries .lp-benefits--zigzag; the admin preview loads every variant). Shared rules live in benefits.css. */
+
+.lp-benefits__t--l {
+  font-size: calc(var(--lp-step-3) * 0.9 * var(--lp-script-scale-display));
+  line-height: max(1.1, calc(var(--lp-display-lh) + 0.06));
+}
+
+.lp-benefits__p--l {
+  max-inline-size: 38ch;
+  font-size: calc(var(--lp-step-1) * 0.88 * var(--lp-script-scale));
+}
+
+.lp-benefits__idx {
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--sec-accent);
+}
+
+.lp-benefits__ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 3.25rem;
+  aspect-ratio: 1;
+  padding: 0.78rem;
+  border-radius: calc(32% * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  color: var(--sec-accent);
+  background: linear-gradient(160deg, var(--mx-tint-2), var(--mx-tint));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair), 0 10px 20px -12px var(--mx-btn-2);
+  transition: translate var(--lp-dur-m) var(--lp-spring), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+:is(.lp-benefits__ico, .lp-benefits__disc) > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+.lp-benefits [data-bg] .lp-benefits__ico {
+  color: var(--sec-ink);
+  background: var(--mx-on-accent);
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+}
+
+:is(.lp-benefits__thumbchip, .lp-benefits__chip, .lp-benefits__pchip, .lp-benefits__tchip) .lp-benefits__figlabel {
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* ==========================================================================
+   zigzag — masked photos, floating glass chips, a closing strip
+   ========================================================================== */
+.lp-benefits__zz {
+  display: grid;
+  gap: clamp(3.5rem, 2rem + 5vw, 7rem);
+}
+
+.lp-benefits__zrow {
+  display: grid;
+  gap: clamp(2rem, 1.4rem + 2.5vw, 3rem);
+  align-items: center;
+}
+
+.lp-benefits__zmedia {
+  position: relative;
+  inline-size: min(84%, 28rem);
+}
+
+.lp-benefits__zrow[data-side="end"] .lp-benefits__zmedia {
+  justify-self: end;
+}
+
+/* a soft pool of product light under each photo */
+.lp-benefits__zmedia::before {
+  content: "";
+  position: absolute;
+  inset: 12% -14% -8%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--mx-tint-2), transparent);
+}
+
+.lp-benefits__zframe {
+  filter: drop-shadow(0 26px 30px var(--mx-floor));
+}
+
+.lp-benefits__zframe .lp-pic__img {
+  transition: scale 1.2s var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-benefits__zrow:hover .lp-benefits__zframe .lp-pic__img {
+    scale: 1.04;
+  }
+}
+
+.lp-benefits__float {
+  position: absolute;
+  z-index: 2;
+  inset-block-end: clamp(1.25rem, 10%, 2.75rem);
+  inset-inline-end: calc(-1 * clamp(0.9rem, 6vw, 2.75rem));
+}
+
+.lp-benefits__zrow[data-side="end"] .lp-benefits__float {
+  inset-inline: calc(-1 * clamp(0.9rem, 6vw, 2.75rem)) auto;
+}
+
+.lp-benefits__float[data-at="start"] {
+  inset-block: clamp(1rem, 9%, 2.25rem) auto;
+}
+
+.lp-benefits__chip {
+  display: grid;
+  gap: 0.3rem;
+  min-inline-size: 8rem;
+  max-inline-size: 12.5rem;
+  padding: 0.95rem 1.15rem 1.05rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-benefits__chip .lp-benefits__fig {
+  font-size: calc(var(--lp-step-3) * 0.95 * var(--lp-script-scale-display));
+}
+
+.lp-benefits__disc {
+  display: grid;
+  place-items: center;
+  inline-size: clamp(3.75rem, 3.2rem + 2vw, 4.75rem);
+  aspect-ratio: 1;
+  padding: 1.05rem;
+  border-radius: 50%;
+}
+
+.lp-benefits__zbody {
+  max-inline-size: 34rem;
+}
+
+.lp-benefits__zbody .lp-benefits__idx {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-end: 1rem;
+}
+
+.lp-benefits__zbody .lp-benefits__idx::after {
+  content: "";
+  inline-size: 2.75rem;
+  block-size: 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+/* the closing strip: the benefits past the photos, as ruled editorial cells */
+.lp-benefits__more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: clamp(2.25rem, 1.5rem + 2vw, 3rem) clamp(1.5rem, 3.5vw, 3.5rem);
+}
+
+.lp-benefits__more[data-count="1"] {
+  max-inline-size: 34rem;
+  margin-inline: auto;
+}
+
+.lp-benefits__mcell {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  align-content: start;
+  padding-block-start: clamp(1.4rem, 1rem + 1vw, 1.9rem);
+}
+
+/* cells of one line share their rows: titles line up even when one cell leads with a big figure */
+@supports (grid-template-rows: subgrid) {
+  .lp-benefits__mcell {
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+  }
+}
+
+.lp-benefits__mrule {
+  position: absolute;
+  inset: 0 0 auto;
+  block-size: 1px;
+  background: var(--mx-line);
+}
+
+.lp-benefits__mhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-block-size: 3.25rem;
+  margin-block-end: clamp(1.1rem, 0.8rem + 1vw, 1.6rem);
+}
+
+.lp-benefits__mfact {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.lp-benefits__mfact .lp-benefits__fig {
+  font-size: clamp(2.9rem, 2.2rem + 2.6vw, 4.25rem);
+  line-height: 0.82;
+  color: var(--sec-accent);
+}
+
+.lp-benefits__mfact .lp-benefits__figlabel {
+  max-inline-size: 22ch;
+}
+
+.lp-benefits__mcell .lp-benefits__idx {
+  padding-block-start: 0.2em;
+}
+
+@media (min-width: 56rem) {
+  .lp-benefits__zrow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(3.5rem, 8vw, 8rem);
+  }
+
+  .lp-benefits__zmedia,
+  .lp-benefits__zrow[data-side="end"] .lp-benefits__zmedia {
+    justify-self: center;
+    inline-size: min(100%, 29rem);
+  }
+
+  .lp-benefits__zrow[data-side="end"] .lp-benefits__zmedia {
+    order: 2;
+  }
+
+  /* the strip closes the zigzag: a little extra air before it */
+  .lp-benefits__zmore {
+    padding-block-start: clamp(0rem, 2vw, 1.5rem);
+  }
+}

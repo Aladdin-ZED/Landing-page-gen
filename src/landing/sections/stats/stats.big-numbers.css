@@ -1,0 +1,348 @@
+/* stats · big-numbers — rules only this variant renders (inlined after stats.css on pages whose markup
+   carries .lp-stats--big-numbers; the admin preview loads every variant). Shared rules live in stats.css. */
+
+.lp-stats__idx {
+  flex: none;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.75rem;
+  font-weight: var(--lp-strong-weight, 600);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--sec-ink-soft);
+}
+
+/* ==========================================================================
+   big-numbers — a lit lead panel the product rises out of + an editorial index
+   ========================================================================== */
+.lp-stats__grid {
+  display: grid;
+  gap: clamp(2.25rem, 1.6rem + 3vw, 3.25rem);
+}
+
+.lp-stats__hero {
+  --pad: clamp(1.35rem, 0.9rem + 2.3vw, 2.75rem);
+  /* how far the product rises above the panel */
+  --over: clamp(1.75rem, 1rem + 3vw, 3.25rem);
+  --mw: clamp(8.75rem, 41vw, 13.5rem);
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "meta media" "num num" "meter meter" "cap cap";
+  align-items: end;
+  column-gap: clamp(1.25rem, 3vw, 2.75rem);
+  padding: var(--pad);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-bg);
+  background-image: linear-gradient(170deg, var(--mx-tint), transparent 58%);
+  color: var(--sec-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 20px 44px -18px rgb(0 0 0 / 0.3));
+}
+
+.lp-stats__hero[data-media] {
+  margin-block-start: var(--over);
+}
+
+/* a cutout has no frame to hold it back: it rises higher */
+.lp-stats__hero[data-media="cutout"] {
+  --over: clamp(2.25rem, 1rem + 5vw, 4.5rem);
+}
+
+/* a landscape shot: a broad window across the panel's top, the index line under it */
+.lp-stats__hero[data-shape="wide"] {
+  grid-template-areas: "media media" "meta meta" "num num" "meter meter" "cap cap";
+}
+
+/* product light + the archetype's structure layer, clipped to the panel */
+.lp-stats__light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* structure stays in the corner behind the index, fading out before the figure */
+.lp-stats__tex {
+  opacity: 0.8;
+  -webkit-mask-image: radial-gradient(90% 80% at 0% 0%, #000, transparent 70%);
+  mask-image: radial-gradient(90% 80% at 0% 0%, #000, transparent 70%);
+}
+
+[dir="rtl"] .lp-stats__tex {
+  -webkit-mask-image: radial-gradient(90% 80% at 100% 0%, #000, transparent 70%);
+  mask-image: radial-gradient(90% 80% at 100% 0%, #000, transparent 70%);
+}
+
+.lp-stats__meta {
+  grid-area: meta;
+  align-self: start;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lp-stats__metaline {
+  inline-size: clamp(1.75rem, 6vw, 3.5rem);
+  block-size: 1px;
+  background-color: var(--mx-line);
+}
+
+/* phones & tablets: the product rises out over the panel's top edge, beside the index */
+.lp-stats__media {
+  grid-area: media;
+  justify-self: end;
+  inline-size: var(--mw);
+  margin-block: calc(-1 * (var(--pad) + var(--over))) clamp(0.5rem, 2vw, 1rem);
+}
+
+.lp-stats__media .lp-stats__pic {
+  aspect-ratio: 4 / 5;
+}
+
+.lp-stats__hero[data-shape="wide"] .lp-stats__media {
+  justify-self: stretch;
+  inline-size: auto;
+  margin-block-end: clamp(1.25rem, 4vw, 2rem);
+}
+
+.lp-stats__hero[data-shape="wide"] .lp-stats__pic {
+  aspect-ratio: 16 / 10;
+}
+
+.lp-stats__media .lp-pic__img {
+  transition: scale calc(var(--lp-dur-l) * 1.4) var(--lp-smooth);
+}
+
+.lp-stats__hero[data-media="cutout"] .lp-stats__media .lp-pic__img {
+  object-position: 50% 100%;
+}
+
+/* a cutout stands on a soft contact shadow, not in a frame */
+.lp-stats__hero[data-media="cutout"] .lp-stats__vis::after {
+  content: "";
+  position: absolute;
+  inset-inline: 20%;
+  inset-block-end: -3%;
+  z-index: -1;
+  block-size: 8%;
+  border-radius: 50%;
+  background-image: radial-gradient(closest-side, var(--mx-contact), transparent);
+}
+
+.lp-stats__heronum {
+  --fs: clamp(6.5rem, 1rem + 28vw, 13rem);
+  --g: 0.64;
+  grid-area: num;
+  padding-block-start: clamp(0.75rem, 2.5vw, 1.5rem);
+  color: var(--sec-accent);
+}
+
+/* no product beside it: the figure takes the panel's whole width */
+.lp-stats__hero:not([data-media]) .lp-stats__heronum {
+  --fs: clamp(6.5rem, 1rem + 30vw, 16rem);
+}
+
+.lp-stats__hero[data-tone="ink"] .lp-stats__heronum {
+  color: var(--sec-ink);
+}
+
+.lp-stats__fig--hero {
+  padding-block-start: 0.06em;
+}
+
+.lp-stats__fig--hero > .lp-counter > .lp-counter__affix {
+  font-size: max(0.9rem, 0.2em);
+}
+
+.lp-stats__meter--hero {
+  --mh: 6px;
+  grid-area: meter;
+  margin-block-start: clamp(1.1rem, 0.8rem + 1.2vw, 1.75rem);
+}
+
+.lp-stats__hero[data-tone="ink"] .lp-stats__meter--hero {
+  --mc: var(--sec-ink);
+}
+
+.lp-stats__label--hero {
+  grid-area: cap;
+  margin-block-start: clamp(1rem, 0.75rem + 1vw, 1.5rem);
+  max-inline-size: 28ch;
+  font-size: calc(var(--lp-step-1) * 0.94 * var(--lp-script-scale));
+  line-height: 1.35;
+  color: var(--sec-ink);
+  text-wrap: balance;
+}
+
+/* the index: hairlines that draw across, figures that roll up */
+.lp-stats__row {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+}
+
+.lp-stats__rowhead {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.lp-stats__rule {
+  --rv-dur: calc(var(--lp-dur-l) * 1.4);
+  flex: 1;
+  block-size: 1px;
+  background-color: var(--mx-line);
+}
+
+.lp-stats__rownum {
+  --fs: clamp(2.9rem, 2rem + 3.2vw, 4.75rem);
+  padding-block-start: 0.3rem;
+}
+
+/* a single figure beside the panel carries more of the weight */
+.lp-stats__grid[data-count="2"] .lp-stats__rownum {
+  --fs: clamp(3.5rem, 2rem + 5vw, 7rem);
+}
+
+.lp-stats__fig--row {
+  transition: color var(--lp-dur-m) var(--lp-smooth), translate var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-stats__row .lp-stats__meter {
+  max-inline-size: 16rem;
+  margin-block: 0.45rem 0.1rem;
+}
+
+@media (hover: hover) {
+  .lp-stats__row:hover .lp-stats__fig--row {
+    color: var(--sec-accent);
+    translate: calc(var(--lp-x, 1) * 0.3rem) 0;
+  }
+
+  .lp-stats__hero[data-media="photo"]:hover .lp-pic__img {
+    scale: 1.045;
+  }
+
+  .lp-stats__hero[data-media="cutout"] .lp-stats__pic {
+    transition: translate var(--lp-dur-l) var(--lp-spring);
+  }
+
+  .lp-stats__hero[data-media="cutout"]:hover .lp-stats__pic {
+    translate: 0 -0.5rem;
+  }
+}
+
+/* tablet: the index runs in columns under the panel */
+@media (min-width: 36rem) and (max-width: 59.99rem) {
+  .lp-stats__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  .lp-stats__hero,
+  .lp-stats__grid[data-count="2"] .lp-stats__row,
+  .lp-stats__grid[data-count="4"] .lp-stats__row:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* tablet up: a landscape shot becomes a broad window at the panel's top end, the figure runs the
+   panel's full width beneath it */
+@media (min-width: 36rem) {
+  .lp-stats__hero[data-shape="wide"] {
+    --mw: clamp(15rem, 40vw, 21rem);
+    grid-template-columns: minmax(0, 1fr) var(--mw);
+    grid-template-rows: auto 1fr auto auto auto;
+    grid-template-areas: "meta media" ". media" "num num" "meter meter" "cap cap";
+  }
+
+  .lp-stats__hero[data-shape="wide"] .lp-stats__media {
+    align-self: start;
+    inline-size: auto;
+    margin-block-end: clamp(1rem, 2vw, 1.75rem);
+  }
+
+  .lp-stats__hero[data-shape="wide"] .lp-stats__pic {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* desktop: the panel leads, the product stands in a tall window at its end, the index beside it */
+@media (min-width: 60rem) {
+  .lp-stats__grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(1.75rem, 3vw, 2.5rem) clamp(3rem, 6vw, 6.5rem);
+  }
+
+  .lp-stats__hero {
+    grid-row: 1 / span var(--rest, 2);
+    min-block-size: 27rem;
+  }
+
+  .lp-stats__hero[data-shape="tall"] {
+    --mw: clamp(12rem, 18vw, 16rem);
+    grid-template-columns: minmax(0, 1fr) var(--mw);
+    grid-template-rows: auto 1fr auto auto auto;
+    grid-template-areas: "meta media" ". media" "num media" "meter media" "cap media";
+  }
+
+  .lp-stats__hero[data-shape="tall"][data-media="cutout"] {
+    --mw: clamp(13rem, 21vw, 18.5rem);
+  }
+
+  /* the window runs the panel's full height and rises out over its top edge */
+  .lp-stats__hero[data-shape="tall"] .lp-stats__media {
+    align-self: stretch;
+    inline-size: auto;
+    margin-block-end: 0;
+  }
+
+  .lp-stats__hero[data-shape="tall"] :is(.lp-stats__vis, .lp-stats__pic) {
+    block-size: 100%;
+  }
+
+  .lp-stats__hero[data-shape="tall"] .lp-stats__pic {
+    aspect-ratio: auto;
+  }
+
+  /* a tall cutout fills the window's height (overflowing its width) so it always clears the edge */
+  .lp-stats__hero[data-shape="tall"][data-media="cutout"] .lp-stats__pic {
+    inline-size: 136%;
+    max-inline-size: none;
+    margin-inline: -18%;
+  }
+
+  /* a circle can't stand tall: the theme's round mask becomes a capsule */
+  :root[data-mask="circle"] .lp-stats__hero[data-shape="tall"][data-media="photo"] .lp-stats__pic {
+    border-radius: 999px;
+  }
+
+  .lp-stats__hero[data-shape="wide"] {
+    --mw: clamp(16rem, 27vw, 22rem);
+  }
+}
+
+/* scroll-driven drift of a cutout over the panel edge (progressive) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"]) .lp-stats__hero[data-media="cutout"] .lp-stats__media .lp-stats__vis {
+      animation: lp-stats-drift linear both;
+      animation-timeline: view();
+      animation-range: entry 10% exit 90%;
+    }
+  }
+}
+
+@keyframes lp-stats-drift {
+  from {
+    translate: 0 1.25rem;
+  }
+  to {
+    translate: 0 -1.25rem;
+  }
+}

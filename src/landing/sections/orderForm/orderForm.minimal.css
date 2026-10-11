@@ -1,0 +1,298 @@
+/* orderForm · minimal — rules only this variant renders (inlined after orderForm.css on pages whose markup
+   carries .lp-orderForm--minimal; the admin preview loads every variant). Shared rules live in orderForm.css. */
+
+/* ==========================================================================
+   minimal — no card: editorial rows. A hairline opens every step (and fills with the accent
+   once it's done), a big "01" numeral leads it; desktop sets numeral + name in a left column
+   beside the fields, like a Swiss form.
+   ========================================================================== */
+.lp-orderForm--minimal .lp-of__wrap {
+  max-inline-size: 38rem;
+  margin-inline: auto;
+  gap: clamp(2.25rem, 1.5rem + 3vw, 3.75rem);
+}
+
+.lp-orderForm--minimal .lp-of__title {
+  max-inline-size: 15ch;
+}
+
+.lp-orderForm--minimal .lp-of__form,
+.lp-orderForm--minimal .lp-of__steps {
+  --of-gap: clamp(2.5rem, 1.8rem + 2.8vw, 3.5rem);
+}
+
+.lp-orderForm--minimal .lp-of__step,
+.lp-orderForm--minimal .lp-of__checkout,
+.lp-orderForm--minimal .lp-of__legend {
+  position: relative;
+}
+
+/* the row's hairline + its accent fill (drawn across once the step is complete). Phones: on the
+   legend itself (a fieldset positions its own pseudo-elements under the legend); desktop: on the
+   whole row, see below. */
+.lp-orderForm--minimal .lp-of__legend::before,
+.lp-orderForm--minimal .lp-of__legend::after,
+.lp-orderForm--minimal .lp-of__checkout-k::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: 1px;
+  background: var(--mx-line);
+}
+
+.lp-orderForm--minimal .lp-of__legend::after {
+  block-size: 2px;
+  background: var(--sec-accent);
+  transform-origin: 0 50%;
+  scale: calc(var(--of-done, 0)) 1;
+  transition: scale calc(var(--lp-dur-l) * 1.5) var(--lp-smooth);
+}
+
+[dir="rtl"] .lp-orderForm--minimal .lp-of__legend::after {
+  transform-origin: 100% 50%;
+}
+
+.lp-orderForm--minimal .lp-of__legend {
+  align-items: baseline;
+  gap: 1rem;
+  padding-block-start: 1.35rem;
+}
+
+.lp-orderForm--minimal .lp-of__checkout-k {
+  display: flex;
+  margin: 0;
+  font-size: calc(var(--lp-step-0) * 1.1 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.25;
+}
+
+.lp-orderForm--minimal .lp-of__no {
+  inline-size: auto;
+  block-size: auto;
+  background: none;
+  color: var(--sec-accent);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-3) * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  overflow: visible;
+}
+
+.lp-orderForm--minimal .lp-of__checkout-k .lp-of__no-2 {
+  display: inline;
+  color: var(--sec-accent);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-3) * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1;
+}
+
+.lp-orderForm--minimal .lp-of__no-1 {
+  display: none;
+}
+
+.lp-orderForm--minimal .lp-of__no-2 {
+  display: inline;
+}
+
+/* minimal keeps its numeral; the tick arrives as a small accent seal on its shoulder */
+.lp-orderForm--minimal .lp-of__tick {
+  position: absolute;
+  inset-block-start: -0.15rem;
+  inset-inline-end: -1.15rem;
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  padding: 0.2rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  stroke-width: 3;
+  scale: 0;
+  transition:
+    scale var(--lp-dur-m) var(--lp-spring-pop),
+    stroke-dashoffset var(--lp-dur-m) var(--lp-smooth) 160ms;
+}
+
+@supports selector(:has(a)) {
+  .lp-orderForm--minimal .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__no {
+    background: none;
+    color: var(--sec-accent);
+    box-shadow: none;
+  }
+
+  .lp-orderForm--minimal .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__no-2 {
+    opacity: 1;
+    scale: 1;
+  }
+
+  .lp-orderForm--minimal .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__tick {
+    scale: 1;
+  }
+}
+
+/* clear room for the tick seal on the numeral's shoulder */
+.lp-orderForm--minimal .lp-of__legend-txt {
+  margin-inline-start: 0.85rem;
+}
+
+.lp-orderForm--minimal .lp-pack,
+.lp-orderForm--minimal .lp-seg__detail {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--pk-line, var(--mx-line));
+}
+
+.lp-orderForm--minimal .lp-pack[data-selected] {
+  background: color-mix(in oklab, var(--sec-accent) 5%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--sec-accent);
+  translate: none;
+}
+
+.lp-orderForm--minimal .lp-seg__opt[data-selected] {
+  box-shadow: none;
+}
+
+.lp-orderForm--minimal .lp-sum,
+.lp-orderForm--minimal .lp-bump {
+  background: none;
+  box-shadow: none;
+  border-block: 1px solid var(--mx-hair);
+  border-radius: 0;
+  padding-inline: 0;
+}
+
+.lp-orderForm--minimal .lp-bump + .lp-sum {
+  border-block-start: 0;
+}
+
+.lp-orderForm--minimal .lp-bump:has(:checked) {
+  border-color: var(--sec-accent);
+}
+
+.lp-orderForm--minimal .lp-vrow {
+  padding: 1rem 0 0;
+  border-block-start: 1px solid var(--mx-hair);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.lp-orderForm--minimal .lp-vars[data-units="1"] .lp-vrow {
+  padding: 0;
+  border: 0;
+}
+
+.lp-orderForm--minimal .lp-vars > .lp-vrow:first-child {
+  padding-block-start: 0;
+  border: 0;
+}
+
+.lp-orderForm--minimal .lp-field--float .lp-field__label {
+  inset-inline-start: 0.1em;
+}
+
+/* a select always shows a choice or its prompt: its floating label stays up */
+.lp-orderForm--minimal .lp-field--float:has(.lp-select) .lp-field__label {
+  transform: translateY(-0.95rem) scale(0.74);
+}
+
+.lp-orderForm--minimal .lp-input-group .lp-input {
+  border: 0;
+}
+
+/* hairline fields have no sheet of their own: their text sits on the block itself, so it takes the
+   block's inks (the kit's colour-block field inks assume a light sheet: muddy on an accent block) */
+.lp-orderForm--minimal :is(.lp-input, .lp-select, .lp-select__el, .lp-input-group) {
+  --f-ink: var(--sec-ink);
+  --f-ph: var(--sec-ink-soft);
+}
+
+/* one baseline per row: the phone group grows with its neighbour (the floated inputs are a few px
+   taller than the group's 3.5rem), so both hairlines line up */
+.lp-orderForm--minimal .lp-field--float {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.lp-orderForm--minimal .lp-field--float .lp-field__control {
+  display: grid;
+}
+
+@media (min-width: 64rem) {
+  .lp-orderForm--minimal .lp-of__wrap {
+    --of-col: clamp(13rem, 24%, 17rem);
+    max-inline-size: 68rem;
+  }
+
+  .lp-orderForm--minimal .lp-of__head {
+    max-inline-size: 48rem;
+  }
+
+  .lp-orderForm--minimal .lp-of__form,
+  .lp-orderForm--minimal .lp-of__steps {
+    --of-gap: clamp(3rem, 2rem + 2.5vw, 4.25rem);
+  }
+
+  /* rows: label column (numeral over the step name) | content; the hairline spans the row */
+  .lp-orderForm--minimal .lp-of__step,
+  .lp-orderForm--minimal .lp-of__checkout {
+    padding-block-start: 2rem;
+    padding-inline-start: var(--of-col);
+  }
+
+  .lp-orderForm--minimal .lp-of__step::before,
+  .lp-orderForm--minimal .lp-of__step::after,
+  .lp-orderForm--minimal .lp-of__checkout::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: 1px;
+    background: var(--mx-line);
+  }
+
+  .lp-orderForm--minimal .lp-of__step::after {
+    block-size: 2px;
+    background: var(--sec-accent);
+    transform-origin: 0 50%;
+    scale: calc(var(--of-done, 0)) 1;
+    transition: scale calc(var(--lp-dur-l) * 1.5) var(--lp-smooth);
+  }
+
+  [dir="rtl"] .lp-orderForm--minimal .lp-of__step::after {
+    transform-origin: 100% 50%;
+  }
+
+  .lp-orderForm--minimal .lp-of__legend::before,
+  .lp-orderForm--minimal .lp-of__legend::after,
+  .lp-orderForm--minimal .lp-of__checkout-k::before {
+    content: none;
+  }
+
+  .lp-orderForm--minimal .lp-of__legend,
+  .lp-orderForm--minimal .lp-of__checkout-k {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    inline-size: calc(var(--of-col) - 2.5rem);
+    margin: 0;
+    padding-block-start: 1.6rem;
+  }
+
+  .lp-orderForm--minimal .lp-of__legend-txt {
+    margin: 0;
+  }
+
+  .lp-orderForm--minimal .lp-of__no,
+  .lp-orderForm--minimal .lp-of__checkout-k .lp-of__no-2 {
+    font-size: calc(var(--lp-step-4) * var(--lp-script-scale-display));
+    line-height: 0.9;
+  }
+
+  .lp-orderForm--minimal .lp-of__checkout > * {
+    max-inline-size: 36rem;
+  }
+}

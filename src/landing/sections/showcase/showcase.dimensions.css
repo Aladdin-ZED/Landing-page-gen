@@ -1,0 +1,310 @@
+/* showcase · dimensions — rules only this variant renders (inlined after showcase.css on pages whose markup
+   carries .lp-showcase--dimensions; the admin preview loads every variant). Shared rules live in showcase.css. */
+
+/* ==========================================================================
+   dimensions — a clean technical drawing beside large spec figures
+   ========================================================================== */
+.lp-showcase__dm {
+  display: grid;
+  gap: clamp(2.25rem, 1.5rem + 3vw, 3.5rem);
+}
+
+.lp-showcase__dm .lp-showcase__head {
+  margin-block-end: 0;
+}
+
+/* phones & tablets: heading, then the drawing, then the figures (the copy box dissolves) */
+.lp-showcase__dmcopy {
+  display: contents;
+}
+
+.lp-showcase__drawing {
+  order: 1;
+}
+
+.lp-showcase__specs {
+  order: 2;
+}
+
+.lp-showcase__dm .lp-showcase__cta {
+  order: 3;
+  margin: 0;
+}
+
+/* figures two-up, set large: numbers carry this section */
+.lp-showcase__specs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: 0 clamp(1.25rem, 3vw, 2.25rem);
+  margin: 0;
+}
+
+.lp-showcase__spec {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  container-type: inline-size;
+  padding-block: 1.1rem 1.4rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-showcase__spec[data-long] {
+  grid-column: 1 / -1;
+}
+
+.lp-showcase__spec dt {
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.94 * var(--lp-script-scale));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.3;
+  color: var(--sec-ink-soft);
+}
+
+.lp-showcase__spec dd {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-3) * 0.92 * var(--lp-script-scale-display));
+  /* one line, never wider than its column (--chars = the value's length) */
+  font-size: min(calc(var(--lp-step-3) * 0.92 * var(--lp-script-scale-display)), calc(100cqi / (var(--chars, 8) * 0.58)));
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--sec-ink);
+  overflow-wrap: anywhere;
+}
+
+@supports (width: 1cqi) {
+  .lp-showcase__spec dd {
+    white-space: nowrap;
+  }
+}
+
+.lp-showcase__drawing {
+  position: relative;
+  isolation: isolate;
+  /* room for the scale chip that hangs over the lower edge */
+  margin: 0 0 1.5rem;
+  padding: clamp(1.75rem, 1rem + 3vw, 3.25rem) clamp(1.25rem, 0.7rem + 2.5vw, 3rem) clamp(2.5rem, 1.6rem + 3vw, 4rem);
+  border: 1px solid var(--mx-hair);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background: radial-gradient(120% 85% at 50% 0%, var(--mx-tint), var(--sec-card) 72%);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+}
+
+.lp-showcase__field {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  color: var(--sec-card-ink);
+  pointer-events: none;
+}
+
+.lp-showcase__dwg {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 0.85rem clamp(0.75rem, 2vw, 1.4rem);
+  max-inline-size: min(100%, calc(30rem * var(--obj, 0.8) + 5rem));
+  margin-inline: auto;
+}
+
+.lp-showcase__object {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.lp-showcase__drawing[data-kind="photo"] .lp-showcase__objpic {
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-l);
+}
+
+.lp-showcase__drawing[data-kind="cutout"] .lp-showcase__objpic {
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* no shot: the measured volume as an outline — hairline box, registration corners, the name */
+.lp-showcase__ghost {
+  --corner: 0.9rem;
+  /* registration corners sit inside the rounded edge */
+  --ci: max(0.65rem, calc(var(--lp-radius-m) * 0.45));
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: var(--ratio, 0.8);
+  padding: 12%;
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+  background:
+    linear-gradient(var(--mx-line), var(--mx-line)) left var(--ci) top var(--ci) / var(--corner) 1px no-repeat,
+    linear-gradient(var(--mx-line), var(--mx-line)) left var(--ci) top var(--ci) / 1px var(--corner) no-repeat,
+    linear-gradient(var(--mx-line), var(--mx-line)) right var(--ci) top var(--ci) / var(--corner) 1px no-repeat,
+    linear-gradient(var(--mx-line), var(--mx-line)) right var(--ci) top var(--ci) / 1px var(--corner) no-repeat,
+    linear-gradient(var(--mx-line), var(--mx-line)) left var(--ci) bottom var(--ci) / var(--corner) 1px no-repeat,
+    linear-gradient(var(--mx-line), var(--mx-line)) left var(--ci) bottom var(--ci) / 1px var(--corner) no-repeat,
+    linear-gradient(var(--mx-line), var(--mx-line)) right var(--ci) bottom var(--ci) / var(--corner) 1px no-repeat,
+    linear-gradient(var(--mx-line), var(--mx-line)) right var(--ci) bottom var(--ci) / 1px var(--corner) no-repeat,
+    radial-gradient(70% 60% at 50% 40%, var(--mx-stage-hi), transparent 75%),
+    var(--mx-tint);
+  box-shadow: inset 0 0 0 1px var(--mx-hair), var(--lp-shadow-m);
+}
+
+.lp-showcase__ghostname {
+  max-inline-size: 14ch;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * var(--lp-script-scale-display));
+  line-height: 1.2;
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case);
+  text-align: center;
+  text-wrap: balance;
+  color: var(--sec-ink-soft);
+}
+
+/* precise scale: one tick per unit, finer ticks between (technical archetypes) */
+.lp-showcase__ticks {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  inline-size: 0.85rem;
+  border-inline-end: 1px solid currentColor;
+  border-block: 1px solid currentColor;
+  color: color-mix(in oklab, var(--sec-card-ink) 55%, transparent);
+  background:
+    linear-gradient(currentColor 0 1px, transparent 0) 100% 0 / 100% calc(100% / var(--n, 10)) repeat-y,
+    linear-gradient(currentColor 0 1px, transparent 0) 100% 0 / 50% calc(100% / var(--n, 10) / var(--sub, 2)) repeat-y;
+}
+
+.lp-showcase__unit {
+  position: absolute;
+  inset-block-end: calc(100% + 0.4rem);
+  inset-inline-start: 0;
+  font-family: var(--lp-font-accent, ui-monospace, monospace);
+  font-size: 0.68rem;
+  line-height: 1;
+  color: var(--sec-card-ink);
+  opacity: 0.6;
+}
+
+.lp-showcase__dimv {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+}
+
+.lp-showcase__dimh {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.lp-showcase__drawing .lp-dim {
+  color: var(--sec-accent);
+}
+
+.lp-showcase__drawing .lp-dim__label {
+  border-color: var(--mx-line);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  font-family: var(--lp-font-label);
+  font-size: calc(var(--lp-step--1) * 0.98);
+  font-weight: var(--lp-strong-weight, 600);
+  box-shadow: var(--lp-shadow-s);
+}
+
+.lp-showcase__dimv .lp-dim {
+  block-size: 100%;
+}
+
+/* a product found in the photo: the lines and the scale hug its own box (--bx/--by/--bw/--bh,
+   fractions of the photo) — the height beside it, the width under it — not the backdrop's */
+.lp-showcase__dwg[data-tight] :is(.lp-showcase__dimv .lp-dim, .lp-showcase__ticks) {
+  align-self: start;
+  block-size: calc(var(--bh, 1) * 100%);
+  translate: 0 calc(var(--by, 0) / var(--bh, 1) * 100%);
+}
+
+.lp-showcase__dwg[data-tight] .lp-showcase__dimh .lp-dim {
+  inline-size: calc(var(--bw, 1) * 100%);
+  translate: calc(var(--bx, 0) / var(--bw, 1) * 100%) 0;
+}
+
+/* scale reference: a frosted chip centred on the panel's lower edge (zero-height row, no transform) */
+.lp-showcase__scale {
+  position: absolute;
+  inset-inline: 1rem;
+  inset-block-end: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  block-size: 0;
+}
+
+.lp-showcase__scale > .lp-glass {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-inline-size: 100%;
+  padding: 0.65rem 1.1rem 0.65rem 0.7rem;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.3;
+}
+
+.lp-showcase__scaleicon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.9rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+@media (min-width: 56rem) {
+  .lp-showcase__dm {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: center;
+    column-gap: clamp(2.5rem, 6vw, 6rem);
+  }
+
+  .lp-showcase__dmcopy {
+    display: block;
+  }
+
+  .lp-showcase__specs {
+    margin-block-start: clamp(1.75rem, 1.2rem + 2vw, 2.75rem);
+  }
+
+  .lp-showcase__dm .lp-showcase__cta {
+    margin-block-start: clamp(1.75rem, 1.2rem + 1.5vw, 2.5rem);
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="off"]) :is(.lp-showcase__aura, .lp-showcase__glow, .lp-showcase__field .lp-orb) {
+      animation: lp-sc-drift linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+  }
+}
+
+@keyframes lp-sc-drift {
+  from {
+    translate: 0 8%;
+  }
+  to {
+    translate: 0 -8%;
+  }
+}

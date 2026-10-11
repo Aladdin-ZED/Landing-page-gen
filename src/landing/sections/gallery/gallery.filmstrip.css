@@ -1,0 +1,234 @@
+/* gallery · filmstrip — rules only this variant renders (inlined after gallery.css on pages whose markup
+   carries .lp-gallery--filmstrip; the admin preview loads every variant). Shared rules live in gallery.css. */
+
+.lp-gallery__film-track {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  outline-offset: -5px;
+}
+
+.lp-gallery__film-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==========================================================================
+   filmstrip — the leading photo in focus, the queue receding off the edge
+   --fW strip width · --fp content inset (the photo lands on the content column)
+   --fw photo width · --fh photo height / width · --fg gap. The strip is a size
+   container (cqi); engines without container units measure the viewport.
+   ========================================================================== */
+.lp-gallery__film {
+  --fW: 100vw;
+  --fp: calc((var(--fW) - min(var(--fW) - 2 * var(--lp-gutter), var(--lp-container))) / 2);
+  --fw: min(var(--fW) * 0.74, 19rem);
+  --fh: 1.3333;
+  --fg: clamp(0.625rem, var(--fW) * 0.014, 1.25rem);
+  position: relative;
+  isolation: isolate;
+  container-type: inline-size;
+}
+
+@supports (width: 1cqi) {
+  .lp-gallery__film {
+    --fW: 100cqi;
+  }
+}
+
+.lp-gallery__film--land {
+  --fw: min(var(--fW) * 0.84, 30rem);
+  --fh: 0.75;
+}
+
+.lp-gallery__film-amb {
+  inset-block-start: 4%;
+  inset-inline-start: calc(var(--fp) + var(--fw) * 0.06);
+  inline-size: calc(var(--fw) * 0.88);
+  block-size: calc(var(--fw) * var(--fh) * 0.96);
+}
+
+.lp-gallery__film-track {
+  gap: var(--fg);
+  /* block padding = room for the photos' soft shadows (the scroller clips them) */
+  padding-block: 1.5rem 3rem;
+  margin-block: -1.5rem -2rem;
+  /* the last photo can travel all the way to the lead slot */
+  padding-inline-end: max(0px, var(--fW) - var(--fp) - var(--fw));
+  /* the queue fades out at the screen edge, a photo that left the lead slot fades in the margin */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fp), #000 calc(100% - var(--fW) * 0.07), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fp), #000 calc(100% - var(--fW) * 0.07), transparent);
+}
+
+[dir="rtl"] .lp-gallery__film-track {
+  -webkit-mask-image: linear-gradient(270deg, transparent, #000 var(--fp), #000 calc(100% - var(--fW) * 0.07), transparent);
+  mask-image: linear-gradient(270deg, transparent, #000 var(--fp), #000 calc(100% - var(--fW) * 0.07), transparent);
+}
+
+/* slide box = inset + photo: aligning (and snapping) the box to the strip edge puts its photo on
+   the content column */
+.lp-gallery__frame {
+  flex: none;
+  box-sizing: border-box;
+  inline-size: calc(var(--fp) + var(--fw));
+  margin-inline-start: calc(-1 * var(--fp));
+  padding-inline-start: var(--fp);
+  pointer-events: none;
+  scroll-snap-align: start;
+}
+
+.lp-gallery__frame:first-child {
+  margin-inline-start: 0;
+}
+
+[dir="rtl"] .lp-gallery__shot .lp-pic {
+  transform-origin: 0% 100%;
+}
+
+.lp-gallery__shot {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  pointer-events: auto;
+}
+
+/* the queue recedes toward a shared baseline, each photo shrinking toward its far edge: every gap in
+   the queue reads the same (centre origins leave the first gap narrower than the next ones) */
+.lp-gallery__shot .lp-pic {
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-m);
+  transform-origin: 100% 100%;
+  scale: 0.88;
+  opacity: 0.5;
+  transition:
+    scale var(--lp-dur-l) var(--lp-smooth),
+    opacity var(--lp-dur-l) var(--lp-smooth),
+    box-shadow var(--lp-dur-l) var(--lp-smooth);
+}
+
+.lp-gallery__frame[data-active] .lp-pic {
+  scale: 1;
+  opacity: 1;
+  box-shadow: var(--lp-shadow-l);
+}
+
+.lp-gallery__shot .lp-gallery__cap {
+  min-block-size: 1.35em;
+  font-size: calc(var(--lp-step--1) * 1.08 * var(--lp-script-scale));
+  transition: opacity var(--lp-dur-m) var(--lp-ease), translate var(--lp-dur-l) var(--lp-spring);
+}
+
+html.lp-js .lp-gallery__frame:not([data-active]) .lp-gallery__cap {
+  opacity: 0;
+  translate: 0 0.5rem;
+}
+
+/* bar: story segments · rolling "01 / 06" · arrows · order button */
+.lp-gallery__film-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "segs count" "cta cta";
+  align-items: center;
+  gap: 1.25rem 1rem;
+  margin-block-start: clamp(1.25rem, 1rem + 1vw, 2rem);
+}
+
+.lp-gallery__film-nav {
+  grid-area: segs;
+  min-inline-size: 0;
+}
+
+.lp-gallery__film-bar .lp-gallery__mini {
+  grid-area: count;
+}
+
+.lp-gallery__film-bar .lp-gallery__arrows {
+  grid-area: arrows;
+  display: none;
+}
+
+.lp-gallery__film-bar .lp-gallery__cta {
+  grid-area: cta;
+}
+
+/* no order button: segments and count only */
+.lp-gallery__film-bar:not(:has(.lp-gallery__cta)) {
+  grid-template-areas: "segs count";
+}
+
+/* one photo: the bar only holds the order button */
+.lp-gallery__film--solo .lp-gallery__film-bar {
+  display: block;
+}
+
+@media (min-width: 48rem) {
+  .lp-gallery__film {
+    --fw: clamp(16rem, var(--fW) * 0.3, 26rem);
+  }
+
+  .lp-gallery__film--land {
+    --fw: clamp(24rem, var(--fW) * 0.46, 40rem);
+  }
+
+  /* one photo: a single, larger frame */
+  .lp-gallery__film--solo {
+    --fw: clamp(18rem, var(--fW) * 0.36, 30rem);
+  }
+
+  .lp-gallery__film--solo.lp-gallery__film--land {
+    --fw: clamp(26rem, var(--fW) * 0.6, 52rem);
+  }
+
+  .lp-gallery__film-bar {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "cta segs count arrows";
+    column-gap: clamp(1.25rem, 2.5vw, 2.5rem);
+  }
+
+  .lp-gallery__film-bar .lp-gallery__arrows {
+    display: flex;
+  }
+
+  .lp-gallery__film-bar .lp-gallery__cta {
+    inline-size: auto;
+  }
+
+  /* no order button: the segments start the bar */
+  .lp-gallery__film-bar:not(:has(.lp-gallery__cta)) {
+    grid-template-areas: "segs segs count arrows";
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    html[dir="ltr"]:not([data-motion="off"]):not(.lp-qa) .lp-gallery__frame {
+      view-timeline: --lp-gal-frame inline;
+    }
+
+    html[dir="ltr"]:not([data-motion="off"]):not(.lp-qa) .lp-gallery__shot .lp-pic {
+      animation: lp-gal-lead linear both;
+      animation-timeline: --lp-gal-frame;
+    }
+  }
+}
+
+/* a slide box reaches the lead slot at "exit 0%": photos grow over the last stretch before it */
+@keyframes lp-gal-lead {
+  entry 0%,
+  contain 68% {
+    scale: 0.88;
+    opacity: 0.5;
+  }
+
+  exit 0% {
+    scale: 1;
+    opacity: 1;
+  }
+
+  exit 100% {
+    scale: 0.88;
+    opacity: 0.4;
+  }
+}

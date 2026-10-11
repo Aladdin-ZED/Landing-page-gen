@@ -1,0 +1,468 @@
+/* faq · chat — rules only this variant renders (inlined after faq.css on pages whose markup
+   carries .lp-faq--chat; the admin preview loads every variant). Shared rules live in faq.css. */
+
+.lp-faq__compose:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ==========================================================================
+   chat — a brand messenger window
+   ========================================================================== */
+.lp-faq__chat {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.lp-faq__intro {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-faq__intro .lp-sh {
+  margin-block-end: clamp(1.75rem, 1.2rem + 2vw, 3rem);
+}
+
+.lp-faq__stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-faq__glow {
+  z-index: -1;
+}
+
+/* motif layer reaches past the window so it reads around its edges */
+.lp-faq__motif.lp-layer {
+  inset: clamp(-3rem, -6vw, -1.5rem) calc(-1 * var(--lp-gutter, 1rem));
+  z-index: -1;
+}
+
+.lp-faq__win {
+  container-type: inline-size;
+  position: relative;
+  max-inline-size: 38rem;
+  margin-inline: auto;
+  border-radius: calc(var(--lp-sq-xl) + 4px * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair), var(--lp-shadow-l);
+  overflow: hidden;
+}
+
+@supports (overflow: clip) {
+  .lp-faq__win {
+    overflow: clip;
+  }
+}
+
+.lp-faq__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: clamp(0.8rem, 3cqi, 1.05rem) clamp(0.9rem, 4cqi, 1.35rem);
+  border-block-end: 1px solid var(--mx-hair);
+}
+
+.lp-faq__who {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+.lp-faq__name {
+  overflow: hidden;
+  font-weight: 650;
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-faq__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: calc(max(0.8125rem, var(--lp-step--1)) * var(--lp-script-scale));
+  line-height: 1.3;
+  color: var(--sec-ink-soft);
+}
+
+.lp-faq__status svg {
+  color: var(--sec-accent);
+}
+
+/* avatar: the store logo, else a monogram on the accent */
+.lp-faq__ava {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 2.6rem;
+  block-size: 2.6rem;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: 1.15rem;
+  line-height: 1;
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000);
+}
+
+.lp-faq__ava--logo {
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-faq__ava .lp-pic {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-faq__thread {
+  display: grid;
+  gap: clamp(1.1rem, 4cqi, 1.6rem);
+  margin: 0;
+  padding: clamp(1.1rem, 5cqi, 1.75rem) clamp(0.75rem, 4cqi, 1.35rem);
+  background: var(--faq-thread, var(--sec-bg));
+}
+
+.lp-faq__pair {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.lp-faq__bub {
+  --r: 1.25rem;
+  --tail: 0.35rem;
+  position: relative;
+  max-inline-size: min(84%, 30rem);
+  padding: 0.7rem 1rem 0.75rem;
+  border-radius: var(--r);
+}
+
+/* the shopper: accent bubble, inline end, tail at the bottom end corner */
+.lp-faq__bub--q {
+  justify-self: end;
+  border-end-end-radius: var(--tail);
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 6px 16px -10px var(--mx-btn-2);
+  transform-origin: calc(50% + 50% * var(--lp-x, 1)) 100%;
+}
+
+.lp-faq__cq {
+  font-family: var(--lp-font-body);
+  font-weight: 600;
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  text-wrap: pretty;
+}
+
+/* the opener: a link preview of the product inside the shopper's first bubble */
+.lp-faq__bub--open {
+  --pad: 0.375rem;
+  display: grid;
+  gap: 0.6rem;
+  inline-size: min(84%, 21rem);
+  padding: var(--pad) var(--pad) 0.7rem;
+}
+
+.lp-faq__link {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.375rem;
+  /* nested radius: the bubble's, minus its padding */
+  border-radius: calc(var(--r) - var(--pad));
+  background: var(--mx-on-accent);
+  box-shadow: inset 0 1px 0 var(--mx-on-accent);
+}
+
+.lp-faq__thumb {
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  border-radius: calc(var(--r) - var(--pad) * 2);
+}
+
+/* a cutout sits on a light card of its own, like a store thumbnail */
+.lp-faq__thumb--cut {
+  overflow: hidden;
+  padding: 0.3rem;
+  background: var(--sec-card);
+}
+
+.lp-faq__link-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-inline-size: 0;
+}
+
+.lp-faq__link-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-weight: 650;
+  font-size: calc(var(--lp-step-0) * 0.92 * var(--lp-script-scale));
+  line-height: 1.3;
+}
+
+.lp-faq__link-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: calc(max(0.75rem, var(--lp-step--1)) * var(--lp-script-scale));
+  line-height: 1.3;
+  opacity: 0.86;
+}
+
+.lp-faq__hello {
+  padding-inline: 0.625rem;
+  font-weight: 500;
+}
+
+/* the brand: card bubble, inline start */
+.lp-faq__bub--a {
+  /* typing-pill clip: keep the bottom-start corner (mirrored in RTL) */
+  --clip-r: calc(100% - 4rem);
+  --clip-l: 0px;
+  justify-self: start;
+  border-end-start-radius: var(--tail);
+  background: var(--faq-bub, var(--sec-card));
+  color: var(--sec-card-ink);
+  box-shadow: 0 0 0 1px var(--mx-hair), 0 4px 14px -10px var(--mx-contact);
+  transform-origin: calc(50% - 50% * var(--lp-x, 1)) 100%;
+}
+
+[dir="rtl"] .lp-faq__bub--a {
+  --clip-r: 0px;
+  --clip-l: calc(100% - 4rem);
+}
+
+.lp-faq__ca {
+  font-size: calc(var(--lp-step-0) * 0.97 * var(--lp-script-scale));
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.lp-faq__ca .lp-rt__list {
+  margin-block: 0.4em;
+}
+
+.lp-faq__ctitle {
+  font-weight: 650;
+}
+
+/* composer: the real action — opens the channel with the question prefilled */
+.lp-faq__compose {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: clamp(0.6rem, 2.5cqi, 0.85rem) clamp(0.7rem, 3cqi, 1rem);
+  border-block-start: 1px solid var(--mx-hair);
+  color: var(--sec-ink-soft);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lp-faq__ph {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  min-block-size: 3rem;
+  padding-inline: 1.1rem;
+  overflow: hidden;
+  border-radius: var(--lp-radius-pill, 999px);
+  background: var(--mx-field);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  font-size: calc(var(--lp-step-0) * 0.95 * var(--lp-script-scale));
+  transition: box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* the placeholder ends in "…" on a narrow composer (a flex container's own text cannot) */
+.lp-faq__ph-t {
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-faq__send {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-inline-size: 3rem;
+  min-block-size: 3rem;
+  padding-inline: 1.15rem;
+  border-radius: var(--lp-radius-pill, 999px);
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  font-weight: 600;
+  font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+  white-space: nowrap;
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 8px 20px -10px var(--mx-btn-2);
+  transition: scale var(--lp-dur-m) var(--lp-spring), box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-faq__compose:hover .lp-faq__ph {
+    box-shadow: inset 0 0 0 1.5px var(--sec-accent);
+  }
+
+  .lp-faq__compose:hover .lp-faq__send {
+    scale: 1.04;
+    box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 12px 26px -10px var(--mx-btn-2);
+  }
+}
+
+.lp-faq__compose:active .lp-faq__send {
+  scale: 0.96;
+}
+
+.lp-faq__compose:focus-visible {
+  outline-offset: -4px;
+}
+
+/* narrow windows: bubbles take more of the width; the send button keeps its icon, the label
+   stays for screen readers */
+@container (max-width: 26rem) {
+  .lp-faq__bub--q {
+    max-inline-size: calc(100% - 2.5rem);
+  }
+
+  .lp-faq__bub--a {
+    max-inline-size: calc(100% - 1.5rem);
+  }
+
+  .lp-faq__bub--open {
+    inline-size: calc(100% - 2.5rem);
+  }
+
+  .lp-faq__send {
+    padding-inline: 0;
+  }
+
+  .lp-faq__send-t {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 60rem) {
+  .lp-faq__chat {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    column-gap: clamp(3rem, 7vw, 7rem);
+    align-items: start;
+  }
+
+  .lp-faq__win {
+    margin-inline: 0 auto;
+  }
+}
+
+@media (min-width: 60rem) and (min-height: 40rem) {
+  .lp-faq__intro {
+    position: sticky;
+    inset-block-start: clamp(1.5rem, 12vh, 7rem);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* chat: questions pop from their tail; answers arrive as a typing pill that blooms into the message */
+  html.lp-js:not([data-motion="off"]) .lp-faq__bub--q[data-reveal][data-in] {
+    animation: lp-faq-pop calc(var(--lp-dur-m) * 1.6) var(--lp-ease-pop, var(--lp-spring)) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-faq__bub--a[data-reveal][data-in] {
+    animation: lp-faq-bloom 1.25s var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-faq__bub--a[data-reveal][data-in] > * {
+    animation: lp-faq-text 1.25s var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-faq__bub--a[data-reveal][data-in]::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 1rem;
+    inset-block-end: 1.05rem;
+    inline-size: 1.9rem;
+    block-size: 0.45rem;
+    background:
+      radial-gradient(circle closest-side, var(--sec-ink-soft) 92%, transparent) 0 50% / 0.45rem 0.45rem no-repeat,
+      radial-gradient(circle closest-side, var(--sec-ink-soft) 92%, transparent) 50% 50% / 0.45rem 0.45rem no-repeat,
+      radial-gradient(circle closest-side, var(--sec-ink-soft) 92%, transparent) 100% 50% / 0.45rem 0.45rem no-repeat;
+    opacity: 0;
+    animation: lp-faq-dots 1.25s linear var(--d, 0ms) both;
+    pointer-events: none;
+  }
+}
+
+@keyframes lp-faq-pop {
+  from {
+    opacity: 0;
+    scale: 0.6;
+    translate: 0 0.5rem;
+  }
+}
+
+/* the typing pill (bottom-start corner of the bubble) blooms into the full message */
+@keyframes lp-faq-bloom {
+  0% {
+    opacity: 0;
+    clip-path: inset(calc(100% - 2.6rem) var(--clip-r) 0 var(--clip-l) round 1.3rem);
+    translate: 0 0.4rem;
+  }
+  14% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  50% {
+    clip-path: inset(calc(100% - 2.6rem) var(--clip-r) 0 var(--clip-l) round 1.3rem);
+  }
+  78%,
+  100% {
+    clip-path: inset(-1rem round 1.3rem);
+  }
+}
+
+@keyframes lp-faq-text {
+  0%,
+  58% {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes lp-faq-dots {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  16%,
+  48% {
+    opacity: 1;
+  }
+  58%,
+  100% {
+    opacity: 0;
+  }
+}

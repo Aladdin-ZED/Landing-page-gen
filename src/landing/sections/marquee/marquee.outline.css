@@ -1,0 +1,213 @@
+/* marquee · outline — rules only this variant renders (inlined after marquee.css on pages whose markup
+   carries .lp-marquee--outline; the admin preview loads every variant). Shared rules live in marquee.css. */
+
+/* ==========================================================================
+   outline — giant hairline words gliding through a lens capsule at the center
+   ========================================================================== */
+.lp-section.lp-marquee--outline {
+  padding-block: calc(clamp(2rem, 1rem + 3.4vw, 4.5rem) * var(--space-k, 1));
+}
+
+.lp-marquee--outline .lp-marquee__stage {
+  --mq-lens-w: clamp(12rem, 5rem + 36vw, 38rem);
+  --mq-lens-y: 0.05em;
+  /* the lens takes the shape of the page's buttons: a capsule, or a crisp frame on square-cut themes */
+  --mq-lens-r: max(var(--lp-radius-btn, 999px), 0.05em);
+  font-size: calc(clamp(4rem, 1.4rem + 10.4vw, 11.5rem) * var(--lp-script-scale-display, 1));
+  line-height: 1.04;
+}
+
+:lang(ar) .lp-marquee--outline .lp-marquee__stage {
+  --mq-lens-y: 0em;
+  line-height: 1.45;
+}
+
+.lp-marquee--outline .lp-marquee {
+  --mq-gap: 0.34em;
+}
+
+/* giant words cover more ground per item: stretch the loop with the type size so the strip glides
+   (base and lens share the rule, so they stay frame-locked) */
+.lp-marquee--outline .lp-marquee__track {
+  animation-duration: calc(var(--mq-dur, 40s) * 1.35);
+}
+
+@media (min-width: 48rem) {
+  .lp-marquee--outline .lp-marquee__track {
+    animation-duration: calc(var(--mq-dur, 40s) * 1.9);
+  }
+}
+
+@media (min-width: 80rem) {
+  .lp-marquee--outline .lp-marquee__track {
+    animation-duration: calc(var(--mq-dur, 40s) * 2.3);
+  }
+}
+
+.lp-marquee--outline .lp-marquee__thumb {
+  inline-size: 1.3em;
+  block-size: 0.72em;
+}
+
+.lp-marquee__spot {
+  position: relative;
+}
+
+/* outlined words (outline base layer, double's echo row). Where paint-order works on text, the stroke
+   is painted under a fill of the section color: overlapping glyph contours (Arabic joins, variable
+   fonts) never show seams, and the visible line is the stroke's outer half. Engines without
+   text-stroke get a ghost fill. */
+.lp-marquee__line .lp-marquee__word {
+  color: var(--mq-outline);
+}
+
+@supports (-webkit-text-stroke: 1px black) {
+  .lp-marquee__line .lp-marquee__word {
+    color: transparent;
+    -webkit-text-stroke: var(--mq-stroke) var(--mq-outline);
+  }
+}
+
+@supports (-webkit-text-stroke: 1px black) and (paint-order: stroke fill) {
+  .lp-marquee__line .lp-marquee__word {
+    color: var(--sec-bg);
+    -webkit-text-stroke-width: calc(var(--mq-stroke) * 1.8);
+    paint-order: stroke fill;
+  }
+}
+
+/* outlined layers mark the emphasis by filling it instead */
+.lp-marquee__line .lp-em {
+  color: var(--sec-accent);
+  -webkit-text-stroke: 0 transparent;
+}
+
+.lp-marquee__line .lp-em,
+.lp-marquee__lens .lp-em {
+  padding: 0;
+  background: none;
+  text-decoration: none;
+}
+
+/* marks follow the hairline */
+.lp-marquee__line .lp-marquee__sep {
+  color: var(--mq-outline);
+}
+
+/* photos are outlined too (an empty pill) until the lens fills them */
+.lp-marquee__line .lp-marquee__thumb {
+  background: none;
+  box-shadow: inset 0 0 0 var(--mq-stroke) var(--mq-outline);
+}
+
+.lp-marquee__line .lp-marquee__thumb > .lp-pic,
+.lp-marquee__line .lp-marquee__thumb::after {
+  opacity: 0;
+}
+
+.lp-marquee__line .lp-marquee__thumb--cut {
+  box-shadow: none;
+}
+
+.lp-marquee__line .lp-marquee__thumb--cut > .lp-pic {
+  opacity: 0.28;
+  filter: grayscale(1);
+}
+
+/* the lens: a capsule surface + the same track filled, clipped to the capsule — each word turns
+   solid as it crosses. The focus wrapper scales in as one piece. */
+.lp-marquee__focus {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.lp-marquee__glass {
+  position: absolute;
+  inset-block: calc(-1 * var(--mq-lens-y));
+  inset-inline: calc(50% - var(--mq-lens-w) / 2);
+  border-radius: var(--mq-lens-r);
+}
+
+.lp-marquee__lens {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(calc(-1 * var(--mq-lens-y)) calc(50% - var(--mq-lens-w) / 2) round var(--mq-lens-r));
+}
+
+/* glass lens (calm pages): the theme's frosted glass — opaque solid first, translucent where blur works.
+   A light blur is enough: it only has to melt the hairlines passing under the filled words. */
+[data-lens="glass"] .lp-marquee__glass {
+  background: var(--sec-glass-solid, var(--sec-card));
+  box-shadow:
+    inset 0 1px 0 var(--mx-rim),
+    inset 0 0 0 1px var(--sec-glass-border, var(--mx-hair)),
+    var(--lp-shadow-m, 0 0 #0000);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  [data-lens="glass"] .lp-marquee__glass {
+    background: var(--sec-glass, var(--sec-glass-solid));
+    -webkit-backdrop-filter: blur(8px) saturate(130%);
+    backdrop-filter: blur(8px) saturate(130%);
+  }
+}
+
+:root[data-shadow="glow"] [data-lens="glass"] .lp-marquee__glass {
+  box-shadow:
+    inset 0 1px 0 var(--mx-rim),
+    inset 0 0 0 1px var(--sec-glass-border, var(--mx-hair)),
+    var(--lp-shadow-m, 0 0 #0000),
+    var(--lp-shadow-glow, 0 0 #0000);
+}
+
+[data-lens="glass"] .lp-marquee__lens {
+  color: var(--sec-glass-ink, var(--sec-ink));
+}
+
+/* veil lens (calm pages): no slab of colour — the section's own tone lifted toward its card surface,
+   a hairline edge and a top light; inside it the words simply turn solid in the section ink. Opaque,
+   so the hairline words passing under it disappear cleanly (no blur halo). */
+[data-lens="veil"] .lp-marquee__glass {
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--sec-line), inset 0 1px 0 var(--mx-rim);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  [data-lens="veil"] .lp-marquee__glass {
+    background: color-mix(in oklab, var(--sec-card) 72%, var(--sec-bg));
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 22%, transparent),
+      inset 0 1px 0 var(--mx-rim),
+      0 18px 40px -26px var(--mx-floor);
+  }
+}
+
+[data-lens="veil"] .lp-marquee__lens {
+  color: var(--sec-ink);
+}
+
+/* ink lens (bold pages): a solid ink capsule — the words knock out in the section color */
+[data-lens="ink"] .lp-marquee__glass {
+  background: var(--sec-ink);
+  box-shadow: inset 0 1px 0 var(--mx-hair), var(--lp-shadow-m, 0 0 #0000);
+}
+
+[data-lens="ink"] .lp-marquee__lens,
+[data-lens="ink"] .lp-marquee__lens .lp-em,
+[data-lens="ink"] .lp-marquee__lens .lp-marquee__sep {
+  color: var(--sec-bg);
+}
+
+/* without motion the strip stands still as a composition: the lens keeps its word, so the strip
+   is not hand-scrollable here (the lens could not follow; the words are read from the list) */
+@media (prefers-reduced-motion: reduce) {
+  .lp-marquee--outline .lp-marquee__stage .lp-marquee {
+    overflow: clip;
+  }
+}
+
+:root[data-motion="off"] .lp-marquee--outline .lp-marquee__stage .lp-marquee {
+  overflow: clip;
+}

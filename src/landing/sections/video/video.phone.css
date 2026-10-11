@@ -1,0 +1,497 @@
+/* video · phone — rules only this variant renders (inlined after video.css on pages whose markup
+   carries .lp-video--phone; the admin preview loads every variant). Shared rules live in video.css. */
+
+.lp-video__wrap {
+  display: grid;
+  gap: var(--vd-gap);
+}
+
+/* in a phone, landscape media — and a person the story chrome would cover — sits like a shared
+   post: a rounded card over its own light, a touch above the middle (clear of the header above and
+   the creator's words below) */
+.lp-video__ugc[data-fit="contain"] > .lp-video__screen > .lp-video__media {
+  inset-block-start: 47%;
+  inset-inline: 7%;
+  overflow: hidden;
+  border-radius: calc(var(--pw) * 0.045 * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  box-shadow: 0 0 0 1px var(--vd-rim), 0 calc(var(--pw) * 0.06) calc(var(--pw) * 0.12) calc(var(--pw) * -0.04) var(--lp-dark);
+}
+.lp-video__stage {
+  position: relative;
+  isolation: isolate;
+}
+
+@media (min-width: 64rem) {
+  .lp-video__wrap > .lp-video__head {
+    grid-area: head;
+  }
+
+  .lp-video__wrap > .lp-video__stage {
+    grid-area: stage;
+  }
+
+  .lp-video__wrap > .lp-video__ch {
+    grid-area: rail;
+  }
+
+  .lp-video__wrap > .lp-video__act {
+    grid-area: act;
+  }
+}
+
+/* ==========================================================================
+   phone
+   ========================================================================== */
+.lp-video__stage--phone {
+  --pw: clamp(14rem, 58vw, 19rem);
+  --vd-disc: var(--sec-chip);
+  --vd-disc-hi: var(--sec-chip);
+  --vd-ring: var(--mx-hair);
+  display: grid;
+  place-items: center;
+  padding-block: clamp(1.5rem, 4vw, 3rem);
+  perspective: 1600px;
+}
+
+/* the disc mixes the accent into the drained ground (--mx-ground: same lightness, no color), so it
+   keeps the accent's own hue — a crimson on a cream page never passes through peach (no orange) */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-video__stage--phone {
+    --vd-disc: color-mix(in oklab, var(--sec-accent) 26%, var(--mx-ground, var(--sec-bg)));
+    --vd-disc-hi: color-mix(in oklab, var(--sec-accent) 46%, var(--mx-ground, var(--sec-bg)));
+    --vd-ring: color-mix(in oklab, var(--sec-accent) 30%, transparent);
+  }
+
+  /* quiet-luxury & precise archetypes: a calmer disc */
+  :root:is([data-arch="maison"], [data-arch="editorial"], [data-arch="circuit"]) .lp-video__stage--phone {
+    --vd-disc: color-mix(in oklab, var(--sec-accent) 14%, var(--mx-ground, var(--sec-bg)));
+    --vd-disc-hi: color-mix(in oklab, var(--sec-accent) 28%, var(--mx-ground, var(--sec-bg)));
+  }
+}
+
+/* the phone, its light and its floor move as one */
+.lp-video__lift {
+  position: relative;
+}
+
+/* a disc of the product's light the phone stands on (it breaks out top and bottom), one orbit ring */
+.lp-video__halo {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: -1;
+  inline-size: min(calc(var(--pw) * 1.6), 100vw - 1.5rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  translate: calc(-50% * var(--lp-x)) -50%;
+  background: radial-gradient(circle at 50% 22%, var(--vd-disc-hi), var(--vd-disc) 72%);
+  box-shadow: inset 0 1px 0 var(--vd-rim), 0 40px 120px -40px var(--vd-disc-hi);
+}
+
+.lp-video__halo::before {
+  content: "";
+  position: absolute;
+  inset: -16%;
+  border-radius: 50%;
+  border: 1px solid var(--vd-ring);
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 85%);
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 85%);
+}
+
+/* the lit floor under the phone: a contact pool, light on dark blocks and shade on light ones */
+.lp-video__floor {
+  position: absolute;
+  inset-block-end: calc(var(--pw) * -0.07);
+  inset-inline-start: 50%;
+  z-index: -1;
+  inline-size: calc(var(--pw) * 1.25);
+  block-size: calc(var(--pw) * 0.14);
+  border-radius: 50%;
+  translate: calc(-50% * var(--lp-x)) 0;
+  background: radial-gradient(closest-side, var(--mx-contact), transparent);
+  filter: blur(4px);
+}
+
+.lp-video__phone {
+  position: relative;
+  inline-size: var(--pw);
+  padding: calc(var(--pw) * 0.03);
+  border-radius: calc(var(--pw) * 0.155);
+  background: linear-gradient(150deg, var(--lp-n-700, var(--lp-dark)), var(--lp-n-950, var(--lp-dark)) 18%, var(--lp-n-950, var(--lp-dark)) 82%, var(--lp-n-800, var(--lp-dark)));
+  box-shadow: inset 0 0 0 1px var(--vd-rim), inset 0 0 0 calc(var(--pw) * 0.012) var(--lp-n-950, var(--lp-dark)), var(--lp-shadow-l);
+  rotate: var(--tilt, 0deg);
+}
+
+/* side keys */
+.lp-video__phone::before,
+.lp-video__phone::after {
+  content: "";
+  position: absolute;
+  inline-size: 3px;
+  border-radius: 3px;
+  background: var(--lp-n-700, var(--lp-dark));
+}
+
+.lp-video__phone::before {
+  inset-block-start: 26%;
+  inset-inline-end: -2px;
+  block-size: 13%;
+}
+
+.lp-video__phone::after {
+  inset-block-start: 20%;
+  inset-inline-start: -2px;
+  block-size: 8%;
+}
+
+.lp-video__ugc {
+  --vd-pad: calc(var(--pw) * 0.05);
+  font-size: calc(var(--pw) * 0.045);
+  color: var(--lp-dark-ink);
+}
+
+.lp-video__ugc > .lp-video__screen {
+  aspect-ratio: 9 / 19;
+  border-radius: calc(var(--pw) * 0.128);
+}
+
+.lp-video__ugc .lp-video__shade {
+  background: linear-gradient(to bottom, var(--lp-dark), transparent 22%, transparent 52%, var(--lp-dark));
+  opacity: 0.66;
+}
+
+/* a faint diagonal reflection on the glass */
+.lp-video__glare {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(118deg, var(--vd-glare), transparent 30%, transparent 72%, var(--vd-glare));
+  pointer-events: none;
+}
+
+.lp-video__island {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: 2.2%;
+  inset-inline: 0;
+  margin-inline: auto;
+  inline-size: 31%;
+  block-size: calc(var(--pw) * 0.085);
+  border-radius: 999px;
+  background: var(--lp-n-950, var(--lp-dark));
+}
+
+/* story progress: one seen, one playing, one to come */
+.lp-video__bars {
+  position: absolute;
+  z-index: 4;
+  inset-block-start: calc(var(--pw) * 0.15);
+  inset-inline: 5%;
+  display: flex;
+  gap: 4px;
+}
+
+.lp-video__bars > i {
+  position: relative;
+  flex: 1;
+  block-size: 2.5px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--vd-rim);
+}
+
+.lp-video__bars > i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--lp-dark-ink);
+  transform-origin: 0 50%;
+  scale: 0 1;
+}
+
+[dir="rtl"] .lp-video__bars > i::after {
+  transform-origin: 100% 50%;
+}
+
+.lp-video__bars > i:first-child::after {
+  scale: 1 1;
+}
+
+.lp-video__bars > i:nth-child(2)::after {
+  scale: 0.45 1;
+}
+
+.lp-video__ugc > .lp-video__fc {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1em;
+  padding: calc(var(--pw) * 0.2) var(--vd-pad) calc(var(--vd-pad) * 1.4);
+}
+
+/* phone controls: discs at the bottom end; the words sit above them, like an app caption */
+.lp-video__ugc[data-ready] > .lp-video__fc {
+  padding-block-end: calc(var(--vd-pad) + 3.4rem);
+  padding-inline-end: var(--vd-pad);
+}
+
+.lp-video__ugc > .lp-video__ctl {
+  inset-block: auto var(--vd-pad);
+}
+
+.lp-video__who {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-inline-size: 0;
+}
+
+.lp-video__av {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 2.3em;
+  block-size: 2.3em;
+  border-radius: 50%;
+  background: var(--lp-accent);
+  color: var(--lp-accent-ink);
+  box-shadow: 0 0 0 2px var(--lp-dark-ink);
+  font-weight: 700;
+}
+
+.lp-video__id {
+  display: grid;
+  min-inline-size: 0;
+  line-height: 1.25;
+}
+
+/* the creator's name and city keep their own direction: an ellipsis cuts their end, never their start */
+.lp-video__id > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: plaintext;
+}
+
+.lp-video__id > span {
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+.lp-video__ver {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 0.3em;
+  margin-inline-start: auto;
+  padding: 0.4em 0.75em;
+  border-radius: 999px;
+  background: var(--lp-dark-ink);
+  color: var(--lp-dark);
+  font-size: 0.78em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lp-video__quote {
+  margin: 0;
+  font-size: 1.22em;
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.35;
+  text-wrap: pretty;
+  text-shadow: 0 1px 14px var(--lp-dark);
+}
+
+.lp-video__ugc .lp-video__sl {
+  display: none;
+}
+
+.lp-video__ugc .lp-video__sound {
+  padding-inline: 0;
+}
+
+/* frosted COD chips — phones: a row under the phone, clear of the story chrome */
+.lp-video__floats {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: clamp(1.75rem, 6vw, 2.5rem) 0 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+/* phones and tablets: the two promises stack as one tidy pair of equal width under the phone (two
+   long labels never share a 360px row, and a centred pair of uneven pills looks accidental) */
+@media (max-width: 63.99rem) {
+  .lp-video__floats {
+    display: grid;
+    grid-template-columns: max-content;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .lp-video__floats .lp-video__chip {
+    display: flex;
+  }
+
+  .lp-video__chip {
+    gap: 0.45em;
+    padding-inline-end: 0.8em;
+    font-size: calc(0.75rem * var(--lp-script-scale));
+  }
+
+  .lp-video__chip-i {
+    inline-size: 1.85em;
+    block-size: 1.85em;
+  }
+}
+
+.lp-video__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  padding: 0.4em 0.95em 0.4em 0.4em;
+  border-radius: 999px;
+  font-size: calc(max(0.78rem, var(--lp-step--1) * 0.86) * var(--lp-script-scale));
+  white-space: nowrap;
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.25;
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+}
+
+.lp-video__chip-i {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 2em;
+  block-size: 2em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+@media (min-width: 64rem) {
+  .lp-video__wrap--phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-rows: 1fr auto auto 1fr;
+    grid-template-areas: ". stage" "head stage" "act stage" ". stage";
+    column-gap: clamp(3rem, 7vw, 7.5rem);
+    row-gap: clamp(1.75rem, 2.6vw, 2.75rem);
+  }
+
+  .lp-video__stage--phone {
+    --pw: clamp(17rem, 24vw, 20.5rem);
+    padding-block: 3.5rem;
+  }
+
+  .lp-video__halo {
+    inline-size: calc(var(--pw) * 1.72);
+  }
+
+  /* chips float over the phone's edges */
+  .lp-video__floats {
+    position: absolute;
+    inset: 0;
+    display: block;
+    margin: 0;
+  }
+
+  /* each chip overlaps the phone's edge and grows outward, wrapping before it leaves the stage */
+  .lp-video__float {
+    --edge: calc(50% + var(--pw) * 0.5 - 2.5rem);
+    position: absolute;
+    inline-size: max-content;
+    max-inline-size: 15rem;
+  }
+
+  /* the chip on the outer side (toward the page edge) stops at the gutter */
+  .lp-video__float[data-at="2"],
+  [data-flip] > .lp-video__floats > [data-at="1"] {
+    max-inline-size: min(15rem, calc(50% - var(--pw) * 0.5 + 4.5rem));
+  }
+
+  [data-flip] > .lp-video__floats > [data-at="2"] {
+    max-inline-size: 15rem;
+  }
+
+  .lp-video__float .lp-video__chip {
+    white-space: normal;
+    border-radius: 1.4em;
+  }
+
+  .lp-video__float[data-at="1"] {
+    inset-block: var(--y1, 34%) auto;
+    inset-inline: auto var(--edge);
+  }
+
+  .lp-video__float[data-at="2"] {
+    inset-block: var(--y2, 60%) auto;
+    inset-inline: var(--edge) auto;
+  }
+
+  [data-flip] > .lp-video__floats > [data-at="1"] {
+    inset-inline: var(--edge) auto;
+  }
+
+  [data-flip] > .lp-video__floats > [data-at="2"] {
+    inset-inline: auto var(--edge);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  :root:not([data-motion="off"]) .lp-video__bars > i:nth-child(2)::after {
+    animation: lp-vid-scrub calc(7s * var(--vd-k)) linear infinite;
+  }
+
+  :root:not([data-motion="off"]) .lp-video__chip {
+    animation: lp-vid-float calc(6s * var(--vd-k)) var(--lp-sway) infinite alternate;
+  }
+
+  :root:not([data-motion="off"]) [data-at="2"] > .lp-video__chip {
+    animation-delay: calc(-3s * var(--vd-k));
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    /* phone: turns gently as it crosses the screen */
+    :root:not([data-motion="off"]) .lp-video__stage--phone {
+      animation: lp-vid-turn linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+  }
+}
+
+@keyframes lp-vid-scrub {
+  from {
+    scale: 0 1;
+  }
+  to {
+    scale: 1 1;
+  }
+}
+
+@keyframes lp-vid-float {
+  from {
+    translate: 0 -5px;
+  }
+  to {
+    translate: 0 5px;
+  }
+}
+
+@keyframes lp-vid-turn {
+  from {
+    transform: perspective(1400px) rotateY(calc(12deg * var(--lp-x))) rotateX(5deg);
+  }
+  to {
+    transform: perspective(1400px) rotateY(calc(-9deg * var(--lp-x))) rotateX(-3deg);
+  }
+}

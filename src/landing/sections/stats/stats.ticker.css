@@ -1,0 +1,244 @@
+/* stats · ticker — rules only this variant renders (inlined after stats.css on pages whose markup
+   carries .lp-stats--ticker; the admin preview loads every variant). Shared rules live in stats.css. */
+
+.lp-stats__idx {
+  flex: none;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.75rem;
+  font-weight: var(--lp-strong-weight, 600);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--sec-ink-soft);
+}
+
+/* ==========================================================================
+   ticker — a full-bleed band of gliding figures + a still scoreboard
+   ========================================================================== */
+.lp-stats--ticker .lp-stats__head {
+  margin-block-end: 0;
+}
+
+/* the strip overhangs the section (clipped by it) so a tilted band never shows its ends */
+.lp-stats__strip {
+  position: relative;
+  margin-block: calc(var(--st-gap) * 1.1);
+  margin-inline: -4rem;
+  rotate: calc(var(--tk-rot, 0deg) * var(--lp-x, 1));
+}
+
+.lp-stats__band {
+  --rv-dur: calc(var(--lp-dur-l) * 1.5);
+  position: relative;
+  z-index: 1;
+  padding: clamp(0.9rem, 0.55rem + 1.5vw, 1.6rem) 4rem;
+  /* crisp hairline edges: the band reads as one precise strip even close to its section's color */
+  border-block: 1px solid var(--mx-line);
+  background-color: var(--sec-bg);
+  background-image: linear-gradient(180deg, var(--mx-tint), transparent 70%);
+  color: var(--sec-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m, 0 10px 30px -12px rgb(0 0 0 / 0.22));
+}
+
+.lp-stats__band .lp-marquee {
+  --mq-gap: clamp(1.5rem, 1rem + 2.5vw, 3rem);
+}
+
+.lp-stats__band .lp-marquee__sep {
+  font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+}
+
+.lp-stats__tk {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(0.7rem, 0.5rem + 0.8vw, 1.2rem);
+}
+
+.lp-stats .lp-stats__fig--tk {
+  font-size: clamp(3rem, 1.9rem + 4.6vw, 6.5rem);
+  line-height: 1;
+}
+
+.lp-stats__tklab {
+  display: -webkit-box;
+  max-inline-size: 21ch;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  white-space: normal;
+  text-wrap: balance;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.72rem, var(--lp-step--1) * 0.86) * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight, 600);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.25;
+  color: var(--sec-ink-soft);
+}
+
+/* Arabic captions take the body face: a mono label face would set Latin-width word spaces */
+:lang(ar) .lp-stats__tklab {
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  line-height: 1.5;
+}
+
+/* echo: the figures again, outlined, drifting the other way */
+.lp-stats__echo {
+  margin-block-start: clamp(0.9rem, 0.6rem + 1.2vw, 1.5rem);
+  color: var(--mx-line);
+}
+
+.lp-stats .lp-stats__fig--echo {
+  font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.75rem);
+  line-height: 1;
+}
+
+@supports (-webkit-text-stroke: 1px black) {
+  .lp-stats__fig--echo {
+    color: transparent;
+    -webkit-text-stroke: 1.25px var(--mx-line);
+  }
+}
+
+.lp-stats__echo .lp-marquee__sep {
+  color: inherit;
+}
+
+/* scoreboard: phone rows (figure | caption), desktop hairline-divided columns */
+.lp-stats__board {
+  display: grid;
+  border-block-end: 1px solid var(--mx-hair);
+}
+
+.lp-stats__cell {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  grid-template-areas: "num label" "num meter";
+  align-items: center;
+  column-gap: clamp(1rem, 4vw, 1.5rem);
+  padding-block: 1.15rem;
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-stats__cell > .lp-stats__idx {
+  display: none;
+}
+
+/* phone rows size to their content (no container), so the figure caps on the viewport instead */
+.lp-stats .lp-stats__cellnum {
+  --fs: clamp(2.4rem, 1.8rem + 2.6vw, 4rem);
+  grid-area: num;
+  container-type: normal;
+}
+
+.lp-stats__cell > .lp-stats__label {
+  grid-area: label;
+}
+
+.lp-stats__cell:has(> .lp-stats__meter) > .lp-stats__label {
+  align-self: end;
+}
+
+.lp-stats__meter--cell {
+  grid-area: meter;
+  align-self: start;
+  max-inline-size: 12rem;
+  margin-block-start: 0.7rem;
+}
+
+.lp-stats__fig--cell {
+  /* reserve the final width: captions beside it never shift while it rolls up */
+  min-inline-size: calc(var(--len, 1) * 0.5em);
+  transition: color var(--lp-dur-m) var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-stats__cell:hover .lp-stats__fig--cell {
+    color: var(--sec-accent);
+  }
+}
+
+/* phones: every caption starts on the same line, whatever the width of its figure */
+@supports (grid-template-columns: subgrid) {
+  @media (max-width: 47.99rem) {
+    .lp-stats__board {
+      grid-template-columns: max-content minmax(0, 1fr);
+      column-gap: clamp(1rem, 4vw, 1.5rem);
+    }
+
+    .lp-stats__cell {
+      grid-column: 1 / -1;
+      grid-template-columns: subgrid;
+    }
+  }
+}
+
+@media (min-width: 48rem) {
+  .lp-stats__board {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    border-block-start: 1px solid var(--mx-hair);
+  }
+
+  .lp-stats__cell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "idx" "num" "meter" "label";
+    align-content: start;
+    row-gap: 0.9rem;
+    padding: clamp(1.25rem, 2.5vw, 2rem) clamp(1rem, 2.5vw, 2.25rem);
+    border-block-start: 0;
+  }
+
+  .lp-stats__cell + .lp-stats__cell {
+    border-inline-start: 1px solid var(--mx-hair);
+  }
+
+  .lp-stats__cell:first-child {
+    padding-inline-start: 0;
+  }
+
+  .lp-stats__cell > .lp-stats__idx {
+    grid-area: idx;
+    display: block;
+  }
+
+  .lp-stats .lp-stats__cellnum {
+    container-type: inline-size;
+  }
+
+  .lp-stats__fig--cell {
+    min-inline-size: 0;
+  }
+
+  .lp-stats__meter--cell {
+    margin-block: 0.2rem 0.15rem;
+  }
+}
+
+/* desktop: the columns share their rows (index · figure · meter · caption), so a share's meter
+   never pushes its caption below its neighbors' — every caption starts on one line */
+@supports (grid-template-rows: subgrid) {
+  @media (min-width: 48rem) {
+    .lp-stats__board {
+      grid-template-rows: repeat(4, auto);
+    }
+
+    .lp-stats__cell {
+      grid-row: span 4;
+      grid-template-rows: subgrid;
+    }
+  }
+}
+
+/* desktop: everything starts at the top of its shared row — the phone rules (rows centered, a
+   caption seated on its meter) would drop captions of different lengths to different lines */
+@media (min-width: 48rem) {
+  .lp-stats__cell {
+    align-items: start;
+  }
+
+  .lp-stats__cell:has(> .lp-stats__meter) > .lp-stats__label {
+    align-self: start;
+  }
+}

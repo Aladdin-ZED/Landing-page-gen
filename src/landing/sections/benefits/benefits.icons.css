@@ -1,0 +1,195 @@
+/* benefits · icons — rules only this variant renders (inlined after benefits.css on pages whose markup
+   carries .lp-benefits--icons; the admin preview loads every variant). Shared rules live in benefits.css. */
+
+.lp-benefits__ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 3.25rem;
+  aspect-ratio: 1;
+  padding: 0.78rem;
+  border-radius: calc(32% * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  color: var(--sec-accent);
+  background: linear-gradient(160deg, var(--mx-tint-2), var(--mx-tint));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair), 0 10px 20px -12px var(--mx-btn-2);
+  transition: translate var(--lp-dur-m) var(--lp-spring), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+:is(.lp-benefits__ico, .lp-benefits__disc) > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+.lp-benefits [data-bg] .lp-benefits__ico {
+  color: var(--sec-ink);
+  background: var(--mx-on-accent);
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+}
+
+:is(.lp-benefits__thumbchip, .lp-benefits__chip, .lp-benefits__pchip, .lp-benefits__tchip) .lp-benefits__figlabel {
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* ==========================================================================
+   icons — compact "at a glance" sheet
+   ========================================================================== */
+.lp-benefits__compact {
+  --c-max: min(var(--lp-container), 66rem);
+}
+
+.lp-benefits__panel {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: 0 0 0 var(--lp-hairline) var(--mx-edge, var(--mx-hair)), var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+}
+
+.lp-benefits__pmedia {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--mx-tint);
+}
+
+/* phones: an upright shot cropped to a 16:10 banner keeps only a slice of the product — it gets the
+   frame its crop was fitted to instead (--mr: 4:5 for a figure, 1:1 for a product); the side column
+   takes it full height from tablets up */
+.lp-benefits__panel[data-media="side"] .lp-benefits__pmedia {
+  aspect-ratio: var(--mr, 1);
+}
+
+.lp-benefits__pmpic {
+  position: absolute;
+  inset: 0;
+}
+
+.lp-benefits__pmpic .lp-pic__img {
+  transition: scale 1.4s var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-benefits__panel:hover .lp-benefits__pmpic .lp-pic__img {
+    scale: 1.035;
+  }
+}
+
+/* the key figure rides the photo's top corner: products stand on the floor of their shot, the chip
+   never covers them */
+.lp-benefits__pchip {
+  position: absolute;
+  inset-block-start: 0.85rem;
+  inset-inline-start: 0.85rem;
+  display: grid;
+  gap: 0.15rem;
+  max-inline-size: min(12rem, 70%);
+  padding: 0.7rem 0.95rem 0.8rem;
+  border-radius: var(--lp-sq-m);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-benefits__pchip .lp-benefits__fig {
+  font-size: calc(var(--lp-step-3) * 0.9 * var(--lp-script-scale-display));
+}
+
+/* 1px gaps over a hairline-colored backdrop = crisp rules between cells */
+.lp-benefits__cells {
+  display: grid;
+  gap: 1px;
+  background: var(--mx-hair);
+}
+
+.lp-benefits__cell {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  /* a cell stretched by its row neighbor keeps its content at the top (auto rows would share the
+     extra height): icons and titles stay level across every row */
+  align-content: start;
+  align-items: start;
+  gap: 1rem 1.15rem;
+  padding: clamp(1.3rem, 0.9rem + 1.6vw, 2.4rem);
+  background: var(--sec-card);
+}
+
+/* hover: a pool of product light rises in the cell from the reading start */
+.lp-benefits__cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(110% 90% at calc(50% - 50% * var(--lp-x)) 0%, var(--mx-tint), transparent 62%);
+  opacity: 0;
+  transition: opacity var(--lp-dur-l) var(--lp-smooth);
+  pointer-events: none;
+}
+
+.lp-benefits__cell > * {
+  position: relative;
+}
+
+.lp-benefits__cell .lp-benefits__p {
+  font-size: calc(var(--lp-step-0) * 0.96 * var(--lp-script-scale));
+}
+
+@media (hover: hover) {
+  .lp-benefits__cell:hover::before {
+    opacity: 1;
+  }
+
+  .lp-benefits__cell:hover .lp-benefits__ico {
+    translate: 0 -3px;
+    scale: 1.06;
+  }
+}
+
+@media (min-width: 40rem) {
+  .lp-benefits__cells {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-benefits__cell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .lp-benefits__panel:is([data-count="3"], [data-count="5"]) .lp-benefits__cell:last-child {
+    grid-column: span 2;
+  }
+}
+
+/* tablet up: a portrait photo becomes the panel's leading column, full height; a landscape one
+   stays a banner across the panel (a tall crop of a wide shot would lose the product) */
+@media (min-width: 48rem) {
+  .lp-benefits__panel[data-media="side"] {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr);
+  }
+
+  .lp-benefits__panel[data-media="side"] .lp-benefits__pmedia {
+    aspect-ratio: auto;
+    min-block-size: 100%;
+  }
+
+  .lp-benefits__panel[data-media="wide"] .lp-benefits__pmedia {
+    aspect-ratio: 21 / 8;
+  }
+
+  .lp-benefits__pchip {
+    inset-block-start: 1.1rem;
+    inset-inline-start: 1.1rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .lp-benefits__panel:not([data-media="side"]):is([data-count="3"], [data-count="6"]) .lp-benefits__cells {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lp-benefits__panel:not([data-media="side"])[data-count="3"] .lp-benefits__cell:last-child {
+    grid-column: auto;
+  }
+}

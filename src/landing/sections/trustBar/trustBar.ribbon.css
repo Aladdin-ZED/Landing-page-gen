@@ -1,0 +1,178 @@
+/* trustBar · ribbon — rules only this variant renders (inlined after trustBar.css on pages whose markup
+   carries .lp-trustBar--ribbon; the admin preview loads every variant). Shared rules live in trustBar.css. */
+
+/* ---------- ribbon ------------------------------------------------------ */
+.lp-trustBar--ribbon {
+  padding-block: calc(clamp(1.75rem, 1rem + 3vw, 3rem) * var(--space-k, 1));
+}
+
+/* on a color block the section itself is the band: slim and flat */
+.lp-trustBar--ribbon[data-bg="accent"],
+.lp-trustBar--ribbon[data-bg="pop"] {
+  padding-block: calc(clamp(0.5rem, 0.35rem + 0.8vw, 0.9rem) * var(--space-k, 1));
+}
+
+.lp-trustBar__band {
+  /* how far the band runs past the section box (the page clips it at the screen edges) */
+  --tb-bleed: 0px;
+  --band-shade: var(--mx-floor);
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-inline: calc(-1 * var(--tb-bleed));
+  padding-block: clamp(0.8rem, 0.6rem + 0.9vw, 1.2rem);
+  background-color: var(--sec-bg);
+  color: var(--sec-ink);
+  box-shadow: inset 0 1px 0 var(--mx-rim), 0 16px 30px -20px var(--band-shade), 0 3px 8px -4px var(--band-shade);
+}
+
+/* the band's shadow is its own color, deepened (never a stray hue from the block's accent) */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-trustBar__band {
+    --band-shade: color-mix(in oklab, color-mix(in oklab, var(--sec-bg), #000 35%) 60%, transparent);
+  }
+}
+
+/* panels: the floating band crosses the panel edge and runs on to the screen edges */
+:root[data-surfaces="panels"] .lp-trustBar__band:not(.lp-trustBar__band--own) {
+  --tb-bleed: var(--lp-panel-inset, clamp(8px, 2vw, 20px));
+}
+
+.lp-trustBar__band[data-tilt] {
+  margin-inline: calc(-1 * var(--tb-bleed) - 3rem);
+  padding-inline-start: 3rem;
+  transform: rotate(var(--tilt, 0deg));
+}
+
+.lp-trustBar__band--own {
+  padding-block: clamp(0.55rem, 0.45rem + 0.5vw, 0.8rem);
+  background: none;
+  box-shadow: none;
+}
+
+/* the pinned lead: an inverted capsule; the travelling promises slide in under its edge */
+.lp-trustBar__pin {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  max-inline-size: min(64%, 26rem);
+  padding-inline: calc(var(--tb-bleed) + var(--lp-gutter)) clamp(0.6rem, 0.3rem + 1vw, 1.1rem);
+}
+
+.lp-trustBar__pincap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  min-inline-size: 0;
+  padding-block: 0.5em;
+  padding-inline: 0.5em 1.1em;
+  border-radius: var(--lp-radius-pill, 999px);
+  background-color: var(--sec-ink);
+  color: var(--sec-bg);
+  font-size: clamp(0.84rem, 0.74rem + 0.5vw, 1.12rem);
+  font-weight: var(--lp-strong-weight, 600);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 10px 22px -12px var(--band-shade), 0 2px 5px -2px var(--band-shade);
+}
+
+/* one line in the usual case; a long promise wraps to two balanced lines, never more */
+.lp-trustBar__pincap .lp-trustBar__name {
+  display: -webkit-box;
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: inherit;
+  line-height: 1.2;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.lp-trustBar__pincap .lp-trustBar__icon {
+  inline-size: 1.9em;
+  block-size: 1.9em;
+  border-radius: 50%;
+  background-color: var(--sec-bg);
+  color: var(--sec-ink);
+}
+
+.lp-trustBar__ticker {
+  flex: 1;
+  min-inline-size: 0;
+  -webkit-mask-image: linear-gradient(var(--tb-dir, 90deg), transparent, #000 2rem);
+  mask-image: linear-gradient(var(--tb-dir, 90deg), transparent, #000 2rem);
+}
+
+[dir="rtl"] .lp-trustBar__ticker {
+  --tb-dir: 270deg;
+}
+
+/* own band inside a rounded panel: the words also fade before the panel's end */
+.lp-trustBar__band--own .lp-trustBar__ticker {
+  -webkit-mask-image: linear-gradient(var(--tb-dir, 90deg), transparent, #000 2rem, #000 calc(100% - 3rem), transparent);
+  mask-image: linear-gradient(var(--tb-dir, 90deg), transparent, #000 2rem, #000 calc(100% - 3rem), transparent);
+}
+
+/* a lone promise travels the full band (inside a panel it still fades before the rounded end) */
+.lp-trustBar__band > .lp-trustBar__ticker:only-child {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.lp-trustBar__band--own > .lp-trustBar__ticker:only-child {
+  -webkit-mask-image: linear-gradient(var(--tb-dir, 90deg), transparent, #000 3rem, #000 calc(100% - 3rem), transparent);
+  mask-image: linear-gradient(var(--tb-dir, 90deg), transparent, #000 3rem, #000 calc(100% - 3rem), transparent);
+}
+
+.lp-trustBar__tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(clamp(1.05rem, 0.85rem + 1vw, 1.55rem) * var(--lp-script-scale-display, 1));
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  line-height: 1.15;
+}
+
+.lp-trustBar__tick .lp-trustBar__name {
+  font: inherit;
+  line-height: inherit;
+}
+
+.lp-trustBar__tick .lp-trustBar__icon {
+  inline-size: 1.6em;
+  block-size: 1.6em;
+  border-radius: 50%;
+  background: var(--mx-hair);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-trustBar__tick .lp-trustBar__icon > .lp-icon {
+  inline-size: 0.85em;
+  block-size: 0.85em;
+}
+
+.lp-trustBar--ribbon .lp-marquee {
+  --mq-gap: clamp(1.4rem, 0.9rem + 2vw, 2.75rem);
+}
+
+.lp-trustBar--ribbon .lp-marquee__sep {
+  color: inherit;
+  opacity: 0.55;
+}
+
+/* motion off / reduced: the still ticker starts right at the pin, no faded first word */
+@media (prefers-reduced-motion: reduce) {
+  .lp-trustBar__band:not(.lp-trustBar__band--own) .lp-trustBar__ticker {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+:root[data-motion="off"] .lp-trustBar__band:not(.lp-trustBar__band--own) .lp-trustBar__ticker {
+  -webkit-mask-image: none;
+  mask-image: none;
+}

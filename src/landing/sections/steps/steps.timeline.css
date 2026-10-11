@@ -1,0 +1,364 @@
+/* steps · timeline — rules only this variant renders (inlined after steps.css on pages whose markup
+   carries .lp-steps--timeline; the admin preview loads every variant). Shared rules live in steps.css. */
+
+/* "3 steps · ≈ 2 min" (photo chip, phone pill) */
+.lp-steps__sep {
+  inline-size: 3px;
+  block-size: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* ==========================================================================
+   timeline — hairline track, accent fill, nodes that light up
+   ========================================================================== */
+.lp-steps__tl {
+  --dot: clamp(2.75rem, 2.45rem + 1.1vw, 3.25rem);
+  --rgap: clamp(1rem, 0.7rem + 1.4vw, 1.75rem);
+}
+
+.lp-steps__rail {
+  max-inline-size: 42rem;
+}
+
+.lp-steps__node {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--dot) minmax(0, 1fr);
+  column-gap: var(--rgap);
+  padding-block-end: clamp(2.5rem, 1.8rem + 3vw, 4rem);
+}
+
+.lp-steps__node:last-child {
+  padding-block-end: 0;
+}
+
+/* the track runs from this node's centre to the next one's; ::after is the accent fill */
+.lp-steps__node:not(:last-child)::before,
+.lp-steps__node:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  inset-block: calc(var(--dot) / 2) calc(var(--dot) / -2);
+  inset-inline-start: calc(var(--dot) / 2 - 1px);
+  inline-size: 2px;
+  border-radius: 2px;
+}
+
+.lp-steps__node:not(:last-child)::before {
+  background: var(--mx-line);
+}
+
+.lp-steps__node:not(:last-child)::after {
+  background: var(--sec-accent);
+  transform-origin: 50% 0;
+}
+
+:root[data-shadow="glow"] .lp-steps__node:not(:last-child)::after {
+  box-shadow: 0 0 12px 0 var(--sec-accent);
+}
+
+.lp-steps__mark {
+  position: relative;
+  z-index: 1;
+  inline-size: var(--dot);
+  block-size: var(--dot);
+}
+
+/* dim ring (base) + lit accent layer (::before) — the scroll lights each node, a soft halo
+   blooming around it */
+.lp-steps__disc {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 50%;
+  background: var(--sec-bg);
+  box-shadow: inset 0 0 0 1.5px var(--mx-line), 0 0 0 0.4rem var(--sec-bg);
+  color: var(--sec-accent-ink);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(var(--dot) * 0.3);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+  transition: scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-steps__disc::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--sec-accent);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 0 0 0.3rem var(--mx-tint), var(--lp-shadow-glow, 0 0 #0000);
+}
+
+@media (hover: hover) {
+  .lp-steps__node:hover .lp-steps__disc {
+    scale: 1.08;
+  }
+}
+
+.lp-steps__nbody {
+  min-inline-size: 0;
+  padding-block-start: max(0rem, calc(var(--dot) / 2 - 0.9rem));
+}
+
+/* title + duration tag on one line (the tag wraps under a long title) */
+.lp-steps__thead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.9rem;
+}
+
+.lp-steps__thead > .lp-steps__title {
+  min-inline-size: 0;
+}
+
+.lp-steps__thead > .lp-steps__time {
+  flex: none;
+  translate: 0 -0.12em;
+}
+
+/* exact optical alignment: the title's first line centred on its node */
+@supports (margin-block-start: 1lh) {
+  .lp-steps__node > .lp-steps__nbody {
+    padding-block-start: 0;
+  }
+
+  .lp-steps__thead > .lp-steps__title {
+    margin-block-start: max(0rem, calc(var(--dot) / 2 - 0.5lh));
+  }
+}
+
+.lp-steps__npic {
+  max-inline-size: 24rem;
+  margin-block-start: 1.25rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-s);
+}
+
+.lp-steps__node--done .lp-steps__note {
+  align-self: center;
+  padding: 0;
+}
+
+.lp-steps__cta--tl {
+  margin-block-start: clamp(2rem, 1.5rem + 2vw, 3rem);
+  padding-inline-start: calc(var(--dot) + var(--rgap));
+}
+
+/* the narrowest phones: an indented button would fold its label onto two lines, so it starts at the
+   rail instead (the closing check above still marks where the copy column begins) */
+@media (max-width: 22.5rem) {
+  .lp-steps__cta--tl {
+    padding-inline-start: 0;
+  }
+}
+
+/* phones: the summary on a glass pill with a round thumbnail, between the heading and the rail */
+.lp-steps__pill {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  inline-size: fit-content;
+  margin: calc(clamp(2.25rem, 1.5rem + 3vw, 4rem) * -0.4) 0 clamp(2rem, 1.6rem + 2vw, 2.75rem);
+  padding-block: 0.3rem;
+  padding-inline: 0.3rem 1.05rem;
+  border-radius: 999px;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(var(--lp-step--1) * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-steps__pill .lp-icon {
+  color: var(--sec-accent);
+}
+
+.lp-steps__pthumb {
+  flex: none;
+  inline-size: 2.6rem;
+  margin-inline-end: 0.2rem;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--mx-tint);
+}
+
+/* photo pinned beside the rail (wide screens only) */
+.lp-steps__media {
+  display: none;
+}
+
+@media (min-width: 60rem) {
+  .lp-steps__tl {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: clamp(3rem, 7vw, 7.5rem);
+    align-items: start;
+  }
+
+  .lp-steps__aside {
+    position: sticky;
+    inset-block-start: clamp(1.5rem, 9vh, 5.5rem);
+  }
+
+  .lp-steps__aside .lp-steps__head {
+    margin-block-end: 0;
+  }
+
+  /* the pinned column is narrow: an h2-sized title, long words break instead of running into the rail */
+  .lp-steps__aside .lp-sh__title {
+    font-size: calc(var(--lp-step-3) * 0.94 * var(--lp-script-scale-display));
+    line-height: calc(var(--lp-display-lh) + 0.06);
+    overflow-wrap: anywhere;
+    hyphens: auto;
+  }
+
+  .lp-steps__pill {
+    display: none;
+  }
+
+  /* a short rail (two quick steps) centres on the pinned column instead of hanging at its top */
+  .lp-steps__main {
+    align-self: center;
+    padding-block-start: 0.5rem;
+  }
+
+  .lp-steps__node .lp-steps__title {
+    font-size: calc(var(--lp-step-2) * 0.92 * var(--lp-script-scale-display));
+  }
+
+  .lp-steps__node .lp-steps__text {
+    max-inline-size: 46ch;
+  }
+
+  .lp-steps__media {
+    position: relative;
+    isolation: isolate;
+    display: block;
+    inline-size: min(100%, 23rem, 44vh);
+    margin: clamp(2rem, 4vh, 3.25rem) 0 0;
+  }
+
+  /* product light pooling behind the photo */
+  .lp-steps__media::before {
+    content: "";
+    position: absolute;
+    inset: 8% -14% -10%;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--mx-tint-2), transparent);
+    pointer-events: none;
+  }
+
+  .lp-steps__media--cutout::before {
+    display: none;
+  }
+
+  .lp-steps__mpic {
+    filter: drop-shadow(0 26px 38px var(--mx-floor));
+  }
+
+  .lp-steps__media figcaption {
+    position: absolute;
+    inset-inline-start: 0.9rem;
+    inset-block-end: 0.9rem;
+  }
+
+  .lp-steps__media--cutout .lp-steps__mchip {
+    position: absolute;
+    inset-inline-start: 0.5rem;
+    inset-block-end: 0.75rem;
+  }
+}
+
+.lp-steps__mchip {
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-steps__mchip .lp-icon {
+  opacity: 0.85;
+}
+
+/* ==========================================================================
+   archetype accents
+   ========================================================================== */
+:root[data-arch="circuit"] .lp-steps__disc {
+  border-radius: calc(32% * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+}
+
+:root[data-arch="maison"] .lp-steps__node:not(:last-child)::before,
+:root[data-arch="maison"] .lp-steps__node:not(:last-child)::after {
+  inline-size: 1px;
+  inset-inline-start: calc(var(--dot) / 2 - 0.5px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* timeline fallback: each segment grows once its node is in view */
+  @supports not (animation-timeline: view()) {
+    html.lp-js:not([data-motion="off"]) .lp-steps__node[data-reveal]:not([data-in])::after {
+      transform: scaleY(0);
+    }
+
+    html.lp-js:not([data-motion="off"]) .lp-steps__node[data-in]::after {
+      animation: lp-steps-fill calc(var(--lp-dur-l) * 1.8) var(--lp-smooth) calc(var(--d, 0ms) + 240ms) backwards;
+    }
+  }
+
+  /* scroll-driven: the line follows a reading line ~60% down the screen; nodes light as it passes */
+  @supports (animation-timeline: view()) {
+    :root:not([data-motion="off"], .lp-qa) .lp-steps__node {
+      view-timeline: --lp-steps-node block;
+      view-timeline-inset: 56% 38%;
+    }
+
+    :root:not([data-motion="off"], .lp-qa) .lp-steps__node:not(:last-child)::after {
+      animation: lp-steps-fill linear both;
+      animation-timeline: --lp-steps-node;
+      animation-range: cover 0% cover 100%;
+    }
+
+    :root:not([data-motion="off"], .lp-qa) .lp-steps__disc {
+      animation: lp-steps-ink linear both;
+      animation-timeline: --lp-steps-node;
+      animation-range: cover 0% cover var(--dot);
+    }
+
+    :root:not([data-motion="off"], .lp-qa) .lp-steps__disc::before {
+      animation: lp-steps-lit linear both;
+      animation-timeline: --lp-steps-node;
+      animation-range: cover 0% cover var(--dot);
+    }
+  }
+}
+
+/* ==========================================================================
+   motion — reveals, scroll-driven fills, idle loops
+   ========================================================================== */
+@keyframes lp-steps-fill {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes lp-steps-lit {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes lp-steps-ink {
+  from {
+    color: var(--sec-ink-soft);
+  }
+}

@@ -1,0 +1,398 @@
+/* footer · big — rules only this variant renders (inlined after footer.css on pages whose markup
+   carries .lp-footer--big; the admin preview loads every variant). Shared rules live in footer.css. */
+
+.lp-footer__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-footer__item {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  color: var(--sec-ink-soft);
+  text-decoration: none;
+  transition: color var(--ft-e);
+}
+.lp-footer__item-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ft-d, var(--ft-round));
+  block-size: var(--ft-d, var(--ft-round));
+  border-radius: 50%;
+  background: var(--ft-disc);
+  color: var(--sec-accent);
+  transition:
+    background-color var(--ft-e),
+    color var(--ft-e),
+    border-color var(--ft-e),
+    translate var(--ft-s),
+    scale var(--ft-s);
+}
+
+@media (hover: hover) {
+
+  a:hover > .lp-footer__item-icon {
+    translate: 0 -2px;
+  }
+}
+
+:is([data-k="whatsapp"], [data-k="phone"]) > .lp-footer__item-text {
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   big
+   ========================================================================== */
+/* the giant word sits on the bottom edge (no run-out). The run-in keeps the page's rhythm up to a cap:
+   an airy page's very large spacing would otherwise leave the closing statement floating */
+.lp-footer--big {
+  padding-block: min(calc(var(--lp-space-section) * var(--space-k, 1)), 9rem) 0;
+  overflow: hidden;
+}
+
+.lp-footer__base--last {
+  padding-block-end: min(calc(var(--lp-space-section) * var(--space-k, 1) * 0.55), 5rem);
+}
+
+@supports (overflow: clip) {
+  .lp-footer--big {
+    overflow: clip;
+  }
+}
+
+.lp-footer__upper {
+  display: grid;
+  gap: calc(var(--ft-gap) * 1.2);
+}
+
+.lp-footer__mark + .lp-footer__title {
+  margin-block-start: 1.75rem;
+}
+
+.lp-footer__title {
+  max-inline-size: 15ch;
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: min(
+    calc(var(--lp-step-3) * 1.06 * var(--lp-script-scale-display)),
+    11vw
+  );
+  line-height: calc(var(--lp-display-lh) + 0.04);
+  letter-spacing: var(--lp-display-tracking);
+  text-transform: var(--lp-display-case);
+  text-wrap: balance;
+}
+
+.lp-footer__title:lang(ar) {
+  max-inline-size: 18ch;
+}
+
+/* clear of the emphasis stroke that hangs under the title's last line */
+.lp-footer__title + .lp-footer__tagline {
+  margin-block-start: 1.75rem;
+}
+
+.lp-footer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block-start: 2rem;
+}
+
+.lp-footer__action-wrap {
+  display: flex;
+  flex: 1 1 13rem;
+  max-inline-size: 22rem;
+}
+
+.lp-footer__action {
+  flex: 1;
+}
+
+.lp-footer__action .lp-btn__label {
+  white-space: nowrap;
+}
+
+.lp-footer__cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--ft-gap) * 0.9) 1.5rem;
+  align-items: start;
+}
+
+.lp-footer__col {
+  position: relative;
+}
+
+.lp-footer__list {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.lp-footer__item {
+  display: flex;
+  gap: 0.75rem;
+  font-size: calc(var(--lp-step-0) * 0.95 * var(--lp-script-scale));
+  line-height: 1.4;
+  color: var(--sec-ink);
+}
+
+.lp-footer__item-icon {
+  --ft-d: 2rem;
+  border-radius: max(calc(0.5rem * var(--lp-corner-k, 1)), calc(var(--lp-sq-s) - 0.125rem));
+  corner-shape: var(--lp-corner);
+}
+
+.lp-footer__item-text {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.lp-footer__legal--col .lp-footer__legal-list {
+  column-gap: 1.5rem;
+}
+
+.lp-footer__legal--col .lp-footer__legal-link {
+  font-size: calc(var(--lp-step-0) * 0.95 * var(--lp-script-scale));
+  color: var(--sec-ink);
+}
+
+@media (hover: hover) {
+  a.lp-footer__item:hover,
+  .lp-footer__legal--col .lp-footer__legal-link:hover {
+    color: var(--sec-accent);
+  }
+}
+
+/* base row: hairline, COD capsule, socials + top, identity */
+.lp-footer__base {
+  display: grid;
+  row-gap: 1.25rem;
+  margin-block-start: calc(var(--ft-gap) * 1.4);
+}
+
+.lp-footer__base > .lp-footer__rule {
+  margin-block-end: 0.5rem;
+}
+
+.lp-footer__base > .lp-footer__cod {
+  justify-self: start;
+  margin: 0;
+}
+
+@container (min-width: 40rem) {
+  .lp-footer__cols {
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  }
+
+  .lp-footer__legal--col .lp-footer__legal-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (min-width: 62rem) {
+  /* statement on the start side, the buttons settle at the end on its last line */
+  .lp-footer__lead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "mark actions"
+      "title actions"
+      "tagline actions";
+    align-items: end;
+    column-gap: clamp(2rem, 6cqi, 6rem);
+  }
+
+  .lp-footer__lead > .lp-footer__mark {
+    grid-area: mark;
+  }
+
+  .lp-footer__lead > .lp-footer__title {
+    grid-area: title;
+    max-inline-size: 18ch;
+  }
+
+  .lp-footer__lead > .lp-footer__tagline {
+    grid-area: tagline;
+  }
+
+  .lp-footer__lead > .lp-footer__actions {
+    grid-area: actions;
+    flex-wrap: nowrap;
+    margin: 0;
+  }
+
+  .lp-footer__action-wrap {
+    flex: none;
+  }
+
+  /* one row of columns, set apart by hairlines that grow down as each column arrives */
+  .lp-footer__cols {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    column-gap: 0;
+  }
+
+  .lp-footer__col {
+    padding-inline-end: clamp(1.5rem, 3cqi, 3rem);
+  }
+
+  .lp-footer__col + .lp-footer__col {
+    padding-inline-start: clamp(1.5rem, 3cqi, 3rem);
+  }
+
+  .lp-footer__col + .lp-footer__col::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: 1px;
+    background: var(--mx-hair);
+    transform-origin: 50% 0;
+  }
+
+  .lp-footer__base {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .lp-footer__base > :is(.lp-footer__rule, .lp-footer__fine) {
+    grid-column: 1 / -1;
+  }
+
+  .lp-footer__base > .lp-footer__meta {
+    grid-column: 2;
+  }
+}
+
+/* ---------- the giant wordmark (on the content grid: its edges line up with the columns) --- */
+.lp-footer__giant {
+  position: relative;
+  z-index: 0;
+  margin-block-start: clamp(2.5rem, 1.5rem + 4vw, 4.5rem);
+  view-timeline-name: --ft-end;
+}
+
+/* a horizon of the product's light, centered on the bottom edge, behind the letters */
+.lp-footer__glow {
+  position: absolute;
+  z-index: 0;
+  inset-inline: -14%;
+  inset-block-end: -60%;
+  block-size: 120%;
+  background: radial-gradient(closest-side, var(--sec-accent), transparent);
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+/* on a light block the letters carry the hue on their own: a glow would read as a pale shelf */
+:root:not([data-base="dark"])
+  :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])
+  .lp-footer__glow {
+  display: none;
+}
+
+.lp-footer__giant-word {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.lp-footer__giant-svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  overflow: visible;
+}
+
+.lp-footer__giant-svg--two {
+  display: none;
+}
+
+[data-fit="two"] > .lp-footer__giant-svg--two {
+  display: block;
+}
+
+@container (max-width: 40rem) {
+  [data-fit="both"] > .lp-footer__giant-svg--one {
+    display: none;
+  }
+
+  [data-fit="both"] > .lp-footer__giant-svg--two {
+    display: block;
+  }
+}
+
+.lp-footer__giant-text {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-kerning: normal;
+  letter-spacing: var(--ft-track, 0);
+  word-spacing: var(--ft-word, 0);
+  text-transform: none;
+}
+
+/* the fill: page ink, then the product accent thinning out into the edge */
+.lp-footer__gs--ink {
+  stop-color: var(--sec-ink);
+}
+
+.lp-footer__gs--mid {
+  stop-color: var(--sec-accent);
+  stop-opacity: 0.95;
+}
+
+.lp-footer__gs--edge {
+  stop-color: var(--sec-accent);
+  stop-opacity: 0.3;
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  html.lp-js:not([data-motion="off"]) .lp-footer__col[data-in]::before {
+    animation: lp-ft-grow calc(var(--lp-dur-l) * 2.2) var(--lp-smooth)
+      calc(var(--d, 0ms) + 120ms) backwards;
+  }
+
+  /* the giant word rises out of the bottom edge as the page reaches its end (scroll-linked) */
+  @supports (animation-timeline: view()) {
+    html:not(.lp-qa, [data-motion="off"])
+      :is(.lp-footer__giant-word, .lp-footer__glow) {
+      animation: lp-ft-rise linear both;
+      animation-timeline: --ft-end;
+      animation-range: entry 0% entry 100%;
+    }
+
+    html:not(.lp-qa, [data-motion="off"]) .lp-footer__glow {
+      animation-name: lp-ft-glow;
+      animation-range: entry 10% entry 100%;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  a:hover > .lp-footer__item-icon {
+    translate: none;
+  }
+}
+
+@keyframes lp-ft-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes lp-ft-rise {
+  from {
+    opacity: 0.2;
+    transform: translateY(42%);
+  }
+}
+
+@keyframes lp-ft-glow {
+  from {
+    opacity: 0;
+  }
+}

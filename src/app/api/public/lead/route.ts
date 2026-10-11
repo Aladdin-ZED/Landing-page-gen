@@ -1,0 +1,34 @@
+/**
+ * POST /api/public/lead — abandoned-lead capture (sent once the phone becomes valid).
+ * Fire-and-forget for the runtime: answers 204 whether or not the lead was stored (no oracle).
+ */
+import type { NextRequest } from "next/server";
+import { LeadPayload } from "@/lib/orders/contract";
+import { checkOrigin, clientContext, corsHeaders, json, logError, noContent, preflight, readJson } from "@/lib/orders/http";
+import { upsertLead } from "@/lib/orders/leads";
+import { resolvePageKey } from "@/lib/orders/resolve";
+
+export function OPTIONS(req: NextRequest): Promise<Response> {
+  return preflight(req);
+}
+
+export async function POST(req: NextRequest): Promise<Response> {
+  const client = clientContext(req);
+  try {
+    const body = await readJson(req, 8 * 1024);
+    if (!body.ok) return json({ ok: false, error: "invalid" }, body.status, { Vary: "Origin" });
+    const parsed = LeadPayload.safeParse(body.value);
+    if (!parsed.success) return json({ ok: false, error: "invalid" }, 422, { Vary: "Origin" });
+
+    const target = await resolvePageKey(parsed.data.pageKey, "order");
+    if (!target) return noContent({ Vary: "Origin" });
+    const verdict = checkOrigin(req, target.kind === "export" ? target.allowedOrigins : null);
+    if (!verdict.ok) return json({ ok: false, error: "unavailable" }, 403, { Vary: "Origin" });
+
+    await upsertLead(parsed.data, { ip: client.ip, target });
+    return noContent(corsHeaders(verdict.cors));
+  } catch (err) {
+    logError("api/lead", err);
+    return json({ ok: false, error: "server" }, 500, { Vary: "Origin" });
+  }
+}

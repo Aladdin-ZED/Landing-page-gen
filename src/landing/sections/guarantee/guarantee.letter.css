@@ -1,0 +1,309 @@
+/* guarantee · letter — rules only this variant renders (inlined after guarantee.css on pages whose markup
+   carries .lp-guarantee--letter; the admin preview loads every variant). Shared rules live in guarantee.css. */
+
+.lp-guarantee__letter {
+  position: relative;
+  border: 1px solid var(--mx-hair);
+  border-radius: var(--g-radius);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-card);
+  background-image: linear-gradient(to bottom, var(--g-sheen), transparent 42%);
+  color: var(--sec-card-ink);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 24px 48px -24px rgb(0 0 0 / 0.28));
+}
+.lp-guarantee__ph--plain {
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   letter — the promise card: statement, signature, a tray of checked promises
+   ========================================================================== */
+.lp-guarantee__pool.lp-ill[data-place] {
+  top: 60%;
+}
+
+/* depth for the card's tilt-in entrance */
+.lp-guarantee--letter .lp-guarantee__wrap {
+  perspective: 1800px;
+}
+
+.lp-guarantee__letter {
+  --mark: clamp(4rem, 3.4rem + 2.4vw, 5.25rem);
+  --inset: clamp(0.4rem, 0.25rem + 0.6vw, 0.75rem);
+  --pad: var(--g-pad);
+  --corner: 14%;
+  display: grid;
+  max-inline-size: 68rem;
+  margin-block-start: calc(var(--mark) / 2);
+  margin-inline: auto;
+  padding: var(--inset);
+}
+
+[dir="rtl"] .lp-guarantee__letter {
+  --corner: 86%;
+}
+
+/* on dark cards the mark lights the corner it sits in (on light cards a tint would read as a smudge) */
+@supports (color: oklch(from red l c h)) {
+  :is([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])) .lp-guarantee__letter {
+    background-image:
+      radial-gradient(56% 44% at var(--corner) 0%, var(--g-tint), transparent 72%),
+      linear-gradient(to bottom, var(--g-sheen), transparent 42%);
+  }
+}
+
+/* the store's mark rides the card's top edge */
+.lp-guarantee__mark {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: var(--pad);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  inline-size: var(--mark);
+  aspect-ratio: 1;
+  translate: 0 -50%;
+  overflow: hidden;
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+  background-image: radial-gradient(80% 60% at 34% 8%, rgb(255 255 255 / 0.22), transparent 70%);
+  color: var(--sec-accent-ink);
+  box-shadow: 0 0 0 6px var(--sec-card), 0 0 0 7px var(--mx-hair), var(--lp-highlight-accent, 0 0 #0000), 0 18px 34px -14px var(--mx-btn-2);
+}
+
+/* a logo sits on the card color (most logos are drawn for light grounds) */
+.lp-guarantee__mark[data-logo] {
+  background-color: var(--sec-card);
+  background-image: none;
+  box-shadow: 0 0 0 6px var(--sec-card), 0 0 0 7px var(--mx-hair), inset 0 0 0 1px var(--mx-hair), 0 18px 34px -14px var(--mx-contact);
+}
+
+.lp-guarantee__initial {
+  font-family: var(--lp-font-display);
+  font-size: calc(var(--mark) * 0.46);
+  font-weight: var(--lp-display-weight);
+  line-height: 1;
+}
+
+.lp-guarantee__logo {
+  inline-size: 72%;
+  block-size: 72%;
+}
+
+/* no store name yet: a promise glyph instead of a monogram (a product's initial would read as a person) */
+.lp-guarantee__glyph {
+  inline-size: 46%;
+  block-size: auto;
+}
+
+/* a column whose signature settles at the foot of the card */
+.lp-guarantee__main {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 0.8rem + 0.8vw, 1.5rem);
+  min-inline-size: 0;
+  padding-block: calc(var(--mark) / 2 + clamp(1.25rem, 0.9rem + 1.6vw, 2.25rem)) calc(var(--pad) - var(--inset));
+  padding-inline: calc(var(--pad) - var(--inset));
+}
+
+.lp-guarantee__kicker {
+  align-self: flex-start;
+  margin: 0;
+}
+
+/* the promise, set large; a little extra leading keeps emphasis strokes off the next line */
+.lp-guarantee__statement {
+  max-inline-size: 15ch;
+  margin: 0;
+  padding-block-end: 0.12em;
+  font-size: min(calc(var(--lp-step-4) * 0.84 * var(--lp-script-scale-display)), 10.5cqi, 4.6rem);
+  line-height: calc(var(--lp-display-lh) + 0.1);
+  text-wrap: balance;
+}
+
+[data-arch="kinetic"] .lp-guarantee__statement,
+[data-arch="garage"] .lp-guarantee__statement {
+  max-inline-size: 13ch;
+  font-size: min(calc(var(--lp-step-4) * 0.74), 10.5cqi, 4.6rem);
+}
+
+:lang(ar) .lp-guarantee__statement {
+  max-inline-size: 16ch;
+  font-size: min(calc(var(--lp-step-4) * 0.92 * var(--lp-script-scale-display)), 11cqi, 5rem);
+}
+
+.lp-guarantee__body {
+  max-inline-size: 34rem;
+  color: var(--sec-ink-soft);
+}
+
+.lp-guarantee__body p {
+  margin: 0;
+}
+
+.lp-guarantee__sign {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: start;
+  margin-block-start: auto;
+  padding-block-start: clamp(0.5rem, 1vw, 1rem);
+}
+
+.lp-guarantee__sign-rule {
+  display: block;
+  inline-size: min(15rem, 70%);
+  block-size: 2px;
+  overflow: visible;
+  color: var(--mx-line);
+}
+
+.lp-guarantee__sign-rule path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.lp-guarantee__signer {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.lp-guarantee__name {
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  line-height: 1.15;
+}
+
+.lp-guarantee__role {
+  color: var(--sec-ink-soft);
+}
+
+/* the tray: a tinted panel inset in the card (inner radius = outer radius − inset) */
+.lp-guarantee__side {
+  --tray: var(--sec-chip);
+  --tray-soft: var(--sec-ink-soft);
+  display: grid;
+  gap: 0;
+  align-content: start;
+  min-inline-size: 0;
+  padding: calc(var(--pad) - var(--inset));
+  /* concentric with the card: inner = outer − inset × the corner factor (§2b) */
+  border-radius: max(var(--lp-sq-s), calc(var(--g-radius) - var(--inset) * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  background-color: var(--tray);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-guarantee__side {
+    --tray: color-mix(in oklab, var(--sec-card-ink) 4%, var(--sec-card));
+    /* body copy one notch stronger on the tray than on the card (AA holds on the tint) */
+    --tray-soft: color-mix(in oklab, var(--sec-ink-soft) 72%, var(--sec-card-ink));
+  }
+}
+
+/* the tray's breath of accent, mixed into the drained card (hue-true: never a peach on cream); on
+   color blocks a tone of the card itself */
+@supports (color: oklch(from red l c h)) {
+  .lp-guarantee__side {
+    --tray: color-mix(in oklab, var(--sec-accent) 6%, oklch(from color-mix(in oklab, var(--sec-card-ink) 4%, var(--sec-card)) l 0 0));
+  }
+
+  :is([data-bg="accent"], [data-bg="pop"]) .lp-guarantee__side {
+    --tray: color-mix(in oklab, var(--sec-card-ink) 7%, var(--sec-card));
+  }
+}
+
+/* quiet luxury & editorial: no tray, a hairline sets the column off */
+[data-arch="maison"] .lp-guarantee__side,
+[data-arch="editorial"] .lp-guarantee__side {
+  margin-inline: calc(var(--pad) - var(--inset));
+  padding-inline: 0;
+  padding-block-end: calc(var(--pad) - var(--inset));
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: inset 0 1px 0 var(--mx-hair);
+}
+
+.lp-guarantee__checks {
+  display: grid;
+  gap: clamp(1.1rem, 0.9rem + 0.8vw, 1.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-guarantee__check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.lp-guarantee__tick {
+  inline-size: 1.6rem;
+  block-size: auto;
+  margin-block-start: 0.1em;
+  filter: drop-shadow(0 4px 8px var(--mx-btn-1));
+}
+
+.lp-guarantee__check-txt {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.lp-guarantee__check .lp-guarantee__ph {
+  padding: 0;
+  font-size: calc(var(--lp-step-0) * 1.04 * var(--lp-script-scale));
+}
+
+.lp-guarantee__check .lp-guarantee__pb {
+  margin: 0;
+  color: var(--tray-soft);
+  font-size: calc(var(--lp-step-0) * 0.9 * var(--lp-script-scale));
+  line-height: 1.55;
+}
+
+.lp-guarantee__side .lp-guarantee__policy {
+  color: var(--tray-soft);
+}
+
+@container (min-width: 52rem) {
+  .lp-guarantee__letter {
+    --pad: clamp(2.25rem, 5cqi, 4.25rem);
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  }
+
+  .lp-guarantee__main {
+    padding-block: calc(var(--mark) / 2 + clamp(1.75rem, 3.5cqi, 2.75rem)) calc(var(--pad) - var(--inset));
+    padding-inline-end: clamp(2rem, 5cqi, 4rem);
+  }
+
+  /* checks open the tray, the order button closes it level with the signature */
+  .lp-guarantee__side {
+    align-content: space-between;
+    gap: 2rem;
+    padding: clamp(1.75rem, 3.6cqi, 2.75rem);
+    padding-block-end: calc(var(--pad) - var(--inset));
+  }
+
+  [data-arch="maison"] .lp-guarantee__side,
+  [data-arch="editorial"] .lp-guarantee__side {
+    margin: 0;
+    margin-block: calc(var(--pad) - var(--inset));
+    padding-block: 0.4rem 0;
+    padding-inline: clamp(2rem, 4.5cqi, 3.75rem) calc(var(--pad) - var(--inset));
+    box-shadow: inset calc(1px * var(--lp-x, 1)) 0 0 var(--mx-hair);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* the promise card settles from a soft 3D tilt, hinged on its foot */
+  html.lp-js:not([data-motion="off"]) .lp-guarantee__letter[data-reveal="tilt-in"][data-in] {
+    transform-origin: 50% 100%;
+  }
+
+  /* letter: the signer's name is written on at an even pen speed */
+  html.lp-js:not([data-motion="off"]) .lp-guarantee__pen[data-in] {
+    --rv-dur: calc(var(--lp-dur-l) * 1.7);
+    --rv-ease: var(--lp-sway);
+  }
+}

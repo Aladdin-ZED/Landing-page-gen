@@ -1,0 +1,115 @@
+/* specs · sheet — rules only this variant renders (inlined after specs.css on pages whose markup
+   carries .lp-specs--sheet; the admin preview loads every variant). Shared rules live in specs.css. */
+
+.lp-specs__grid {
+  display: grid;
+  gap: clamp(2rem, 1.4rem + 2.4vw, 3.5rem);
+}
+
+.lp-specs__lead .lp-specs__chips {
+  margin-block-start: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+}
+
+/* rows: label | value on hairlines (long values stack in narrow columns) */
+.lp-specs__main {
+  container-type: inline-size;
+}
+
+/* ==========================================================================
+   sheet
+   ========================================================================== */
+/* tablet and up: a tall sticky tile holds one column; heading, rows and the buy bar share the other */
+@media (min-width: 48rem) {
+  .lp-specs__sheet {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "visual lead" "visual main";
+    column-gap: clamp(3rem, 7vw, 7.5rem);
+    row-gap: clamp(2rem, 1.4rem + 1.6vw, 3rem);
+    align-items: start;
+  }
+
+  .lp-specs__sheet > .lp-specs__lead {
+    grid-area: lead;
+  }
+
+  .lp-specs__sheet > .lp-specs__visual {
+    --tile-r: 4 / 5;
+    grid-area: visual;
+    position: sticky;
+    inset-block-start: clamp(1.5rem, 6vh, 4rem);
+    inline-size: min(100%, 34rem);
+  }
+
+  :root[data-mask="pill"] .lp-specs__sheet > .lp-specs__visual {
+    --tile-r: 3 / 4;
+  }
+
+  :root:is([data-mask="circle"], [data-mask="blob"]) .lp-specs__sheet > .lp-specs__visual {
+    --tile-r: 1;
+    align-self: center;
+  }
+
+  /* overlays take their wide-screen spots */
+  .lp-specs__sheet .lp-specs__tag[data-at-lg],
+  .lp-specs__sheet .lp-specs__kf[data-at-lg] {
+    inset: auto;
+    translate: none;
+    margin-inline: 0;
+    inline-size: auto;
+  }
+
+  .lp-specs__sheet .lp-specs__tag[data-at-lg^="b"] {
+    inset-block-end: var(--fb);
+  }
+
+  .lp-specs__sheet .lp-specs__tag[data-at-lg^="t"] {
+    inset-block-start: var(--ft);
+  }
+
+  .lp-specs__sheet .lp-specs__tag[data-at-lg$="s"] {
+    inset-inline-start: var(--fx);
+  }
+
+  .lp-specs__sheet .lp-specs__tag[data-at-lg$="e"] {
+    inset-inline-end: var(--fx);
+  }
+
+  .lp-specs__sheet .lp-specs__tag[data-at-lg$="c"] {
+    inset-inline: 0;
+    inline-size: fit-content;
+    margin-inline: auto;
+  }
+
+  .lp-specs__sheet .lp-specs__kf[data-at-lg^="t"] {
+    inset-block-start: var(--ft, 5%);
+  }
+
+  .lp-specs__sheet .lp-specs__kf[data-at-lg^="m"] {
+    inset-block-start: 50%;
+    translate: 0 -50%;
+  }
+
+  .lp-specs__sheet > .lp-specs__main {
+    grid-area: main;
+  }
+
+  /* the key figure breaks over the tile's edge, into the gutter */
+  .lp-specs__sheet .lp-specs__kf[data-at-lg$="e"] {
+    inset-inline-end: clamp(-2.75rem, -3.2vw, -1.75rem);
+  }
+
+  .lp-specs__sheet .lp-specs__kf[data-at-lg$="s"] {
+    inset-inline-start: clamp(-2.75rem, -3.2vw, -1.75rem);
+  }
+}
+
+/* no product photo: one calm reading column */
+.lp-specs__sheet.lp-specs--novisual {
+  display: flex;
+  flex-direction: column;
+  /* stretch: the rows column is a size container (no intrinsic width of its own) */
+  align-items: stretch;
+  max-inline-size: 48rem;
+  margin-inline: auto;
+}

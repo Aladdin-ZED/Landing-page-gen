@@ -1,0 +1,785 @@
+/* ==========================================================================
+   video — framed · phone · fullbleed (v2 · modern)
+   The product moving, lit by its own light: a cinematic frame with a frosted
+   chapter dock across its edge (or a tall frame breaking out of a panel of its
+   own blurred light), a phone standing on a disc of the product's light, an
+   edge-to-edge film that opens up on scroll. Chrome laid over media is smoked
+   glass (data-bg="dark", contrast-solved by the theme) over soft scrims.
+   Chapter tracks are segmented bars; one progress fill runs through them while
+   the clip plays and the chapter it crosses lights up (--vt).
+   Rules every variant uses. A variant's own rules live in video.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* chapter clock: 0 → 1 over one loop (interpolates where @property is supported) */
+@property --vt {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.lp-video {
+  --vd-gap: clamp(1.75rem, 1.1rem + 2.6vw, 3.5rem);
+  --vd-r: var(--lp-radius-media, 28px);
+  --vd-pad: clamp(0.75rem, 0.5rem + 1.2vw, 1.25rem);
+  /* gap between chapter segments (the track's mask and the label grid share it) */
+  --vd-g: 6px;
+  /* ambient light behind the media: stronger where the block is dark */
+  --vd-amb: 0.42;
+  /* idle loops run slower on calm pages */
+  --vd-k: 1;
+  --vd-loop: calc(14s * var(--vd-k));
+  --vd-rim: transparent;
+  --vd-glare: transparent;
+  overflow: hidden;
+}
+
+@supports (overflow: clip) {
+  .lp-video {
+    overflow: visible;
+    overflow-x: clip;
+  }
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-video {
+    --vd-rim: color-mix(in oklab, var(--lp-dark-ink) 16%, transparent);
+    --vd-glare: color-mix(in oklab, var(--lp-dark-ink) 13%, transparent);
+  }
+}
+
+/* rounded panels and the full-bleed film clip on both axes */
+:root[data-surfaces="panels"] .lp-video {
+  overflow: hidden;
+}
+
+@supports (overflow: clip) {
+  :root[data-surfaces="panels"] .lp-video {
+    overflow: clip;
+  }
+}
+
+.lp-video[data-bg="dark"],
+:root[data-base="dark"] .lp-video:not([data-bg="accent"], [data-bg="pop"]) {
+  --vd-amb: 0.56;
+}
+
+:root[data-motion="calm"] .lp-video {
+  --vd-k: 1.6;
+}
+
+.lp-video .lp-video__head {
+  margin-block-end: 0;
+}
+
+/* clearance for emphasis strokes that hang below the title's last line */
+.lp-video .lp-sh__side {
+  padding-block-start: clamp(0.2rem, 0.8vw, 0.6rem);
+}
+
+/* --- player ------------------------------------------------------------------- */
+.lp-video__player {
+  position: relative;
+  margin: 0;
+  isolation: isolate;
+}
+
+.lp-video__screen {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--vr, 16 / 9);
+  border-radius: calc(var(--vd-r) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background-color: var(--lp-dark);
+  /* Safari: clip the video layer to the radius */
+  transform: translateZ(0);
+}
+
+/* 1px of light on the rim, over the pixels */
+.lp-video__screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 1px var(--vd-rim);
+  pointer-events: none;
+}
+
+/* a cutout as the still stands on a lit stage, not on black */
+.lp-video__screen:has(.lp-pic--alpha) {
+  background-color: var(--mx-stage);
+  background-image: radial-gradient(80% 70% at 50% 30%, var(--mx-stage-hi), transparent);
+}
+
+/* one box for the poster and the clip: the screen (cover) or a centered box of the clip's ratio (contain) */
+.lp-video__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+[data-fit="contain"] > .lp-video__screen > .lp-video__media {
+  inset: 50% 0 auto;
+  aspect-ratio: var(--vr, 16 / 9);
+  transform: translateY(-50%);
+}
+
+.lp-video__poster,
+.lp-video__el {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-video .lp-video__poster {
+  aspect-ratio: auto;
+}
+
+.lp-video__el {
+  object-fit: cover;
+  object-position: var(--vpos, 50% 50%);
+  background: transparent;
+}
+
+/* soft floor shade: chips and captions stay legible on bright clips */
+.lp-video__shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(to top, var(--lp-dark), transparent 46%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* caption layer (figcaption) over the screen */
+.lp-video__fc {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: var(--vd-pad);
+  pointer-events: none;
+}
+
+/* room for the controls at the end of the same edge */
+.lp-video__player[data-ready] > .lp-video__fc {
+  padding-inline-end: calc(var(--vd-pad) * 2 + 6rem);
+}
+
+.lp-video__cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  max-inline-size: min(100%, 22rem);
+  min-block-size: 2.25rem;
+  padding: 0.5em 1em;
+  border-radius: 1.15rem;
+  font-size: calc(max(0.75rem, var(--lp-step--1) * 0.88) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+/* recording dot with a slow ping */
+.lp-video__live {
+  position: relative;
+  flex: none;
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0.6em var(--sec-accent);
+}
+
+.lp-video__live::after {
+  content: "";
+  position: absolute;
+  inset: -0.3em;
+  border-radius: 50%;
+  border: 1.5px solid var(--sec-accent);
+  opacity: 0;
+}
+
+/* --- play disc & controls (shown once the runtime has bound the player) --------
+   The disc layer covers the screen: tap anywhere to pause or resume. */
+.lp-video__play {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: none;
+  color: var(--sec-glass-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lp-video__disc {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: clamp(3.75rem, 3rem + 3vw, 5.75rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transition: scale var(--lp-dur-m) var(--lp-spring), opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+@supports (inline-size: 1cqi) {
+  .lp-video__disc {
+    inline-size: clamp(3.5rem, 15cqi, 5.75rem);
+  }
+}
+
+/* a breathing ring of light around the disc */
+.lp-video__disc::before {
+  content: "";
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: 50%;
+  border: 1px solid var(--sec-glass-border, var(--vd-rim));
+  opacity: 0.8;
+}
+
+.lp-video__disc .lp-video__glyph {
+  inline-size: 36%;
+  /* the triangle's visual center sits right of its box (media glyphs never mirror) */
+  translate: 5% 0;
+}
+
+.lp-video__glyph {
+  display: block;
+  inline-size: 1.15rem;
+  block-size: auto;
+  aspect-ratio: 1;
+  fill: currentColor;
+}
+
+.lp-video__play:hover .lp-video__disc {
+  scale: 1.07;
+}
+
+.lp-video__play:active .lp-video__disc {
+  scale: 0.95;
+}
+
+.lp-video__ctl {
+  position: absolute;
+  z-index: 6;
+  inset-block-start: var(--vd-pad);
+  inset-inline-end: var(--vd-pad);
+  display: flex;
+  gap: 0.45rem;
+  background: none;
+}
+
+.lp-video__btn,
+.lp-video__sound {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: 999px;
+  color: var(--sec-glass-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: scale var(--lp-dur-s) var(--lp-spring);
+}
+
+.lp-video__btn > *,
+.lp-video__sl > * {
+  grid-area: 1 / 1;
+  transition: opacity var(--lp-dur-s) var(--lp-smooth), scale var(--lp-dur-s) var(--lp-spring);
+}
+
+.lp-video__sound {
+  grid-auto-flow: column;
+  gap: 0.5em;
+  padding-inline: 0.85em 1.05em;
+  font-size: calc(max(0.75rem, var(--lp-step--1) * 0.88) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.lp-video__btn:active,
+.lp-video__sound:active {
+  scale: 0.94;
+}
+
+.lp-video__sl {
+  display: grid;
+  justify-items: start;
+}
+
+/* small screens: the sound button is a disc, the caption a compact two-line chip */
+@container (max-width: 30rem) {
+  .lp-video__sl {
+    display: none;
+  }
+
+  .lp-video__sound {
+    padding-inline: 0;
+  }
+
+  .lp-video__cap {
+    max-inline-size: 100%;
+    min-block-size: 2rem;
+    font-size: calc(0.72rem * var(--lp-script-scale));
+  }
+
+  .lp-video__cap > :last-child {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+.lp-video__spk {
+  inline-size: 1.2rem;
+  block-size: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lp-video__spk-body {
+  fill: currentColor;
+  stroke: none;
+}
+
+.lp-video__spk path {
+  transition: opacity var(--lp-dur-s) var(--lp-smooth);
+}
+
+.lp-video__spk-w,
+.lp-video__sl-on,
+.lp-video__i-pause {
+  opacity: 0;
+}
+
+.lp-video__i-pause {
+  scale: 0.6;
+}
+
+.lp-video__sound[aria-pressed="true"] .lp-video__spk-w,
+.lp-video__sound[aria-pressed="true"] .lp-video__sl-on,
+.lp-video__player[data-state="playing"] .lp-video__i-pause {
+  opacity: 1;
+  scale: 1;
+}
+
+.lp-video__sound[aria-pressed="true"] .lp-video__spk-x,
+.lp-video__sound[aria-pressed="true"] .lp-video__sl-off,
+.lp-video__player[data-state="playing"] .lp-video__btn .lp-video__i-play {
+  opacity: 0;
+  scale: 0.6;
+}
+
+/* no runtime binding yet → no dead buttons */
+.lp-video__player:not([data-ready]) .lp-video__play,
+.lp-video__player:not([data-ready]) .lp-video__ctl {
+  display: none;
+}
+
+/* paused → the big disc is the play button; the small toggle waits for keyboard focus */
+.lp-video__player:not([data-state="playing"]) .lp-video__btn:not(:focus-visible) {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* playing → the disc fades and shrinks away (the layer stays tappable to pause) */
+.lp-video__player[data-state="playing"] .lp-video__disc {
+  opacity: 0;
+  scale: 0.8;
+}
+
+/* native controls (reduced motion, Data Saver, blocked autoplay): the glass chrome steps aside */
+.lp-video__player:has(video[controls]) > :not(.lp-video__screen),
+.lp-video__player:has(video[controls]) .lp-video__shade {
+  display: none;
+}
+
+/* --- ambient light: a blurred rendition of the picture ------------------------ */
+.lp-video__amb {
+  position: absolute;
+  inset: 5% 4% -2%;
+  z-index: -1;
+  opacity: var(--vd-amb);
+  filter: blur(46px) saturate(1.5);
+  pointer-events: none;
+}
+
+.lp-video__amb .lp-pic {
+  inline-size: 100%;
+  block-size: 100%;
+  aspect-ratio: auto;
+  border-radius: 40%;
+  background: none;
+}
+
+/* inside a screen: the clip contained over its own light */
+.lp-video__amb.lp-video__fill {
+  inset: -12%;
+  z-index: 0;
+  opacity: 0.9;
+  filter: blur(24px) saturate(1.35) brightness(0.72);
+}
+
+.lp-video__fill .lp-pic {
+  border-radius: 0;
+}
+
+/* --- chapters: one segment per chapter + labels --------------------------------------
+   The clock --vt (0 → 1 over a loop, or the real playhead) fills the segments in turn and
+   lights the chapter it is crossing (--on). Phones stack index over label; wider tracks set them
+   on one line. */
+.lp-video__ch {
+  --vd-seg: var(--mx-line);
+  --vd-fill: var(--sec-accent);
+  --vd-idx: var(--sec-ink-soft);
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  min-inline-size: 0;
+}
+
+.lp-video__ch-label {
+  margin: 0;
+  color: var(--sec-ink-soft);
+}
+
+.lp-video__chapters {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+  gap: 1.25rem var(--vd-g);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-video__chapter {
+  /* share of this chapter's segment the playhead has filled, and 1 while it is crossing it */
+  --fill: clamp(0, var(--vt) * var(--n, 3) - var(--i, 0), 1);
+  --on: calc(clamp(0, (var(--vt) * var(--n, 3) - var(--i, 0)) * 40, 1) * clamp(0, (var(--i, 0) + 1 - var(--vt) * var(--n, 3)) * 40, 1));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  align-items: baseline;
+  gap: 0.3rem 0.6rem;
+  min-inline-size: 0;
+}
+
+.lp-video__seg {
+  position: relative;
+  grid-column: 1 / -1;
+  display: block;
+  block-size: 3px;
+  margin-block-end: 0.5rem;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--vd-seg);
+}
+
+.lp-video__prog {
+  position: absolute;
+  inset: 0;
+  background: var(--vd-fill);
+  transform-origin: 0 50%;
+  scale: var(--fill) 1;
+}
+
+[dir="rtl"] .lp-video__prog {
+  transform-origin: 100% 50%;
+}
+
+.lp-video__idx {
+  grid-column: 1 / -1;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.75rem;
+  font-weight: var(--lp-strong-weight, 600);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  color: var(--vd-idx);
+  transition: color var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-video__cht {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+  /* the columns only keep the track's 6px seam between them: the label wraps before it reaches the
+     next chapter's words (two long Arabic labels never read as one line) */
+  padding-inline-end: clamp(0.5rem, 0.3rem + 0.8vw, 1rem);
+  font-size: calc(var(--lp-step-0) * 0.92 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.3;
+  text-wrap: balance;
+  transition: opacity var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* four chapters on a phone: two by two */
+@media (max-width: 47.99rem) {
+  .lp-video__ch[data-n="4"] .lp-video__chapters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* index and label on one line where the track is wide */
+@media (min-width: 48rem) {
+  :is(.lp-video__ch--dock, .lp-video__ch--bar) .lp-video__idx,
+  :is(.lp-video__ch--dock, .lp-video__ch--bar) .lp-video__cht {
+    grid-column: auto;
+  }
+}
+
+/* dock — phones: a plain track under the frame, on the text column's edges */
+@media (max-width: 47.99rem) {
+  .lp-video__ch--dock {
+    margin: 1.35rem calc(var(--lp-gutter) * 0.5) 0;
+    padding: 0;
+    border-color: transparent;
+    background: none;
+    box-shadow: none;
+    color: inherit;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* dock — frosted glass straddling the frame's bottom edge (framed, landscape) */
+@media (min-width: 48rem) {
+  .lp-video__ch--dock {
+    --vd-seg: var(--vd-rim);
+    z-index: 8;
+    inline-size: min(calc(100% - 4 * var(--vd-pad)), calc(var(--n, 3) * 13.5rem + 2.6rem));
+    margin-block-start: calc(-1 * clamp(1.75rem, 1rem + 2.4vw, 2.75rem));
+    margin-inline: auto;
+    padding: 1rem 1.35rem 1.1rem;
+    border-radius: calc(var(--vd-r) * 0.75);
+    box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 18px 44px -18px rgb(0 0 0 / 0.4));
+  }
+
+  @supports (color: color-mix(in oklab, red 50%, blue)) {
+    .lp-video__ch--dock {
+      --vd-seg: color-mix(in oklab, var(--sec-glass-ink) 22%, transparent);
+      --vd-idx: color-mix(in oklab, var(--sec-glass-ink) 64%, transparent);
+    }
+  }
+
+  .lp-video__ch--dock .lp-video__cht {
+    color: var(--sec-glass-ink);
+  }
+}
+
+/* bar — hairline credits on the film (fullbleed) */
+.lp-video__ch--bar {
+  margin-block-start: clamp(0.5rem, 2vw, 1.75rem);
+}
+
+.lp-video__ch--bar .lp-video__seg {
+  block-size: 2px;
+}
+
+.lp-video__ch--bar .lp-video__cht {
+  font-size: calc(var(--lp-step-0) * 0.84 * var(--lp-script-scale));
+}
+
+/* --- order block ------------------------------------------------------------------ */
+.lp-video__act {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+}
+
+.lp-video__assure {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0;
+  font-size: max(calc(0.8125rem * var(--lp-script-scale)), calc(var(--lp-step--1) * var(--lp-script-scale)));
+  color: var(--sec-ink-soft);
+}
+
+.lp-video__assure .lp-icon {
+  color: var(--sec-accent);
+}
+
+@media (max-width: 39.99rem) {
+  .lp-video__act {
+    justify-items: stretch;
+  }
+
+  .lp-video__assure {
+    justify-content: center;
+  }
+}
+
+/* rail — horizontal on phones */
+.lp-video__ch--rail .lp-video__cht {
+  font-size: calc(var(--lp-step-0) * 0.95 * var(--lp-script-scale));
+}
+
+@media (min-width: 64rem) {
+
+  /* beside a portrait frame the rail stands upright: each chapter's segment runs beside it */
+  .lp-video__ch--rail {
+    max-inline-size: 26rem;
+  }
+
+  .lp-video__ch--rail .lp-video__chapters {
+    grid-template-columns: none;
+    row-gap: var(--vd-g);
+  }
+
+  .lp-video__ch--rail .lp-video__chapter {
+    grid-template-columns: 3px auto minmax(0, 1fr);
+    column-gap: 0.9rem;
+  }
+
+  .lp-video__ch--rail .lp-video__seg {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: stretch;
+    inline-size: 3px;
+    block-size: auto;
+    margin: 0 0.45rem 0 0;
+  }
+
+  .lp-video__ch--rail .lp-video__idx,
+  .lp-video__ch--rail .lp-video__cht {
+    grid-column: auto;
+    grid-row: 1;
+  }
+
+  .lp-video__ch--rail .lp-video__cht {
+    padding-block: 0.7rem;
+  }
+
+  .lp-video__ch--rail .lp-video__prog {
+    transform-origin: 50% 0;
+    scale: 1 var(--fill);
+  }
+}
+
+@media (min-width: 48rem) {
+
+  .lp-video__ch--bar {
+    max-inline-size: none;
+  }
+}
+
+/* ==========================================================================
+   motion — idle loops, chapter clock, scroll-driven moments (progressive), reduced motion
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="off"]) .lp-video__live::after {
+    animation: lp-vid-ping calc(2.4s * var(--vd-k)) var(--lp-smooth) infinite;
+  }
+
+  :root:not([data-motion="off"]) .lp-video__player:not([data-state="playing"]) .lp-video__disc::before {
+    animation: lp-vid-breathe calc(2.8s * var(--vd-k)) var(--lp-sway) infinite;
+  }
+
+  :root:not([data-motion="off"]) .lp-video__sound[aria-pressed="true"] .lp-video__spk-w {
+    animation: lp-vid-wave 1.3s var(--lp-sway) infinite;
+  }
+
+  /* stills drift slowly, like a camera breathing */
+  :root:not([data-motion="off"]) .lp-video__still .lp-pic__img {
+    animation: lp-vid-drift calc(22s * var(--vd-k)) var(--lp-sway) infinite alternate;
+  }
+
+  /* chapter clock: the segments fill in turn; the chapter being crossed lights up */
+  :root:not([data-motion="off"]) .lp-video__ch--live {
+    animation: lp-vid-clock var(--vd-loop) linear infinite;
+  }
+
+  :root:not([data-motion="off"]) .lp-video__ch--live .lp-video__cht {
+    opacity: calc(0.58 + 0.42 * var(--on));
+  }
+
+  @supports (color: color-mix(in oklab, red 50%, blue)) {
+    :root:not([data-motion="off"]) .lp-video__ch--live .lp-video__idx {
+      color: color-mix(in oklab, var(--vd-fill) calc(var(--on) * 100%), var(--vd-idx));
+    }
+  }
+
+  /* paused clip → paused clock */
+  :root:not([data-motion="off"]) .lp-video:has([data-state="paused"]) .lp-video__ch--live {
+    animation-play-state: paused;
+  }
+
+  /* the real playhead, when the runtime reports it (--vp 0…1 on the section) */
+  :root:not([data-motion="off"]) .lp-video[data-vp] .lp-video__ch--live {
+    --vt: var(--vp, 0);
+    animation: none;
+  }
+
+  :root:not([data-motion="off"]) .lp-video[data-vp] .lp-video__prog {
+    transition: scale 0.3s linear;
+  }
+}
+
+@media (hover: hover) {
+  .lp-video__chapter:hover .lp-video__idx {
+    color: var(--sec-accent);
+  }
+}
+
+@keyframes lp-vid-ping {
+  0% {
+    opacity: 0.9;
+    scale: 0.6;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    scale: 1.6;
+  }
+}
+
+@keyframes lp-vid-breathe {
+  0%,
+  100% {
+    opacity: 0.8;
+    scale: 1;
+  }
+  50% {
+    opacity: 0.25;
+    scale: 1.14;
+  }
+}
+
+@keyframes lp-vid-wave {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes lp-vid-drift {
+  from {
+    scale: 1.02;
+  }
+  to {
+    scale: 1.1;
+    translate: calc(-1.5% * var(--lp-x)) -1.2%;
+  }
+}
+
+@keyframes lp-vid-clock {
+  from {
+    --vt: 0;
+  }
+  to {
+    --vt: 1;
+  }
+}

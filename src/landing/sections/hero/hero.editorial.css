@@ -1,0 +1,339 @@
+/* hero · editorial — rules only this variant renders (inlined after hero.css on pages whose markup
+   carries .lp-hero--editorial; the admin preview loads every variant). Shared rules live in hero.css. */
+
+.lp-hero__head {
+  display: grid;
+  gap: clamp(0.9rem, 0.65rem + 0.9vw, 1.4rem);
+  justify-items: start;
+  min-inline-size: 0;
+}
+
+.lp-hero__deal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.25rem;
+}
+.lp-hero__lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ==========================================================================
+   editorial — masthead hairline, oversized headline, full-height figure,
+   cover lines as a contents strip
+   ========================================================================== */
+.lp-hero--editorial .lp-hero__grid {
+  align-items: start;
+  gap: clamp(1.4rem, 1rem + 2vw, 2.75rem);
+}
+
+.lp-hero__mast {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(0.76rem * var(--lp-script-scale));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-hero__rule {
+  flex: 1;
+  block-size: 1px;
+  background: var(--mx-line);
+}
+
+.lp-hero__store {
+  font-weight: var(--lp-strong-weight);
+  color: var(--sec-ink);
+  white-space: nowrap;
+}
+
+.lp-hero--editorial .lp-hero__title {
+  max-inline-size: 11ch;
+  font-size: min(calc(var(--lp-step-6) * 0.78 * var(--lp-script-scale-display)), 14vw, 7.5rem);
+  line-height: calc(var(--lp-display-lh) * 0.96);
+}
+
+[lang="ar"] .lp-hero--editorial .lp-hero__title {
+  max-inline-size: 13ch;
+  line-height: var(--lp-display-lh);
+}
+
+.lp-hero__figure {
+  position: relative;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.lp-hero__media {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-stage);
+  box-shadow: var(--lp-shadow-l);
+}
+
+/* the media edge (base.css §11): one hairline just inside the figure's shape */
+.lp-hero__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-media-edge);
+  pointer-events: none;
+}
+
+/* a cutout in a frame stands in a soft studio sweep (editorial, collage, gallery) */
+:is(.lp-hero__media[data-kind="cutout"], .lp-hero__card--cutout, .lp-hero__pic--cutout) {
+  background-image: radial-gradient(70% 60% at 50% 32%, var(--mx-stage-hi), transparent), linear-gradient(180deg, var(--mx-stage), var(--mx-stage-lo));
+}
+
+:is(.lp-hero__media[data-kind="cutout"], .lp-hero__card--cutout, .lp-hero__pic--cutout) .lp-pic__img {
+  padding: 10%;
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* the theme's mask: a true Roman arch (half-circle head, continuous feet) or a tall capsule — a
+   landscape figure (a product on its side) keeps the rounded mask, where an arch would be a dome */
+:root[data-mask="arch"] .lp-hero__figure:not([data-wide]) .lp-hero__media {
+  border-radius: 0 0 var(--lp-sq-media) var(--lp-sq-media);
+  -webkit-mask-image: var(--lp-arch-mask);
+  mask-image: var(--lp-arch-mask);
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+:root[data-mask="arch"] .lp-hero__figure:not([data-wide]) .lp-hero__media::after {
+  content: none;
+}
+
+:root[data-mask="pill"] .lp-hero__figure:not([data-wide]) .lp-hero__media {
+  border-radius: 999px;
+  corner-shape: round;
+}
+
+/* the caption straddles the figure's foot: half on the photo, half on the page — the label of a
+   plate, never a band across the hands or the product's base */
+.lp-hero__caption {
+  position: absolute;
+  z-index: 2;
+  inset-inline: clamp(0.75rem, 5%, 1.5rem);
+  inset-block-end: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0.65rem 1rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  font-size: calc(0.8rem * var(--lp-script-scale));
+  line-height: 1.3;
+  translate: 0 50%;
+}
+
+/* phones: room under the figure for the caption's lower half */
+.lp-hero--editorial .lp-hero__figure {
+  margin-block-end: 1.4rem;
+}
+
+.lp-hero__fig {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.lp-hero__caption-name {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-hero__caption-price {
+  margin-inline-start: auto;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-hero__line {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  column-gap: 0.75rem;
+  padding-block: 0.95rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+.lp-hero__line-t {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 0.92 * var(--lp-script-scale-display));
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+/* modern Arabic display faces run their words close at text sizes */
+[lang="ar"] .lp-hero__line-t {
+  word-spacing: 0.12em;
+  line-height: 1.5;
+}
+
+@media (min-width: 64rem) {
+  /* the spread: copy on seven columns, the figure runs the full height of the other five */
+  .lp-hero--editorial .lp-hero__grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: clamp(1.25rem, 2.4vw, 2.5rem);
+    row-gap: 0;
+  }
+
+  .lp-hero--editorial .lp-hero__mast {
+    grid-column: 1 / -1;
+    margin-block-end: clamp(1.75rem, 3vw, 2.75rem);
+  }
+
+  .lp-hero--editorial .lp-hero__head {
+    grid-column: 1 / 8;
+    grid-row: 2;
+  }
+
+  .lp-hero--editorial .lp-hero__title {
+    max-inline-size: 13ch;
+    font-size: min(calc(var(--lp-step-6) * 0.74 * var(--lp-script-scale-display)), 6.25rem);
+  }
+
+  /* a long headline keeps the cover to three lines, so the buy box stays in the first screen */
+  .lp-hero--editorial .lp-hero__title--long {
+    max-inline-size: 15ch;
+    font-size: min(calc(var(--lp-step-6) * 0.6 * var(--lp-script-scale-display)), 5rem);
+  }
+
+  .lp-hero--editorial .lp-hero__title--xlong {
+    max-inline-size: 19ch;
+    font-size: min(calc(var(--lp-step-6) * 0.46 * var(--lp-script-scale-display)), 3.75rem);
+  }
+
+  .lp-hero--editorial .lp-hero__lead {
+    grid-column: 1 / 7;
+    grid-row: 3;
+    margin-block-start: clamp(1.25rem, 2vw, 1.75rem);
+  }
+
+  .lp-hero--editorial .lp-hero__buy {
+    grid-column: 1 / 7;
+    grid-row: 4;
+    margin-block-start: clamp(1.75rem, 2.6vw, 2.5rem);
+  }
+
+  /* cover lines become a contents strip under the copy */
+  .lp-hero--editorial .lp-hero__lines {
+    grid-column: 1 / 8;
+    grid-row: 5;
+    align-self: end;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    column-gap: clamp(1.25rem, 2.4vw, 2.5rem);
+    margin-block-start: clamp(2.25rem, 3.6vw, 3.25rem);
+  }
+
+  .lp-hero--editorial .lp-hero__line {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    row-gap: 0.35rem;
+    padding-block: 1rem 0;
+  }
+
+  .lp-hero--editorial .lp-hero__line-n {
+    grid-row: auto;
+    padding-block-start: 0;
+  }
+
+  .lp-hero--editorial .lp-hero__line-t {
+    font-size: calc(var(--lp-step-1) * 0.86 * var(--lp-script-scale-display));
+  }
+
+  .lp-hero--editorial .lp-hero__line-d {
+    margin-block-start: 0;
+  }
+
+  /* the figure stands the full height of the spread (7:10 — the crop's frame — stretched only when
+     the copy column runs taller) */
+  .lp-hero--editorial .lp-hero__figure {
+    grid-column: 8 / -1;
+    grid-row: 2 / -1;
+    align-self: stretch;
+    display: grid;
+    margin-block-end: 0;
+  }
+
+  /* a definite width keeps the ratio from widening the figure when the spread is taller */
+  .lp-hero--editorial .lp-hero__media {
+    inline-size: 100%;
+    aspect-ratio: 7 / 10;
+    min-block-size: 100%;
+  }
+
+  /* a landscape figure keeps its own shape, centered on the spread */
+  .lp-hero--editorial .lp-hero__figure[data-wide] {
+    align-self: center;
+  }
+
+  .lp-hero--editorial .lp-hero__figure[data-wide] .lp-hero__media {
+    aspect-ratio: var(--fig-r, 1.25);
+    min-block-size: 0;
+  }
+
+  .lp-hero--editorial .lp-hero__drift {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* a product with room around it overfills its mask a little: room for the scroll drift */
+  .lp-hero--editorial .lp-hero__drift[data-drift] {
+    inset: -6% 0;
+  }
+
+  .lp-hero--editorial .lp-hero__drift .lp-hero__pic {
+    block-size: 100%;
+    aspect-ratio: auto;
+  }
+
+  .lp-hero--editorial .lp-hero__figure[data-wide] .lp-hero__drift {
+    position: static;
+  }
+
+  .lp-hero--editorial .lp-hero__figure[data-wide] .lp-hero__drift .lp-hero__pic {
+    aspect-ratio: var(--fig-r, 1.25);
+  }
+
+  /* the caption crosses the figure's edge into the gutter toward the text column, never into the
+     column itself (the cover lines run right up to it) */
+  .lp-hero__caption {
+    inset-inline: calc(0.25rem - clamp(1.25rem, 2.4vw, 2.5rem)) 14%;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* hero media settles from a slight zoom as the page opens (never hidden: LCP-safe) */
+  html.lp-js:not([data-motion="off"]) :is(.lp-hero__media, .lp-hero__print, .lp-hero__slot[data-i="0"] .lp-hero__card, .lp-hero__slide:first-child) .lp-pic__img {
+    animation: lp-hero-settle calc(var(--lp-dur-l) * 2) var(--lp-smooth) backwards;
+  }
+}
+
+@keyframes lp-hero-settle {
+  from {
+    scale: 1.07;
+  }
+}

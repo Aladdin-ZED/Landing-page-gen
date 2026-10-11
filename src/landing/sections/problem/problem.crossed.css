@@ -1,0 +1,239 @@
+/* problem · crossed — rules only this variant renders (inlined after problem.css on pages whose markup
+   carries .lp-problem--crossed; the admin preview loads every variant). Shared rules live in problem.css. */
+
+/* ---------- crossed: the one line left standing ------------------------------ */
+.lp-problem--crossed {
+  --idx-w: clamp(2.6rem, 1.5rem + 3.4vw, 5.5rem);
+  --pain-fs: min(calc(var(--lp-step-3) * 0.86 * var(--lp-script-scale-display)), 8vw);
+  --pain-lh: calc(var(--lp-display-lh) + 0.12);
+  --line-box: calc(var(--pain-fs) * var(--pain-lh));
+}
+
+.lp-problem--crossed:lang(ar) {
+  --pain-lh: 1.55;
+}
+
+/* ==========================================================================
+   crossed — the redline ledger
+   ========================================================================== */
+.lp-problem__ledger {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-problem__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--idx-w) minmax(0, 1fr);
+  align-items: start;
+  padding-block: clamp(1.1rem, 0.75rem + 1.4vw, 2rem);
+}
+
+/* hairlines that draw across the grid as the rows land */
+.lp-problem__row::before,
+.lp-problem__row:last-child::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  block-size: 1px;
+  background: var(--mx-line);
+  transform-origin: left center;
+}
+
+.lp-problem__row:last-child::after {
+  inset-block: auto 0;
+}
+
+[dir="rtl"] .lp-problem__row::before,
+[dir="rtl"] .lp-problem__row:last-child::after {
+  transform-origin: right center;
+}
+
+.lp-problem__idx {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--sec-accent);
+}
+
+/* the number sits on the middle of the pain's first line */
+.lp-problem__row > .lp-problem__idx {
+  display: flex;
+  align-items: center;
+  block-size: var(--line-box);
+}
+
+.lp-problem__rbody {
+  display: grid;
+  justify-items: start;
+  min-inline-size: 0;
+}
+
+.lp-problem__pain {
+  display: block;
+  font-size: var(--pain-fs);
+  line-height: var(--pain-lh);
+  color: var(--sec-ink-soft);
+}
+
+/* struck words recede (large display text: still above 3:1) */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-problem__pain {
+    color: color-mix(in oklab, var(--sec-ink-soft) 70%, var(--sec-bg));
+  }
+}
+
+/* one clean bar through the words; slice = it flows from line to line when the pain wraps */
+.lp-problem__strike {
+  --strike-w: max(2px, 0.07em);
+  --strike-y: 54%;
+  background-image: linear-gradient(var(--sec-accent), var(--sec-accent));
+  background-repeat: no-repeat;
+  background-position: 0 var(--strike-y);
+  background-size: 100% var(--strike-w);
+  -webkit-box-decoration-break: slice;
+  box-decoration-break: slice;
+}
+
+[dir="rtl"] .lp-problem__strike {
+  background-position: 100% var(--strike-y);
+}
+
+/* capitals: the middle of the cap height sits a little higher */
+:root[data-arch="kinetic"] .lp-problem__strike,
+:root[data-arch="garage"] .lp-problem__strike {
+  --strike-w: max(3px, 0.1em);
+  --strike-y: 50%;
+}
+
+:root[data-arch="playground"] .lp-problem__strike {
+  --strike-w: max(3px, 0.1em);
+}
+
+:root[data-arch="maison"] .lp-problem__strike,
+:root[data-arch="editorial"] .lp-problem__strike,
+:root[data-arch="circuit"] .lp-problem__strike {
+  --strike-w: max(1.5px, 0.045em);
+}
+
+:lang(ar) .lp-problem__strike {
+  --strike-y: 52%;
+}
+
+/* the fix writes itself in under the struck pain, like a tracked change */
+.lp-problem__fix {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+  max-inline-size: 40rem;
+  margin-block-start: clamp(0.45rem, 0.3rem + 0.5vw, 0.75rem);
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.4;
+  color: var(--sec-ink);
+  text-wrap: pretty;
+}
+
+@media (min-width: 48rem) {
+  .lp-problem__fix {
+    font-size: calc(var(--lp-step-0) * 1.08 * var(--lp-script-scale));
+  }
+}
+
+/* wide screens: a three-column ledger — number · struck pain · its fix, each fix on the middle of
+   its pain's first line */
+@media (min-width: 64rem) {
+  .lp-problem__rbody {
+    grid-template-columns: minmax(0, 1fr) clamp(15rem, 25vw, 21rem);
+    align-items: start;
+    column-gap: clamp(2rem, 4vw, 4rem);
+  }
+
+  /* a pain without a fix keeps the full width */
+  .lp-problem__pain:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .lp-problem__fix {
+    align-items: center;
+    min-block-size: var(--line-box);
+    margin: 0;
+  }
+
+  .lp-problem__fixmark {
+    margin: 0;
+  }
+}
+
+.lp-problem__fixmark {
+  flex: none;
+  margin-block-start: 0.2em;
+  color: var(--sec-accent);
+}
+
+:lang(ar) .lp-problem__fix {
+  line-height: 1.65;
+}
+
+:lang(ar) .lp-problem__fixmark {
+  margin-block-start: 0.33em;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* crossed: hairline draws, the strike runs through the words, they settle to muted ink */
+  html.lp-js:not([data-motion="off"]) .lp-problem__row[data-reveal][data-in]::before,
+  html.lp-js:not([data-motion="off"]) .lp-problem__row[data-reveal][data-in]:last-child::after {
+    animation: lp-problem-line calc(var(--lp-dur-l) * 1.3) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__pain[data-reveal]:not([data-in]) {
+    color: var(--sec-ink);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__pain[data-reveal]:not([data-in]) .lp-problem__strike {
+    background-size: 0% var(--strike-w);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__pain[data-reveal][data-in] {
+    animation: lp-problem-dim calc(var(--strike-dur, 800ms) * 1.5) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-problem__pain[data-reveal][data-in] .lp-problem__strike {
+    animation: lp-problem-strike var(--strike-dur, 800ms) var(--lp-smooth) var(--d, 0ms) backwards;
+  }
+}
+
+/* failsafe: a runtime that never woke up must not leave the strikes undrawn */
+@supports selector(:has(a)) {
+  @media (prefers-reduced-motion: no-preference) {
+    html.lp-js:not([data-motion="off"], [data-rv]):not(:has([data-in])) .lp-problem__pain[data-reveal]:not([data-in]) .lp-problem__strike {
+      animation: lp-problem-strike-on var(--lp-dur-l) var(--lp-smooth) 2.5s forwards;
+    }
+  }
+}
+
+@keyframes lp-problem-line {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes lp-problem-strike {
+  from {
+    background-size: 0% var(--strike-w);
+  }
+}
+
+@keyframes lp-problem-strike-on {
+  to {
+    background-size: 100% var(--strike-w);
+  }
+}
+
+@keyframes lp-problem-dim {
+  from,
+  45% {
+    color: var(--sec-ink);
+  }
+}

@@ -1,0 +1,330 @@
+/* trustBar · ledger — rules only this variant renders (inlined after trustBar.css on pages whose markup
+   carries .lp-trustBar--ledger; the admin preview loads every variant). Shared rules live in trustBar.css. */
+
+.lp-trustBar__copy {
+  display: grid;
+  gap: 0.2em;
+  min-inline-size: 0;
+}
+
+.lp-trustBar__detail {
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * 0.98 * var(--lp-script-scale, 1));
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* ---------- ledger ------------------------------------------------------ */
+.lp-trustBar--ledger {
+  --cell-px: clamp(1rem, 0.5rem + 1.8vw, 1.9rem);
+  --cell-py: clamp(1.4rem, 1rem + 1.6vw, 2.1rem);
+}
+
+.lp-trustBar--ledger .lp-trustBar__title {
+  text-align: start;
+}
+
+.lp-trustBar--ledger .lp-trustBar__list {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* frame rules (top & bottom) and the hairline dividers: crisp 1px, drawn on */
+.lp-trustBar--ledger .lp-trustBar__list::before,
+.lp-trustBar--ledger .lp-trustBar__list::after,
+.lp-trustBar--ledger .lp-trustBar__item::before,
+.lp-trustBar--ledger .lp-trustBar__item::after {
+  content: "";
+  position: absolute;
+  background: var(--mx-line);
+  pointer-events: none;
+}
+
+.lp-trustBar--ledger .lp-trustBar__list::before,
+.lp-trustBar--ledger .lp-trustBar__list::after {
+  inset-inline: 0;
+  block-size: 1px;
+  transform-origin: left center;
+}
+
+.lp-trustBar--ledger .lp-trustBar__list::before {
+  inset-block-start: 0;
+}
+
+.lp-trustBar--ledger .lp-trustBar__list::after {
+  inset-block-end: 0;
+}
+
+/* phones: a precise list — icon · promise · index, hairlines between the rows */
+.lp-trustBar--ledger .lp-trustBar__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 1rem;
+  padding-block: 1.15rem;
+}
+
+.lp-trustBar--ledger .lp-trustBar__item > .lp-trustBar__icon {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.lp-trustBar--ledger .lp-trustBar__item > .lp-trustBar__copy {
+  grid-row: 1;
+  grid-column: 2;
+  padding-block-start: 0.2rem;
+}
+
+.lp-trustBar--ledger .lp-trustBar__item > .lp-trustBar__idx {
+  grid-row: 1;
+  grid-column: 3;
+  padding-block-start: 0.35rem;
+}
+
+/* vertical divider at a column's start edge; horizontal rule above a row */
+.lp-trustBar--ledger .lp-trustBar__item::before {
+  display: none;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 1px;
+  transform-origin: center top;
+}
+
+.lp-trustBar--ledger .lp-trustBar__item::after {
+  display: none;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: 1px;
+  transform-origin: left center;
+}
+
+[dir="rtl"] .lp-trustBar--ledger .lp-trustBar__list::before,
+[dir="rtl"] .lp-trustBar--ledger .lp-trustBar__list::after,
+[dir="rtl"] .lp-trustBar--ledger .lp-trustBar__item::after {
+  transform-origin: right center;
+}
+
+.lp-trustBar--ledger .lp-trustBar__item:nth-child(n + 2)::after {
+  display: block;
+}
+
+.lp-trustBar__idx {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--sec-accent);
+}
+
+/* the accent bar seated on the rule above each cell: the ledger's one touch of color.
+   It spans the cell, clipped to a short bar; hover opens the clip across the column. */
+.lp-trustBar__mark {
+  position: absolute;
+  inset-block-start: -1px;
+  inset-inline: 0;
+  block-size: 3px;
+  border-radius: 0 0 2px 2px;
+  background: var(--sec-accent);
+  clip-path: inset(0 calc(100% - 1.75rem) 0 0);
+  transform-origin: left center;
+  transition: clip-path calc(var(--lp-dur-l) * 1.1) var(--lp-smooth);
+}
+
+[dir="rtl"] .lp-trustBar__mark {
+  clip-path: inset(0 0 0 calc(100% - 1.75rem));
+  transform-origin: right center;
+}
+
+.lp-trustBar--ledger .lp-trustBar__icon {
+  inline-size: clamp(2.25rem, 1.8rem + 2vw, 3.25rem);
+  aspect-ratio: 1;
+  color: var(--sec-ink);
+  transition: translate var(--lp-dur-m) var(--lp-spring), color var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-trustBar--ledger .lp-trustBar__copy {
+  gap: 0.45em;
+}
+
+/* small tracked labels (Latin small-caps feel); Arabic keeps its natural size and spacing */
+.lp-trustBar--ledger .lp-trustBar__name {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: max(0.78rem, calc(var(--lp-step--1) * 0.94));
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1.35;
+}
+
+.lp-trustBar--ledger:lang(ar) .lp-trustBar__name {
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step-0) * 0.96 * var(--lp-script-scale, 1));
+  line-height: 1.5;
+}
+
+@media (hover: hover) {
+  .lp-trustBar--ledger .lp-trustBar__item:hover > .lp-trustBar__mark {
+    clip-path: inset(0);
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:hover .lp-trustBar__icon {
+    translate: 0 -3px;
+    color: var(--sec-accent);
+  }
+}
+
+/* tablets: two columns with a hairline cross; columns stack icon → words, index top-end */
+@container tb (min-width: 32rem) {
+  .lp-trustBar--ledger .lp-trustBar__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 0.9rem;
+    padding-block: var(--cell-py);
+    padding-inline: var(--cell-px);
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item > .lp-trustBar__icon,
+  .lp-trustBar--ledger .lp-trustBar__item > .lp-trustBar__copy {
+    grid-row: auto;
+    grid-column: 1;
+    padding-block-start: 0;
+  }
+
+  /* out of the grid (a grid-placed abspos child is positioned in its grid area, i.e. a row lower):
+     the index sits on the icon's top line, at the cell's end edge */
+  .lp-trustBar--ledger .lp-trustBar__item > .lp-trustBar__idx {
+    position: absolute;
+    grid-row: auto;
+    grid-column: auto;
+    inset-block-start: var(--cell-py);
+    inset-inline-end: var(--cell-px);
+    padding: 0;
+  }
+
+  .lp-trustBar__mark {
+    inset-inline: var(--cell-px);
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:nth-child(n)::after {
+    display: none;
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:nth-child(even)::before,
+  .lp-trustBar--ledger .lp-trustBar__item:nth-child(n + 3)::after {
+    display: block;
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* desktop: one row of columns */
+@container tb (min-width: 52rem) {
+  .lp-trustBar--ledger .lp-trustBar__list {
+    grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:nth-child(n)::after {
+    display: none;
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:nth-child(n)::before {
+    display: block;
+  }
+
+  .lp-trustBar--ledger .lp-trustBar__item:first-child::before {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* lines start undrawn until their block is revealed (failsafe below keeps them from staying hidden) */
+  html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__list:not([data-in])::before,
+html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__list:not([data-in])::after,
+html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__item:not([data-in])::after,
+html.lp-js:not([data-motion="off"]) .lp-trustBar__item:not([data-in]) > .lp-trustBar__mark {
+    transform: scaleX(0);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__item:not([data-in])::before {
+    transform: scaleY(0);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__list[data-in]::before {
+    animation: lp-tb-draw-x calc(var(--lp-dur-l) * 1.6) var(--lp-smooth) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__list[data-in]::after {
+    animation: lp-tb-draw-x calc(var(--lp-dur-l) * 1.6) var(--lp-smooth) calc(var(--lp-dur-m) * 0.6) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__item[data-in]::before {
+    animation: lp-tb-draw-y var(--lp-dur-l) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-s)) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-trustBar__item[data-in] > .lp-trustBar__mark {
+    animation: lp-tb-draw-x var(--lp-dur-m) var(--lp-spring) calc(var(--d, 0ms) + var(--lp-dur-m)) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__item[data-in]::after {
+    animation: lp-tb-draw-x var(--lp-dur-l) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-s)) backwards;
+  }
+
+  /* ledger icons draw their own strokes after the rules (the dash exists only while drawing) */
+  html.lp-js:not([data-motion="off"]) .lp-trustBar--ledger .lp-trustBar__item[data-in] .lp-icon > path {
+    animation: lp-tb-ink calc(var(--lp-dur-l) * 1.8) var(--lp-smooth) calc(var(--d, 0ms) + var(--lp-dur-m)) backwards;
+  }
+}
+@supports selector(:has(a)) {
+  @media (prefers-reduced-motion: no-preference) {
+    html.lp-js:not([data-motion="off"]):not([data-rv]):not(:has([data-in])) .lp-trustBar--ledger .lp-trustBar__list::before,
+html.lp-js:not([data-motion="off"]):not([data-rv]):not(:has([data-in])) .lp-trustBar--ledger .lp-trustBar__list::after,
+html.lp-js:not([data-motion="off"]):not([data-rv]):not(:has([data-in])) .lp-trustBar--ledger .lp-trustBar__item::before,
+html.lp-js:not([data-motion="off"]):not([data-rv]):not(:has([data-in])) .lp-trustBar--ledger .lp-trustBar__item::after,
+html.lp-js:not([data-motion="off"]):not([data-rv]):not(:has([data-in])) .lp-trustBar__mark {
+      animation: lp-tb-failsafe var(--lp-dur-m) var(--lp-smooth) 2.5s forwards;
+    }
+  }
+}
+
+@keyframes lp-tb-failsafe {
+  to {
+    transform: none;
+  }
+}
+
+/* 72 > the longest path of the icon set (64): every stroke is complete before the dash is dropped */
+@keyframes lp-tb-ink {
+  from {
+    stroke-dasharray: 72;
+    stroke-dashoffset: 72;
+  }
+  to {
+    stroke-dasharray: 72;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes lp-tb-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes lp-tb-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+}

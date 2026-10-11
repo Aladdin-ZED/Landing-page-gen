@@ -1,0 +1,333 @@
+/* trustBar · chips — rules only this variant renders (inlined after trustBar.css on pages whose markup
+   carries .lp-trustBar--chips; the admin preview loads every variant). Shared rules live in trustBar.css. */
+
+.lp-trustBar__copy {
+  display: grid;
+  gap: 0.2em;
+  min-inline-size: 0;
+}
+
+.lp-trustBar__detail {
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * 0.98 * var(--lp-script-scale, 1));
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* ---------- chips → glass dock ------------------------------------------ */
+.lp-trustBar--chips .lp-trustBar__stage {
+  position: relative;
+  isolation: isolate;
+}
+
+/* a low, wide band of product light under the glass (stays inside the section padding) */
+.lp-trustBar--chips .lp-trustBar__stage > .lp-trustBar__glow {
+  z-index: -1;
+  inline-size: 100%;
+  block-size: 170%;
+  aspect-ratio: auto;
+}
+
+.lp-trustBar__dock {
+  /* --dock-p: the glass margin around the segments. Continuous corners (shape system): the dock is
+     drawn at --dock-r × k and every segment, the thumb and the bento tiles nest concentrically inside
+     it (segment = dock − margin × d), so the gap stays even all along the curve. */
+  --dock-p: 0.375rem;
+  --dock-r: calc(var(--lp-radius-l) + var(--dock-p));
+  --dock-rr: calc(var(--dock-r) * var(--lp-corner-k, 1));
+  --seg-r: max(calc(0.5rem * var(--lp-corner-k, 1)), calc(var(--dock-rr) - var(--dock-p) * var(--lp-corner-d, 1)));
+  --tile: transparent;
+  /* index of the segment the thumb sits on (the lead, or the one under the pointer) */
+  --a: 0;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--dock-p);
+  padding: var(--dock-p);
+  border: 1px solid var(--sec-glass-border, var(--mx-hair));
+  border-radius: var(--dock-rr);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  color: var(--sec-glass-ink, var(--sec-card-ink));
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l, 0 20px 44px -18px rgb(0 0 0 / 0.3));
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-trustBar__dock {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-trustBar__dock {
+    --tile: color-mix(in oklab, var(--sec-glass-ink, var(--sec-ink)) 4.5%, transparent);
+  }
+}
+
+:root[data-radius="round"] .lp-trustBar__dock {
+  --dock-r: 2rem;
+}
+
+/* glass rim: a 1px edge that catches the light at the top-start corner */
+.lp-trustBar__dock::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 2;
+  padding: 1px;
+  border-radius: inherit;
+  corner-shape: inherit;
+  background: linear-gradient(calc(165deg * var(--lp-x, 1)), var(--mx-rim), transparent 38%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* phones & tablets: bento tiles inside the glass; the lead is the one solid tile */
+.lp-trustBar__dock > .lp-trustBar__item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-inline-size: 0;
+  padding: 0.85rem 0.9rem 0.9rem;
+  border-radius: var(--seg-r);
+  corner-shape: var(--lp-corner);
+  background-color: var(--tile);
+  container: tbchip / inline-size;
+  transition: color var(--lp-dur-m) var(--lp-smooth), background-color var(--lp-dur-m) var(--lp-smooth);
+}
+
+/* an odd count gives the lead the whole first row: a bento with one wide tile */
+.lp-trustBar__dock:is([data-n="3"], [data-n="5"]) > .lp-trustBar__item--lead {
+  grid-column: 1 / -1;
+}
+
+.lp-trustBar__dock > .lp-trustBar__item--lead {
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(160deg, var(--mx-on-accent), transparent 58%);
+  color: var(--sec-accent-ink);
+  box-shadow: inset 0 1px 0 var(--mx-rim), 0 12px 26px -14px var(--mx-btn-2), 0 3px 8px -3px var(--mx-btn-1);
+}
+
+.lp-trustBar--chips .lp-trustBar__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-inline-size: 0;
+}
+
+.lp-trustBar--chips .lp-trustBar__name {
+  font-size: calc(var(--lp-step-0) * 0.92 * var(--lp-script-scale, 1));
+  line-height: 1.28;
+  text-wrap: balance;
+}
+
+.lp-trustBar--chips .lp-trustBar__detail {
+  color: inherit;
+  opacity: 0.76;
+}
+
+/* icon disc: accent-tinted glass on the tiles, a translucent light disc on the accent */
+.lp-trustBar--chips .lp-trustBar__icon {
+  inline-size: 2.4rem;
+  block-size: 2.4rem;
+  /* concentric with its tile (set 0.85rem in from the tile's corner) */
+  border-radius: max(calc(0.6rem * var(--lp-corner-k, 1)), calc(var(--seg-r) - 0.85rem * var(--lp-corner-d, 1)));
+  corner-shape: var(--lp-corner);
+  background-color: var(--mx-tint-2);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  color: var(--sec-accent);
+  transition:
+    color var(--lp-dur-m) var(--lp-smooth),
+    background-color var(--lp-dur-m) var(--lp-smooth),
+    rotate var(--lp-dur-m) var(--lp-spring),
+    scale var(--lp-dur-m) var(--lp-spring);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-trustBar--chips .lp-trustBar__icon {
+    background-color: color-mix(in oklab, var(--sec-accent) 15%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-accent) 18%, transparent);
+  }
+}
+
+.lp-trustBar--chips .lp-trustBar__item--lead .lp-trustBar__icon {
+  background-color: var(--mx-on-accent);
+  box-shadow: inset 0 1px 0 var(--mx-rim);
+  color: inherit;
+}
+
+/* a tile too narrow for the second line keeps the promise alone (phones: four tiles in view) */
+@container tbchip (max-width: 10.99rem) {
+  .lp-trustBar--chips .lp-trustBar__detail {
+    display: none;
+  }
+}
+
+/* a wide segment lays the disc beside the words */
+@container tbchip (min-width: 15rem) {
+  .lp-trustBar--chips .lp-trustBar__body {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .lp-trustBar--chips .lp-trustBar__icon {
+    inline-size: 2.6rem;
+    block-size: 2.6rem;
+  }
+}
+
+@media (hover: hover) {
+  .lp-trustBar__dock > .lp-trustBar__item:hover .lp-trustBar__icon {
+    rotate: calc(var(--lp-x, 1) * -8deg);
+    scale: 1.07;
+  }
+}
+
+/* the accent thumb (desktop row only) — slides by its own width per index, mirrored in RTL */
+.lp-trustBar__dock::before {
+  content: "";
+  position: absolute;
+  inset-block: var(--dock-p);
+  inset-inline-start: var(--dock-p);
+  z-index: 0;
+  display: none;
+  inline-size: calc((100% - 2 * var(--dock-p)) / var(--n, 4));
+  border-radius: var(--seg-r);
+  corner-shape: var(--lp-corner);
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(160deg, var(--mx-on-accent), transparent 58%);
+  box-shadow: inset 0 1px 0 var(--mx-rim), 0 14px 28px -14px var(--mx-btn-2), 0 3px 8px -3px var(--mx-btn-1);
+  transform: translateX(calc(var(--a) * 100% * var(--lp-x, 1)));
+  transition: transform calc(var(--lp-dur-m) * 1.25) var(--lp-spring);
+}
+
+/* desktop: one capsule, a segment per promise, hairlines between them */
+@container tb (min-width: 56rem) {
+  .lp-trustBar__dock {
+    grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
+    gap: 0;
+    max-inline-size: calc(var(--n, 4) * 22rem);
+    margin-inline: auto;
+  }
+
+  .lp-trustBar__dock::before {
+    display: block;
+  }
+
+  /* [data-n] outweighs the odd-count bento span above */
+  .lp-trustBar__dock[data-n] > .lp-trustBar__item {
+    grid-column: auto;
+    align-items: flex-start;
+    padding: 1rem 1rem 1.05rem;
+    background: none;
+    box-shadow: none;
+  }
+
+  /* segments share one top line: disc and first line of the promise align across the dock */
+  .lp-trustBar__dock .lp-trustBar__body {
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+
+  .lp-trustBar__dock .lp-trustBar__icon {
+    inline-size: 2.35rem;
+    block-size: 2.35rem;
+  }
+
+  /* the promise's first line is centered on the disc; a detail line simply hangs below */
+  .lp-trustBar__dock .lp-trustBar__copy {
+    padding-block-start: max(0px, calc((2.35rem - 1.28 * var(--lp-step-0) * 0.88 * var(--lp-script-scale, 1)) / 2));
+  }
+
+  .lp-trustBar--chips .lp-trustBar__name {
+    font-size: calc(var(--lp-step-0) * 0.88 * var(--lp-script-scale, 1));
+  }
+
+  /* hairline between segments; the two beside the thumb fade out (|k − a − ½| < 1) */
+  .lp-trustBar__dock > .lp-trustBar__item::before {
+    content: "";
+    position: absolute;
+    inset-block: 24%;
+    inset-inline-start: -0.5px;
+    inline-size: 1px;
+    background: linear-gradient(transparent, var(--mx-line), transparent);
+    opacity: min(1, max(calc(var(--k, 0) - var(--a) - 1), calc(var(--a) - var(--k, 0))));
+    transition: opacity var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  .lp-trustBar__dock > .lp-trustBar__item:first-child::before {
+    content: none;
+  }
+}
+
+/* a narrow segment (five promises) stacks disc over words: no first-line offset there */
+@container tbchip (max-width: 14.99rem) {
+  .lp-trustBar__dock .lp-trustBar__copy {
+    padding-block-start: 0;
+  }
+}
+
+/* the thumb follows the pointer; the colors cross over with it */
+@supports selector(:has(a)) {
+  @media (hover: hover) {
+    @container tb (min-width: 56rem) {
+      .lp-trustBar__dock:has(> .lp-trustBar__item:nth-child(2):hover) {
+        --a: 1;
+      }
+
+      .lp-trustBar__dock:has(> .lp-trustBar__item:nth-child(3):hover) {
+        --a: 2;
+      }
+
+      .lp-trustBar__dock:has(> .lp-trustBar__item:nth-child(4):hover) {
+        --a: 3;
+      }
+
+      .lp-trustBar__dock:has(> .lp-trustBar__item:nth-child(5):hover) {
+        --a: 4;
+      }
+
+      .lp-trustBar__dock > .lp-trustBar__item:hover {
+        color: var(--sec-accent-ink);
+      }
+
+      .lp-trustBar__dock:has(> .lp-trustBar__item:hover) > .lp-trustBar__item--lead:not(:hover) {
+        color: var(--sec-glass-ink, var(--sec-card-ink));
+      }
+
+      .lp-trustBar__dock > .lp-trustBar__item:hover .lp-trustBar__icon {
+        background-color: var(--mx-on-accent);
+        box-shadow: inset 0 1px 0 var(--mx-rim);
+        color: inherit;
+      }
+
+      .lp-trustBar__dock:has(> .lp-trustBar__item:hover) > .lp-trustBar__item--lead:not(:hover) .lp-trustBar__icon {
+        background-color: var(--mx-tint-2);
+        color: var(--sec-accent);
+      }
+    }
+  }
+}
+
+/* ---------- motion (progressive, gated) ---------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* dock: the thumb pops in with the glass, under the lead promise as its words sharpen */
+  html.lp-js:not([data-motion="off"]) .lp-trustBar__dock[data-in]::before {
+    animation: lp-tb-thumb calc(var(--lp-dur-l) * 1.2) var(--lp-spring-pop) 80ms backwards;
+  }
+}
+
+@keyframes lp-tb-thumb {
+  from {
+    opacity: 0;
+    scale: 0.86 0.7;
+  }
+}

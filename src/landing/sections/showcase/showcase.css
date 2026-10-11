@@ -1,0 +1,101 @@
+/* ==========================================================================
+   showcase — hotspots · exploded · ingredients · dimensions   (v2 · modern)
+   Product light, precise hairlines, raised notes, glass chips over imagery,
+   spring hovers.
+   Geometry that follows photo coordinates (hotspots, exploded, the drawing) is
+   set in an LTR box on purpose; the copy inside always reads in the page
+   direction.
+   Rules every variant uses. A variant's own rules live in showcase.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+
+/* product light (glows, auras) may spill past the viewport on flush pages: clip it sideways only */
+.lp-showcase {
+  overflow-x: clip;
+}
+
+.lp-showcase__head {
+  margin-block-end: clamp(2.25rem, 1.5rem + 3vw, 4rem);
+}
+
+.lp-showcase__label {
+  margin: 0;
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 0.86 * var(--lp-script-scale-display));
+  line-height: max(1.2, calc(var(--lp-display-lh) + 0.04));
+  letter-spacing: calc(var(--lp-display-tracking) * 0.5);
+  text-transform: var(--lp-display-case);
+  text-wrap: balance;
+  /* long words in narrow notes break at a syllable with a hyphen, never mid-letter */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.lp-showcase__text {
+  margin: 0.45em 0 0;
+  max-inline-size: 46ch;
+  font-size: calc(var(--lp-step-0) * 0.92 * var(--lp-script-scale));
+  line-height: var(--lp-body-lh);
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-showcase__cta {
+  margin-block-start: clamp(2.25rem, 1.6rem + 2vw, 3.25rem);
+}
+
+.lp-showcase__cta--center {
+  display: flex;
+  justify-content: center;
+}
+
+/* ---- details index: the pinned views without a photo (hotspots, exploded) ---------------------- */
+.lp-showcase__dindex {
+  display: grid;
+  gap: 0 clamp(2rem, 5vw, 4.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-showcase__dentry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 1rem;
+  padding-block: clamp(1.35rem, 1rem + 1.2vw, 2rem);
+}
+
+.lp-showcase__drule {
+  position: absolute;
+  inset: 0 0 auto;
+  block-size: 1px;
+  background: var(--mx-line);
+}
+
+.lp-showcase__dnum {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-2) * var(--lp-script-scale-display));
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--sec-accent);
+}
+
+.lp-showcase__dbody {
+  min-inline-size: 0;
+}
+
+@media (min-width: 48rem) {
+  .lp-showcase__dindex:not([data-count="2"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-showcase__dindex[data-count="2"] {
+    max-inline-size: 44rem;
+    margin-inline: auto;
+  }
+}

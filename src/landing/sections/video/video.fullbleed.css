@@ -1,0 +1,355 @@
+/* video · fullbleed — rules only this variant renders (inlined after video.css on pages whose markup
+   carries .lp-video--fullbleed; the admin preview loads every variant). Shared rules live in video.css. */
+
+.lp-video.lp-video--fullbleed {
+  overflow: hidden;
+}
+
+@supports (overflow: clip) {
+  .lp-video.lp-video--fullbleed {
+    overflow: clip;
+  }
+}
+
+/* ==========================================================================
+   fullbleed
+   ========================================================================== */
+.lp-video--fullbleed {
+  padding-block: 0;
+}
+
+.lp-video__bleed {
+  /* the container's edge inside the full-width film (chrome aligns with the copy) */
+  --edge: max(var(--lp-gutter), calc((100% - var(--lp-container)) / 2));
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-areas: "film" "over";
+  overflow: hidden;
+  background-color: var(--lp-dark);
+}
+
+/* phones: 4:5, or a person still's own proportions (2:3 at the tallest: nothing of them cropped) */
+.lp-video__wide {
+  grid-area: film;
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: var(--film-ar, 4 / 5);
+  max-block-size: 78vh;
+}
+
+@supports (block-size: 1svh) {
+  .lp-video__wide {
+    max-block-size: 78svh;
+  }
+}
+
+.lp-video__wide > .lp-video__screen {
+  block-size: 100%;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+.lp-video__wide > .lp-video__screen::after {
+  content: none;
+}
+
+.lp-video__wide .lp-pic__ph {
+  display: none;
+}
+
+/* phones: a light top scrim for the chrome, and the film melting into the dark block below */
+.lp-video__wide .lp-video__shade {
+  background: linear-gradient(to top, var(--lp-dark), transparent 48%), linear-gradient(to bottom, var(--lp-dark), transparent 22%);
+  opacity: 0.85;
+}
+
+/* phones: the film's lower edge fades out instead of ending on a line, so it melts into whatever
+   lies beneath (the dark block and the film's own light) without a seam */
+@media (max-width: 47.99rem) {
+  .lp-video__wide {
+    -webkit-mask-image: linear-gradient(to top, transparent, #000 22%);
+    mask-image: linear-gradient(to top, transparent, #000 22%);
+  }
+}
+
+/* the film's own light under the copy (phones) / around the vertical panel (desktop) */
+.lp-video__amb.lp-video__backdrop {
+  inset: 38% -10% -10%;
+  z-index: 0;
+  opacity: 0.5;
+  filter: blur(56px) saturate(1.5) brightness(0.6);
+}
+
+.lp-video__backdrop .lp-pic {
+  border-radius: 0;
+}
+
+.lp-video__over {
+  grid-area: over;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: end;
+  /* the headline rises over the film's lower edge */
+  margin-block-start: calc(-1 * clamp(5rem, 22vw, 8rem));
+  padding-block: 0 clamp(2.25rem, 1.5rem + 4vw, 4rem);
+  background: none;
+  pointer-events: none;
+}
+
+.lp-video__over a {
+  pointer-events: auto;
+}
+
+/* phones: a head or hands in the film's lowest band — the headline rises less and the film's fade
+   is shorter, so the copy never lies over them */
+@media (max-width: 47.99rem) {
+  .lp-video__bleed[data-low] > .lp-video__over {
+    margin-block-start: calc(-1 * clamp(1.5rem, 6vw, 2.25rem));
+  }
+
+  .lp-video__bleed[data-low] > .lp-video__wide {
+    -webkit-mask-image: linear-gradient(to top, transparent, #000 9%);
+    mask-image: linear-gradient(to top, transparent, #000 9%);
+  }
+
+  .lp-video__bleed[data-low] .lp-video__wide .lp-video__shade {
+    background: linear-gradient(to top, var(--lp-dark), transparent 18%), linear-gradient(to bottom, var(--lp-dark), transparent 22%);
+  }
+}
+
+/* the caption chip that would cover a face on the film opens the copy instead — one chip per
+   breakpoint: in the copy (data-phone / data-desk) or on the film (data-cap-phone / data-cap) */
+.lp-video__cap-row {
+  display: flex;
+}
+
+@media (max-width: 47.99rem) {
+  .lp-video__cap-row:not([data-phone]),
+  .lp-video__wide[data-cap-phone="copy"] > .lp-video__fc {
+    display: none;
+  }
+}
+
+@media (min-width: 48rem) {
+  .lp-video__cap-row:not([data-desk]),
+  .lp-video__wide[data-cap="copy"] > .lp-video__fc {
+    display: none;
+  }
+}
+
+.lp-video__over-in {
+  display: grid;
+  gap: clamp(1.25rem, 2.5vw, 2rem);
+}
+
+.lp-video__over .lp-sh {
+  max-inline-size: 44rem;
+}
+
+.lp-video__over .lp-sh__title {
+  --vd-ts: var(--lp-dark);
+  text-shadow: 0 2px 24px var(--vd-ts);
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-video__over .lp-sh__title {
+    --vd-ts: color-mix(in oklab, var(--lp-dark) 55%, transparent);
+  }
+}
+
+/* over moving pixels the lead keeps full ink */
+.lp-video__over .lp-sh__lead,
+.lp-video__over .lp-video__assure {
+  color: var(--sec-ink);
+}
+
+@media (min-width: 48rem) {
+  /* the film fills the block; the block grows with its copy, never crops it */
+  .lp-video__bleed {
+    grid-template-areas: "over";
+    min-block-size: clamp(34rem, 56.25vw, 92vh);
+  }
+
+  @supports (block-size: 1svh) {
+    .lp-video__bleed {
+      min-block-size: clamp(34rem, 56.25vw, 92svh);
+    }
+  }
+
+  .lp-video__wide {
+    position: absolute;
+    inset: 0;
+    aspect-ratio: auto;
+    max-block-size: none;
+  }
+
+  .lp-video__amb.lp-video__backdrop {
+    display: none;
+  }
+
+  .lp-video__over {
+    margin-block-start: 0;
+    padding-block: clamp(7rem, 12vw, 10rem) clamp(2rem, 3.5vw, 3.25rem);
+  }
+
+  .lp-video__wide .lp-video__shade {
+    background: linear-gradient(to top, var(--lp-dark), var(--lp-dark) 12%, transparent 62%), linear-gradient(to right, var(--lp-dark), transparent 60%),
+      linear-gradient(to bottom, var(--lp-dark), transparent 20%);
+    opacity: 0.8;
+  }
+
+  [dir="rtl"] .lp-video__wide .lp-video__shade {
+    background: linear-gradient(to top, var(--lp-dark), var(--lp-dark) 12%, transparent 62%), linear-gradient(to left, var(--lp-dark), transparent 60%),
+      linear-gradient(to bottom, var(--lp-dark), transparent 20%);
+  }
+
+  /* chrome on the container's edges: caption at the top-start, controls at the top-end */
+  .lp-video__wide > .lp-video__fc {
+    padding: clamp(1.25rem, 2.5vw, 2rem) var(--edge);
+  }
+
+  .lp-video__wide[data-ready] > .lp-video__fc {
+    padding-inline-end: calc(var(--edge) + 14rem);
+  }
+
+  .lp-video__wide .lp-video__ctl {
+    inset-block-start: clamp(1.25rem, 2.5vw, 2rem);
+    inset-inline-end: var(--edge);
+  }
+
+  /* the disc sits in the free side of the film, clear of the headline */
+  .lp-video__wide .lp-video__play {
+    place-items: center end;
+    padding-inline-end: clamp(4rem, 16vw, 15rem);
+    padding-block-end: 6%;
+  }
+
+  /* vertical clips: a tall panel at the inline end over a field of their own light */
+  .lp-video__bleed[data-shape="tall"] .lp-video__backdrop {
+    display: block;
+    inset: -8%;
+    opacity: 1;
+    filter: blur(64px) saturate(1.5) brightness(0.48);
+  }
+
+  /* the headline side of the light field is dimmed for AA text */
+  .lp-video__bleed[data-shape="tall"] .lp-video__backdrop::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--lp-dark) 18%, transparent 72%);
+    opacity: 0.72;
+  }
+
+  [dir="rtl"] .lp-video__bleed[data-shape="tall"] .lp-video__backdrop::after {
+    background: linear-gradient(to left, var(--lp-dark) 18%, transparent 72%);
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide {
+    inset-block: 7%;
+    inset-inline: auto var(--edge);
+    aspect-ratio: var(--vr, 0.5625);
+    block-size: 86%;
+    container-type: normal;
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide > .lp-video__screen {
+    border-radius: var(--lp-sq-media);
+    corner-shape: var(--lp-corner);
+    box-shadow: var(--lp-shadow-l);
+  }
+
+  /* the chip on the panel's bottom edge when its top edge holds a face */
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide[data-cap="bottom"] > .lp-video__fc {
+    align-items: flex-end;
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide > .lp-video__screen::after {
+    content: "";
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide .lp-video__shade {
+    background: linear-gradient(to top, var(--lp-dark), transparent 34%), linear-gradient(to bottom, var(--lp-dark), transparent 24%);
+    opacity: 0.5;
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide > .lp-video__fc,
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide[data-ready] > .lp-video__fc {
+    padding: var(--vd-pad);
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide[data-ready] > .lp-video__fc {
+    padding-inline-end: calc(var(--vd-pad) * 2 + 6rem);
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide .lp-video__ctl {
+    inset-block-start: var(--vd-pad);
+    inset-inline-end: var(--vd-pad);
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide .lp-video__play {
+    place-items: center;
+    padding: 0;
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__wide .lp-video__sl {
+    display: none;
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__over {
+    align-content: center;
+    padding-block: clamp(4rem, 7vw, 6rem);
+  }
+
+  .lp-video__bleed[data-shape="tall"] .lp-video__over-in > * {
+    max-inline-size: min(44rem, 52%);
+  }
+
+  /* a near-square panel is wider: the copy steps back so the two never touch */
+  .lp-video__bleed[data-panel="square"] .lp-video__wide {
+    block-size: 80%;
+    inset-block: 10%;
+  }
+
+  .lp-video__bleed[data-panel="square"] .lp-video__over-in > * {
+    max-inline-size: min(40rem, 46%);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    /* fullbleed: opens from an inset card to the full width, the picture settling from a zoom */
+    :root:not([data-motion="off"]) .lp-video__bleed {
+      animation: lp-vid-open linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 38%;
+    }
+
+    :root:not([data-motion="off"]) .lp-video__wide .lp-video__media {
+      animation: lp-vid-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 50%;
+    }
+  }
+}
+
+@keyframes lp-vid-open {
+  from {
+    clip-path: inset(0 clamp(0.75rem, 5vw, 4.5rem) round var(--vd-r));
+  }
+  to {
+    clip-path: inset(0 0 round 0);
+  }
+}
+
+@keyframes lp-vid-settle {
+  from {
+    scale: 1.1;
+  }
+  to {
+    scale: 1;
+  }
+}

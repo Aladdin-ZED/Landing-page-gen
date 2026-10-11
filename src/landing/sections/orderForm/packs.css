@@ -1,0 +1,1176 @@
+/* ==========================================================================
+   Pack picker — offers.cardStyle: stack · tiers · ticket (wallet pass) · pills (segmented) ·
+   visual. One card anatomy, five compositions (grid areas). Selected = accent ring + soft accent
+   halo and glow + 2px lift + check disc that pops and draws its tick. Focus = the same ring in ink.
+   Works for 1–5 packs on any section background ([data-selected]: server-rendered for the default
+   pack, kept current by the runtime).
+   Color variables are declared on the cards themselves: a card may carry its own [data-bg]
+   (bold slab), and a custom property resolves its var() where it is declared.
+   ========================================================================== */
+.lp-packs {
+  --pk-r: max(var(--lp-radius-m), 0.875rem);
+  /* the card's rendered corner (continuous where supported, base.css 2b) */
+  --pk-R: calc(var(--pk-r) * var(--lp-corner-k));
+  --pk-pad: clamp(0.85rem, 0.55rem + 1.2vw, 1.15rem);
+  display: grid;
+  gap: 0.9rem;
+  padding-block-start: 0.45rem;
+}
+
+/* square-cornered themes (editorial) keep their crisp cards */
+:root[data-radius="none"] .lp-packs {
+  --pk-r: var(--lp-radius-m);
+}
+
+.lp-pack,
+.lp-seg,
+.lp-seg__detail {
+  --pk-line: var(--mx-line);
+  --pk-tint: var(--mx-tint);
+  --pk-sel: var(--sec-card);
+  --pk-drop: 0 14px 30px -16px var(--mx-btn-2);
+}
+
+/* accent tints go into the card DRAINED of its color (same lightness — README "No orange"): a
+   crimson on a butter card gives a blush, never a peach */
+@supports (color: oklch(from red l c h)) {
+  .lp-pack,
+  .lp-seg,
+  .lp-seg__detail {
+    --pk-card0: oklch(from var(--sec-card) l 0 0);
+    --pk-tint: color-mix(in oklab, var(--sec-accent) 10%, var(--pk-card0));
+    --pk-sel: color-mix(in oklab, var(--sec-accent) 6%, var(--pk-card0));
+  }
+}
+
+:root[data-shadow="none"] .lp-pack,
+:root[data-shadow="none"] .lp-seg {
+  --pk-drop: 0 0 #0000;
+}
+
+.lp-pack {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-inline-size: 0;
+  padding: var(--pk-pad);
+  border-radius: var(--pk-R);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--pk-line),
+    0 1px 2px color-mix(in oklab, var(--sec-ink) 6%, transparent);
+  line-height: 1.25;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    translate var(--lp-dur-m) var(--lp-spring),
+    scale var(--lp-dur-m) var(--lp-spring),
+    background-color var(--lp-dur-s) var(--lp-ease),
+    box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-pack:hover {
+    --pk-line: var(--sec-line-strong);
+    translate: 0 -1px;
+  }
+}
+
+.lp-pack:active {
+  scale: 0.985;
+  transition-duration: var(--lp-dur-s);
+}
+
+.lp-pack[data-selected] {
+  --pk-line: var(--sec-accent);
+  background: var(--pk-sel);
+  box-shadow:
+    inset 0 0 0 2px var(--sec-accent),
+    0 0 0 4px var(--pk-ring, var(--mx-tint)),
+    var(--pk-drop);
+  translate: 0 -2px;
+}
+
+/* a soft product-hue light pools into the chosen card from its top corner (fades in, under the
+   content: the card is its own stacking context) */
+.lp-pack:not(.lp-seg__opt) {
+  isolation: isolate;
+}
+
+.lp-pack:not(.lp-seg__opt)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(110% 85% at 100% 0%, color-mix(in oklab, var(--sec-accent) 18%, transparent), transparent 62%);
+  opacity: 0;
+  transition: opacity var(--lp-dur-l) var(--lp-smooth);
+  pointer-events: none;
+}
+
+.lp-pack[data-selected]:not(.lp-seg__opt)::before {
+  opacity: 1;
+}
+
+/* the real radio stays focusable and in the a11y tree; the card paints its state */
+.lp-pack__radio {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lp-pack:has(> .lp-pack__radio:focus-visible) {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 4px;
+}
+
+/* --- check disc ---------------------------------------------------------- */
+.lp-pack__check {
+  grid-area: check;
+  display: grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--sec-line-strong);
+  color: var(--sec-accent-ink);
+  transition: background-color var(--lp-dur-s) var(--lp-ease), box-shadow var(--lp-dur-s) var(--lp-ease);
+}
+
+.lp-pack__check svg {
+  inline-size: 0.95rem;
+  block-size: 0.95rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--lp-dur-m) var(--lp-smooth) 90ms;
+}
+
+@supports not selector(:has(a)) {
+  .lp-pack__radio:focus-visible ~ .lp-pack__check {
+    outline: 2px solid var(--sec-ink);
+    outline-offset: 2px;
+  }
+}
+
+.lp-pack[data-selected] .lp-pack__check {
+  background: var(--sec-accent);
+  box-shadow: 0 4px 10px -3px var(--mx-btn-2);
+  animation: lp-pk-pop var(--lp-dur-m) var(--lp-spring-pop);
+}
+
+.lp-pack[data-selected] .lp-pack__check svg {
+  stroke-dashoffset: 0;
+}
+
+@keyframes lp-pk-pop {
+  from {
+    scale: 0.6;
+  }
+}
+
+/* --- badge: a pill floating on the top edge ----------------------------- */
+.lp-pack__badge {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: var(--pk-pad);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  max-inline-size: calc(100% - 2 * var(--pk-pad));
+  padding: 0.36em 0.8em;
+  border-radius: 999px;
+  background: var(--lp-pop);
+  color: var(--lp-pop-ink);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--lp-pop-ink) 18%, transparent), 0 6px 14px -6px color-mix(in oklab, var(--lp-pop) 70%, transparent);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--of-lab);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.2;
+  white-space: nowrap;
+  translate: 0 -55%;
+}
+
+.lp-pack__badge-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-badge="best"] > .lp-pack__badge,
+[data-bg="pop"] .lp-pack__badge {
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  box-shadow: 0 6px 14px -6px color-mix(in oklab, var(--sec-ink) 55%, transparent);
+}
+
+/* --- quantity ------------------------------------------------------------ */
+.lp-pack__qty {
+  grid-area: qty;
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 3.4rem;
+  aspect-ratio: 1;
+  border-radius: calc(max(var(--lp-radius-s), 0.8rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--pk-tint);
+  color: var(--sec-ink);
+  transition: background-color var(--lp-dur-m) var(--lp-smooth), color var(--lp-dur-m) var(--lp-smooth);
+}
+
+:root[data-arch="souk"] .lp-packs--stack .lp-pack__qty,
+:root[data-arch="maison"] .lp-packs--stack .lp-pack__qty,
+:root[data-arch="bloom"] .lp-packs--stack .lp-pack__qty {
+  border-start-start-radius: 1.7rem;
+  border-start-end-radius: 1.7rem;
+}
+
+.lp-pack__qn {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(1.5rem * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1;
+  font-variant-numeric: lining-nums;
+  white-space: nowrap;
+}
+
+.lp-pack__times {
+  margin-inline-end: 0.05em;
+  font-family: var(--lp-font-body);
+  font-size: 0.6em;
+  font-weight: 500;
+  opacity: 0.7;
+  vertical-align: 0.2em;
+}
+
+.lp-pack[data-selected] .lp-pack__qty {
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+/* a merchant pack photo fills the tile; the quantity rides on it as a chip */
+.lp-pack__qty--pic {
+  overflow: visible;
+  background: none;
+}
+
+.lp-pack__qpic {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.lp-pack__qty--pic .lp-pack__qn,
+.lp-pack[data-selected] .lp-pack__qty--pic .lp-pack__qn {
+  position: absolute;
+  inset-block-end: -0.35rem;
+  inset-inline-end: -0.35rem;
+  padding: 0.2em 0.45em;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  font-size: 0.85rem;
+}
+
+.lp-pack[data-selected] .lp-pack__qty--pic {
+  background: none;
+}
+
+/* --- text ---------------------------------------------------------------- */
+.lp-pack__main {
+  grid-area: main;
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+.lp-pack__name {
+  font-size: calc(var(--lp-step-0) * 1.02 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.lp-pack__meta,
+.lp-pack__subt {
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+  line-height: 1.35;
+}
+
+/* --- price --------------------------------------------------------------- */
+.lp-pack__price {
+  grid-area: price;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  text-align: end;
+}
+
+.lp-pack__now {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(var(--lp-step-1) * 1.08 * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-pack__was {
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: color-mix(in oklab, var(--sec-ink-soft) 80%, transparent);
+  white-space: nowrap;
+}
+
+/* --- perks --------------------------------------------------------------- */
+.lp-pack__perks {
+  grid-area: perks;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  min-inline-size: 0;
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+  line-height: 1.35;
+}
+
+.lp-pack__perks:empty {
+  display: none;
+}
+
+.lp-pack__save {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1rem 0.35rem;
+  padding: 0.2em 0.65em;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--sec-success) 13%, transparent);
+  color: var(--sec-ink);
+  font-weight: var(--lp-strong-weight);
+}
+
+.lp-pack__pct {
+  color: var(--sec-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-pack__unit--field {
+  display: grid;
+  gap: 0.05rem;
+  font-weight: 600;
+  color: var(--sec-ink);
+  white-space: nowrap;
+}
+
+.lp-pack__ship {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.lp-pack__ship .lp-icon {
+  color: var(--sec-success);
+}
+
+/* --- gift: thumbnail + "Gift" label + what it is -------------------------- */
+.lp-pack__gift {
+  grid-area: gift;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-block-start: 0.6rem;
+  padding: 0.45rem;
+  padding-inline-end: 0.8rem;
+  border-radius: max(calc(var(--pk-R) - 0.35rem * var(--lp-corner-d)), 0.5rem);
+  corner-shape: var(--lp-corner);
+  background: var(--pk-tint);
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  line-height: 1.3;
+}
+
+.lp-pack__gift-pic,
+.lp-pack__gift-ico {
+  flex: none;
+  inline-size: 2.6rem;
+  block-size: 2.6rem;
+  border-radius: calc(max(var(--lp-radius-s), 0.6rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  overflow: hidden;
+}
+
+.lp-pack__gift-ico {
+  display: grid;
+  place-items: center;
+  background: var(--lp-pop);
+  color: var(--lp-pop-ink);
+}
+
+.lp-pack__gift-txt {
+  display: grid;
+  min-inline-size: 0;
+  text-align: start;
+}
+
+.lp-pack__gift-txt b {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--of-lab);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-pack__gift-txt span {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   stack — full-width rows: check · quantity tile · name & perks · price
+   ========================================================================== */
+.lp-packs--stack .lp-pack {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "check qty main price"
+    "check qty perks perks"
+    ". gift gift gift";
+  gap: 0.3rem 0.85rem;
+}
+
+.lp-packs--stack .lp-pack__perks {
+  margin-block-start: 0.15rem;
+}
+
+.lp-packs--stack .lp-pack__gift {
+  margin-block-start: 0.5rem;
+}
+
+/* phones: the price moves under the name, so long titles keep a generous measure */
+@container of (max-width: 26rem) {
+  .lp-packs--stack .lp-pack {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "check qty main"
+      "check qty price"
+      "check qty perks"
+      ". gift gift";
+    row-gap: 0.35rem;
+  }
+
+  .lp-packs--stack .lp-pack__price {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.55rem;
+    text-align: start;
+  }
+}
+
+/* ==========================================================================
+   tiers & visual — columns (2 · 3 · 2×2 → 4 · 3+2 → 5)
+   ========================================================================== */
+.lp-packs--tiers,
+.lp-packs--visual {
+  grid-template-columns: repeat(var(--pk-cols, 3), minmax(0, 1fr));
+  align-items: stretch;
+  gap: clamp(0.5rem, 0.3rem + 1vw, 0.85rem);
+  padding-block-start: 0.85rem;
+}
+
+.lp-packs--tiers[data-n="2"],
+.lp-packs--tiers[data-n="4"],
+.lp-packs--visual[data-n="2"],
+.lp-packs--visual[data-n="4"] {
+  --pk-cols: 2;
+}
+
+.lp-packs--tiers[data-n="5"],
+.lp-packs--visual[data-n="5"] {
+  --pk-cols: 6;
+}
+
+.lp-packs--tiers[data-n="5"] > .lp-pack,
+.lp-packs--visual[data-n="5"] > .lp-pack {
+  grid-column: span 2;
+}
+
+.lp-packs--tiers[data-n="5"] > .lp-pack:nth-child(n + 4),
+.lp-packs--visual[data-n="5"] > .lp-pack:nth-child(n + 4) {
+  grid-column: span 3;
+}
+
+@container of (min-width: 34rem) {
+  .lp-packs--tiers[data-n="4"],
+  .lp-packs--visual[data-n="4"] {
+    --pk-cols: 4;
+  }
+}
+
+@container of (min-width: 44rem) {
+  .lp-packs--tiers[data-n="5"],
+  .lp-packs--visual[data-n="5"] {
+    --pk-cols: 5;
+  }
+
+  .lp-packs--tiers[data-n="5"] > .lp-pack:nth-child(n),
+  .lp-packs--visual[data-n="5"] > .lp-pack:nth-child(n) {
+    grid-column: auto;
+  }
+}
+
+.lp-packs--tiers .lp-pack,
+.lp-packs--visual .lp-pack {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "qty" "main" "price" "perks" "gift";
+  align-content: start;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 1.5rem 0.55rem 3.1rem;
+  text-align: center;
+}
+
+/* columns: the check sits at the foot of every card, aligned across the row (clear of badges) */
+.lp-packs--tiers .lp-pack__check,
+.lp-packs--visual .lp-pack__check {
+  position: absolute;
+  inset-block-end: 0.85rem;
+  inset-inline: 0;
+  z-index: 2;
+  margin-inline: auto;
+}
+
+.lp-packs--tiers .lp-pack__check svg,
+.lp-packs--visual .lp-pack__check svg {
+  inline-size: 0.85rem;
+  block-size: 0.85rem;
+}
+
+.lp-packs--tiers .lp-pack__save,
+.lp-packs--visual .lp-pack__save {
+  justify-content: center;
+  border-radius: 0.8rem;
+  text-align: center;
+}
+
+.lp-packs--tiers .lp-pack__badge,
+.lp-packs--visual .lp-pack__badge {
+  inset-inline: 0;
+  inline-size: max-content;
+  max-inline-size: calc(100% - 0.5rem);
+  margin-inline: auto;
+  padding-inline: 0.65em;
+}
+
+/* three columns on a phone: the badge may wrap to two short lines instead of being cut */
+@container of (max-width: 30rem) {
+  .lp-packs--tiers .lp-pack__badge,
+  .lp-packs--visual .lp-pack__badge {
+    padding: 0.32em 0.6em;
+    border-radius: 0.7rem;
+    font-size: calc(0.62rem * var(--lp-script-scale));
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .lp-packs--tiers .lp-pack__badge-t,
+  .lp-packs--visual .lp-pack__badge-t {
+    overflow: visible;
+  }
+}
+
+.lp-packs--tiers .lp-pack__price,
+.lp-packs--visual .lp-pack__price {
+  align-items: center;
+  text-align: center;
+}
+
+.lp-packs--tiers .lp-pack__now,
+.lp-packs--visual .lp-pack__now {
+  font-size: min(calc(var(--lp-step-1) * 1.08 * var(--lp-script-scale-display)), 7.4cqi);
+}
+
+.lp-packs--tiers[data-n="2"] .lp-pack__now,
+.lp-packs--tiers[data-n="4"] .lp-pack__now,
+.lp-packs--visual[data-n="2"] .lp-pack__now,
+.lp-packs--visual[data-n="4"] .lp-pack__now {
+  font-size: min(calc(var(--lp-step-1) * 1.15 * var(--lp-script-scale-display)), 9cqi);
+}
+
+.lp-packs--tiers .lp-pack__perks,
+.lp-packs--visual .lp-pack__perks {
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.lp-packs--tiers .lp-pack__gift,
+.lp-packs--visual .lp-pack__gift {
+  flex-direction: column;
+  gap: 0.35rem;
+  inline-size: 100%;
+  padding: 0.5rem 0.4rem;
+}
+
+.lp-packs--tiers .lp-pack__gift-txt,
+.lp-packs--visual .lp-pack__gift-txt {
+  text-align: center;
+}
+
+/* tiers: big numerals, the featured pack raised with its own glow */
+.lp-packs--tiers .lp-pack__qty {
+  inline-size: auto;
+  aspect-ratio: auto;
+  background: none;
+  color: var(--sec-ink);
+}
+
+.lp-packs--tiers .lp-pack__qn {
+  font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 13cqi);
+}
+
+.lp-packs--tiers .lp-pack[data-selected] .lp-pack__qty {
+  background: none;
+  color: var(--sec-accent);
+}
+
+.lp-packs--tiers .lp-pack__qty--pic {
+  inline-size: min(5rem, 70%);
+  aspect-ratio: 1;
+}
+
+.lp-packs--tiers .lp-pack[data-featured] {
+  margin-block-start: -0.6rem;
+  padding-block-start: 2.1rem;
+  box-shadow:
+    inset 0 0 0 1px var(--pk-line),
+    0 18px 36px -22px var(--mx-btn-2);
+}
+
+.lp-packs--tiers .lp-pack[data-featured][data-selected] {
+  box-shadow:
+    inset 0 0 0 2px var(--sec-accent),
+    0 0 0 4px var(--pk-ring, var(--mx-tint)),
+    0 22px 44px -18px var(--mx-btn-2);
+}
+
+/* visual: the product ×qty leads each card */
+.lp-packs--visual .lp-pack {
+  grid-template-areas: "media" "main" "price" "perks" "gift";
+  padding: 0.45rem 0.45rem 3.1rem;
+}
+
+.lp-pack__media {
+  grid-area: media;
+  inline-size: 100%;
+  margin-block-end: 0.35rem;
+  border-radius: max(calc(var(--pk-R) - 0.3rem * var(--lp-corner-d)), 0.5rem);
+  corner-shape: var(--lp-corner);
+  background: var(--pk-tint);
+  overflow: hidden;
+}
+
+.lp-pack[data-selected] .lp-pv {
+  --pv-spread: 1.2;
+}
+
+.lp-pack[data-selected] .lp-pv::before {
+  opacity: 1;
+  scale: 1.12;
+}
+
+/* columns share their rows: quantity / picture, name, price, perks and gift each start on one line
+   across the row, whatever a neighbour carries (a subtitle, a struck price, a two-line badge). The
+   card's own padding and the featured lift are edge offsets, so the rows stay locked. */
+@supports (grid-template-rows: subgrid) {
+  .lp-packs--tiers:not([data-n="1"]),
+  .lp-packs--visual:not([data-n="1"]) {
+    grid-auto-rows: auto;
+  }
+
+  .lp-packs--tiers:not([data-n="1"]) > .lp-pack,
+  .lp-packs--visual:not([data-n="1"]) > .lp-pack {
+    grid-row: span 5;
+    grid-template-rows: subgrid;
+    row-gap: 0.4rem;
+  }
+
+  /* the price block sits on its row's top; the perks and the gift hang under it */
+  .lp-packs--tiers:not([data-n="1"]) .lp-pack__main,
+  .lp-packs--visual:not([data-n="1"]) .lp-pack__main,
+  .lp-packs--tiers:not([data-n="1"]) .lp-pack__price,
+  .lp-packs--visual:not([data-n="1"]) .lp-pack__price,
+  .lp-packs--tiers:not([data-n="1"]) .lp-pack__perks,
+  .lp-packs--visual:not([data-n="1"]) .lp-pack__perks,
+  .lp-packs--tiers:not([data-n="1"]) .lp-pack__gift,
+  .lp-packs--visual:not([data-n="1"]) .lp-pack__gift {
+    align-self: start;
+  }
+
+  /* quantity numerals and pictures stand on the line above the name */
+  .lp-packs--tiers:not([data-n="1"]) .lp-pack__qty,
+  .lp-packs--visual:not([data-n="1"]) .lp-pack__media {
+    align-self: end;
+  }
+}
+
+
+/* a lone pack: picture beside the details */
+.lp-packs--visual[data-n="1"] {
+  --pk-cols: 1;
+}
+
+.lp-packs--visual[data-n="1"] > .lp-pack {
+  grid-template-columns: clamp(6.5rem, 36cqi, 10rem) minmax(0, 1fr);
+  grid-template-areas:
+    "media main"
+    "media price"
+    "media perks"
+    "gift gift";
+  align-content: center;
+  justify-items: start;
+  column-gap: 1rem;
+  padding: 0.5rem;
+  padding-inline-end: 1rem;
+  text-align: start;
+}
+
+.lp-packs--visual[data-n="1"] .lp-pack__media {
+  margin: 0;
+}
+
+.lp-packs--visual[data-n="1"] .lp-pack__check {
+  inset-block: 0.9rem auto;
+  inset-inline: 0.9rem auto;
+}
+
+.lp-packs--visual[data-n="1"] .lp-pack__price {
+  align-items: flex-start;
+}
+
+.lp-packs--visual[data-n="1"] .lp-pack__perks {
+  flex-direction: row;
+}
+
+.lp-packs--visual[data-n="1"] .lp-pack__gift {
+  flex-direction: row;
+}
+
+/* ==========================================================================
+   ticket → wallet pass: a header band (quantity, name, saving) over labeled fields
+   ========================================================================== */
+.lp-packs--ticket {
+  gap: 1rem;
+}
+
+.lp-packs--ticket .lp-pack {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "check qty main tag"
+    "fields fields fields fields"
+    "gift gift gift gift";
+  column-gap: 0.8rem;
+  padding-block: 0 var(--pk-pad);
+}
+
+.lp-pack__band {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  align-self: stretch;
+  margin-inline: calc(-1 * var(--pk-pad));
+  border-start-start-radius: var(--pk-R);
+  border-start-end-radius: var(--pk-R);
+  corner-shape: var(--lp-corner);
+  background: var(--pk-tint);
+  box-shadow: inset 0 -1px 0 var(--mx-hair);
+  transition: background-color var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-packs--ticket .lp-pack__check,
+.lp-packs--ticket .lp-pack__qty,
+.lp-packs--ticket .lp-pack__main,
+.lp-pack__tag {
+  position: relative;
+  margin-block: 0.85rem;
+  transition: color var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-packs--ticket .lp-pack__qty {
+  inline-size: auto;
+  aspect-ratio: auto;
+  background: none;
+}
+
+.lp-packs--ticket .lp-pack__qn {
+  font-size: calc(1.9rem * var(--lp-script-scale-display));
+}
+
+.lp-pack__tag {
+  grid-area: tag;
+  padding: 0.3em 0.7em;
+  border-radius: 999px;
+  background: var(--sec-card);
+  color: var(--sec-success);
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-packs--ticket .lp-pack__badge {
+  inset-inline-end: calc(var(--pk-pad) + 0.25rem);
+}
+
+/* the chosen pass: an accent band lit from above, like a card in a wallet (the same top light as
+   every raised surface — no diagonal smear) */
+.lp-pack[data-selected] .lp-pack__band {
+  background:
+    linear-gradient(to bottom, var(--mx-on-accent), transparent 78%),
+    var(--sec-accent);
+}
+
+.lp-packs--ticket .lp-pack[data-selected] .lp-pack__qty,
+.lp-packs--ticket .lp-pack[data-selected] .lp-pack__main {
+  background: none;
+  color: var(--sec-accent-ink);
+}
+
+.lp-packs--ticket .lp-pack[data-selected] .lp-pack__meta,
+.lp-packs--ticket .lp-pack[data-selected] .lp-pack__subt {
+  color: inherit;
+  opacity: 0.82;
+}
+
+.lp-packs--ticket .lp-pack[data-selected] .lp-pack__check {
+  background: var(--sec-accent-ink);
+  color: var(--sec-accent);
+}
+
+.lp-pack__fields {
+  grid-area: fields;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding-block-start: 0.9rem;
+}
+
+.lp-pack__fields > * {
+  display: grid;
+  gap: 0.2rem;
+  align-items: baseline;
+  justify-items: start;
+  text-align: start;
+}
+
+
+.lp-pack__flabel {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--of-lab);
+  font-weight: 600;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+  line-height: 1.2;
+}
+
+.lp-pack__fval {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: calc(var(--lp-step-0) * 0.95 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-pack__field--save .lp-pack__fval,
+.lp-pack__field--ship .lp-icon {
+  color: var(--sec-success);
+}
+
+.lp-packs--ticket .lp-pack__gift {
+  margin-block-start: 0.85rem;
+}
+
+/* ==========================================================================
+   pills — segmented control with a gliding accent thumb + cross-fading detail panel
+   ========================================================================== */
+.lp-packs--pills {
+  gap: 0.75rem;
+  padding-block-start: 0.75rem;
+}
+
+.lp-seg {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  /* the track; its segments and the gliding thumb sit 0.3rem in, concentric */
+  --seg-R: calc((var(--pk-r) + 0.3rem) * var(--lp-corner-k));
+  --seg-in: max(0.5rem, calc(var(--seg-R) - 0.3rem * var(--lp-corner-d)));
+  padding: 0.3rem;
+  border-radius: var(--seg-R);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 1px var(--mx-hair), inset 0 1px 3px color-mix(in oklab, var(--sec-ink) 7%, transparent);
+}
+
+.lp-seg__opt {
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.2rem;
+  min-block-size: 4rem;
+  padding: 0.6rem 0.2rem;
+  border-radius: var(--seg-in);
+  corner-shape: var(--lp-corner);
+  background: transparent;
+  box-shadow: none;
+  color: var(--sec-ink);
+  text-align: center;
+  transition: color var(--lp-dur-m) var(--lp-smooth), background-color var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-seg__opt[data-selected] {
+  background: var(--sec-accent);
+  box-shadow: none;
+  color: var(--sec-accent-ink);
+  translate: none;
+}
+
+.lp-seg__qty {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: calc(1.4rem * var(--lp-script-scale-display));
+  letter-spacing: var(--lp-display-tracking);
+  line-height: 1;
+}
+
+.lp-seg__price {
+  font-size: calc(var(--lp-step--1) * 0.88 * var(--lp-script-scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.lp-seg__thumb {
+  display: none;
+}
+
+/* engines with :has(): one thumb glides between segments (springy), the segments stay clear */
+@supports selector(:has(a)) {
+  .lp-seg__thumb {
+    position: absolute;
+    inset-block: 0.3rem;
+    inset-inline-start: 0.3rem;
+    display: block;
+    inline-size: calc((100% - 0.6rem) / var(--n));
+    border-radius: var(--seg-in);
+    corner-shape: var(--lp-corner);
+    background: var(--sec-accent);
+    box-shadow: inset 0 1px 0 var(--mx-on-accent), var(--pk-drop);
+    translate: calc(var(--i, 0) * 100% * var(--lp-x)) 0;
+    transition: translate var(--lp-dur-m) var(--lp-spring);
+  }
+
+  .lp-seg__opt[data-selected] {
+    background: transparent;
+  }
+
+  .lp-seg:has(> label:nth-of-type(2)[data-selected]) {
+    --i: 1;
+  }
+
+  .lp-seg:has(> label:nth-of-type(3)[data-selected]) {
+    --i: 2;
+  }
+
+  .lp-seg:has(> label:nth-of-type(4)[data-selected]) {
+    --i: 3;
+  }
+
+  .lp-seg:has(> label:nth-of-type(5)[data-selected]) {
+    --i: 4;
+  }
+}
+
+.lp-seg__opt:has(> .lp-pack__radio:focus-visible) {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 2px;
+}
+
+.lp-seg__badge {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 2;
+  inline-size: max-content;
+  max-inline-size: calc(100% + 0.2rem);
+  margin-inline: auto;
+  overflow: hidden;
+  padding: 0.22em 0.6em;
+  border-radius: 999px;
+  background: var(--lp-pop);
+  color: var(--lp-pop-ink);
+  font-size: calc(0.64rem * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  translate: 0 -95%;
+}
+
+.lp-seg__opt[data-badge="best"] .lp-seg__badge {
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+}
+
+/* crowded narrow bar: the badge becomes a dot (its words stay in the panel) */
+@container of (max-width: 29.99rem) {
+  .lp-packs--pills[data-n="4"] .lp-seg__badge,
+  .lp-packs--pills[data-n="5"] .lp-seg__badge {
+    inset-block-start: 0.45rem;
+    inset-inline: auto 0.45rem;
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    padding: 0;
+    font-size: 0;
+    translate: none;
+  }
+
+  .lp-packs--pills[data-n="4"] .lp-seg__price,
+  .lp-packs--pills[data-n="5"] .lp-seg__price {
+    font-size: calc(0.68rem * var(--lp-script-scale));
+    letter-spacing: -0.01em;
+  }
+
+  .lp-packs--pills[data-n="5"] .lp-seg__opt {
+    padding-inline: 0.1rem;
+  }
+
+  /* three columns on a phone: smaller names; the subtitle is kept for screen readers only */
+  .lp-packs--tiers[data-n="3"] .lp-pack__name,
+  .lp-packs--tiers[data-n="5"] .lp-pack__name,
+  .lp-packs--visual[data-n="3"] .lp-pack__name,
+  .lp-packs--visual[data-n="5"] .lp-pack__name {
+    font-size: calc(var(--lp-step--1) * 1.02 * var(--lp-script-scale));
+    line-height: 1.25;
+  }
+
+  .lp-packs--tiers .lp-pack__subt,
+  .lp-packs--visual .lp-pack__subt {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.lp-seg__panel {
+  display: grid;
+  background: none;
+}
+
+.lp-seg__detail {
+  grid-area: 1 / 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "badge badge"
+    "main price"
+    "perks perks"
+    "gift gift";
+  align-content: center;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--pk-R);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  color: var(--sec-card-ink);
+  box-shadow: inset 0 0 0 1px var(--mx-hair), 0 1px 2px color-mix(in oklab, var(--sec-ink) 6%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 0.4rem;
+  transition:
+    opacity var(--lp-dur-m) var(--lp-smooth),
+    translate var(--lp-dur-m) var(--lp-smooth),
+    visibility 0s linear var(--lp-dur-m);
+}
+
+.lp-seg__detail[data-selected] {
+  opacity: 1;
+  visibility: visible;
+  translate: none;
+  transition-delay: 0s;
+}
+
+.lp-seg__detail .lp-pack__badge {
+  position: static;
+  grid-area: badge;
+  justify-self: start;
+  translate: none;
+}
+
+.lp-seg__detail .lp-pack__gift {
+  margin-block-start: 0.2rem;
+}
+
+/* shared perk line under the picker ("every pack ships free") */
+.lp-of__ship {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-block-start: 0.95rem;
+  padding: 0.4em 0.85em;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--sec-success) 12%, transparent);
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  font-weight: 600;
+}
+
+.lp-of__ship .lp-icon {
+  color: var(--sec-success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-pack,
+  .lp-pack::before,
+  .lp-pack__check,
+  .lp-pack__check svg,
+  .lp-seg__thumb,
+  .lp-seg__detail,
+  .lp-pv__item {
+    transition: none;
+    animation: none;
+  }
+}

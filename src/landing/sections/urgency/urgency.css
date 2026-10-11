@@ -1,0 +1,117 @@
+/* ==========================================================================
+   Urgency — live timer faces (drop card · hairline · instrument · clay) · stock tray / level
+   meter · delivery route · live-activity band. Real numbers only; the section hides itself when
+   the visitor's countdown ends.
+   Rules every variant uses. A variant's own rules live in urgency.<variant>.css, inlined after
+   this file only on pages that render that variant (scripts/build-landing-assets.mjs).
+   ========================================================================== */
+.lp-urg:has(.lp-cd[data-expired]) {
+  display: none;
+}
+
+.lp-urg {
+  --urg-tint: var(--sec-card);
+  --urg-tint-2: var(--sec-card);
+  --urg-l1: transparent;
+  --urg-l2: transparent;
+  --urg-ring: var(--sec-line);
+  --urg-glow: transparent;
+  --urg-card-glow: transparent;
+  --urg-scrim: transparent;
+}
+
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-urg,
+  .lp-urg [data-bg] {
+    --urg-tint: color-mix(in oklab, var(--sec-ink) 4%, var(--sec-bg));
+    --urg-tint-2: color-mix(in oklab, var(--sec-ink) 8%, var(--sec-bg));
+    --urg-l1: color-mix(in oklab, var(--sec-accent) 62%, transparent);
+    --urg-l2: color-mix(in oklab, var(--lp-a-300, var(--sec-accent)) 55%, transparent);
+    --urg-ring: color-mix(in oklab, var(--sec-accent) 55%, transparent);
+    --urg-glow: color-mix(in oklab, var(--sec-accent) 22%, transparent);
+    --urg-card-glow: color-mix(in oklab, var(--sec-ink) 5%, var(--sec-card));
+    --urg-scrim: color-mix(in oklab, var(--sec-glass-solid, var(--sec-card)) 58%, transparent);
+  }
+}
+
+/* No orange in a blend (README "No orange"): a hued tint mixes the accent into a NEUTRAL of the same
+   lightness — the drained ground (--mx-ground, tone on tone on color blocks) or the drained card —
+   so a crimson accent on a cream block gives a blush, never a peach. */
+@supports (color: oklch(from red l c h)) {
+  .lp-urg,
+  .lp-urg [data-bg] {
+    --urg-tint: color-mix(in oklab, var(--sec-accent) 7%, var(--mx-ground, var(--sec-bg)));
+    --urg-tint-2: color-mix(in oklab, var(--sec-accent) 14%, var(--mx-ground, var(--sec-bg)));
+    --urg-card-glow: color-mix(in oklab, var(--sec-accent) 12%, oklch(from var(--sec-card) l 0 0));
+  }
+}
+
+/* live dot: a calm heartbeat ring (the timer really is running) */
+.lp-urg__pulse {
+  position: relative;
+  flex: none;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 0.22rem var(--urg-glow);
+}
+
+.lp-urg__pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--sec-accent);
+  opacity: 0;
+}
+
+/* phones: label + live price + arrow outgrow the column and the label broke onto two lines inside
+   the button. The price already says "order now": the arrow steps aside, the type eases down a
+   touch on the narrowest screens, and the label holds one line (a merchant's long label ends in "…") */
+@media (max-width: 29.99rem) {
+  .lp-urg__go .lp-btn--has-price {
+    --btn-fs: min(var(--lp-step-0), 4.3vw);
+  }
+
+  .lp-urg__go .lp-btn--has-price .lp-btn__icon {
+    display: none;
+  }
+
+  .lp-urg__go .lp-btn--has-price .lp-btn__label {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.lp-urg__cal-d {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  font-size: 1.05rem;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="off"]) .lp-urg__pulse::after {
+    animation: lp-urg-ping 2s var(--lp-smooth) infinite;
+  }
+}
+
+@keyframes lp-urg-ping {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}

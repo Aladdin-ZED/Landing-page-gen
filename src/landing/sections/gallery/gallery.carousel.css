@@ -1,0 +1,298 @@
+/* gallery · carousel — rules only this variant renders (inlined after gallery.css on pages whose markup
+   carries .lp-gallery--carousel; the admin preview loads every variant). Shared rules live in gallery.css. */
+
+@media (hover: hover) {
+
+  .lp-gallery__thumb:not([data-active]):hover {
+    opacity: 0.9;
+    scale: 0.96;
+  }
+}
+
+/* scrollers: snap, no visible scrollbar, inset focus ring */
+.lp-gallery__track {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  outline-offset: -5px;
+}
+
+.lp-gallery__track::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==========================================================================
+   carousel — product viewer + HUD rail
+   ========================================================================== */
+.lp-gallery__car {
+  display: grid;
+  grid-template-areas: "head" "stage" "rail";
+  row-gap: clamp(1.75rem, 1.2rem + 2vw, 2.75rem);
+}
+
+.lp-gallery__car > .lp-gallery__head {
+  grid-area: head;
+  margin: 0;
+}
+
+.lp-gallery__stage {
+  grid-area: stage;
+  position: relative;
+  isolation: isolate;
+  min-inline-size: 0;
+}
+
+.lp-gallery__stage > .lp-gallery__amb {
+  inset: 7% 5% -3%;
+}
+
+.lp-gallery__viewer {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+  box-shadow: var(--lp-shadow-l);
+}
+
+/* a crisp 1px rim of light on top of the photo (the inner highlight of a raised surface) */
+.lp-gallery__viewer::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 1px var(--mx-rim), inset 0 1px 0 var(--mx-rim);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.lp-gallery__slide {
+  position: relative;
+  flex: 0 0 100%;
+  margin: 0;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  scroll-snap-align: start;
+}
+
+.lp-gallery__car--land .lp-gallery__slide {
+  aspect-ratio: 4 / 3;
+}
+
+/* portrait sets (2:3 photos of a standing person): a taller window keeps the head and the hands */
+.lp-gallery__car--tall .lp-gallery__slide {
+  aspect-ratio: 3 / 4;
+}
+
+/* the picture is wider than its slide: room for the swipe parallax */
+.lp-gallery__slide .lp-pic {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -9%;
+  inline-size: 118%;
+  max-inline-size: none;
+  aspect-ratio: auto;
+}
+
+.lp-gallery__viewer .lp-gallery__arrows {
+  position: absolute;
+  z-index: 2;
+  inset-block-end: clamp(0.875rem, 0.6rem + 0.8vw, 1.25rem);
+  inset-inline-end: clamp(0.875rem, 0.6rem + 0.8vw, 1.25rem);
+}
+
+/* phones: the strip bleeds to the screen edges, the next photo peeks in; swipe replaces arrows */
+@media (max-width: 47.99rem) {
+  .lp-gallery__stage {
+    margin-inline: calc(-1 * var(--lp-gutter));
+  }
+
+  .lp-gallery__stage > .lp-gallery__amb {
+    inset: 8% calc(var(--lp-gutter) + 2.5rem) -4% calc(var(--lp-gutter) + 0.5rem);
+  }
+
+  .lp-gallery__viewer {
+    overflow: visible;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .lp-gallery__viewer::after,
+  .lp-gallery__viewer .lp-gallery__arrows {
+    display: none;
+  }
+
+  .lp-gallery__track {
+    gap: 0.625rem;
+    padding-inline: var(--lp-gutter);
+    scroll-padding-inline: var(--lp-gutter);
+  }
+
+  .lp-gallery__slide {
+    flex-basis: calc(100% - 2.25rem);
+    border-radius: var(--lp-sq-media);
+    corner-shape: var(--lp-corner);
+    background: var(--mx-tint);
+    box-shadow: inset 0 0 0 1px var(--mx-hair);
+  }
+
+  .lp-gallery__car--solo .lp-gallery__slide {
+    flex-basis: 100%;
+  }
+}
+
+/* ---------- rail: HUD · thumbnails · order button ---------- */
+.lp-gallery__rail {
+  grid-area: rail;
+  display: grid;
+  gap: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  align-content: end;
+  min-inline-size: 0;
+}
+
+/* thumbnails: one row (scrolls sideways on phones), accent ring morphs onto the active one */
+.lp-gallery__thumbs {
+  display: flex;
+  gap: 0.625rem;
+  /* room for the selection ring inside the scroller */
+  margin: -6px;
+  padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lp-gallery__thumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-gallery__thumb {
+  flex: none;
+  inline-size: 3.5rem;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  border-radius: var(--g-thumb-r);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-tint);
+  box-shadow: 0 0 0 1px var(--mx-hair);
+  cursor: pointer;
+  opacity: 0.5;
+  scale: 0.9;
+  transition:
+    opacity var(--lp-dur-m) var(--lp-ease),
+    scale var(--lp-dur-m) var(--lp-spring),
+    box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-gallery__thumb[data-active] {
+  opacity: 1;
+  scale: 1;
+  box-shadow: 0 0 0 2px var(--sec-bg), 0 0 0 4px var(--sec-accent), var(--lp-shadow-m);
+}
+
+/* one photo: no HUD, its caption sits on it as a glass chip */
+.lp-gallery__car--solo .lp-gallery__rail {
+  align-content: start;
+}
+
+@media (min-width: 48rem) {
+  .lp-gallery__car {
+    grid-template-columns: minmax(0, 1fr) min(38rem, 52%, 68vh);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "head stage" "rail stage";
+    column-gap: clamp(2.5rem, 7vw, 7.5rem);
+    row-gap: 2rem;
+  }
+
+  /* landscape sets: a wide frame under the split heading, the rail as one bar */
+  .lp-gallery__car--land {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: "head" "stage" "rail";
+    row-gap: clamp(1.75rem, 1.2rem + 2vw, 2.75rem);
+  }
+
+  .lp-gallery__car--land .lp-gallery__stage {
+    justify-self: center;
+    inline-size: 100%;
+    max-inline-size: 135vh;
+  }
+
+  .lp-gallery__car--land .lp-gallery__slide {
+    aspect-ratio: 16 / 9;
+  }
+
+  .lp-gallery__thumbs {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .lp-gallery__thumb {
+    inline-size: 4.25rem;
+  }
+
+  .lp-gallery__car .lp-gallery__cta {
+    inline-size: auto;
+  }
+}
+
+@media (min-width: 62rem) {
+  .lp-gallery__car--land .lp-gallery__rail {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: end;
+    column-gap: clamp(2rem, 4vw, 4rem);
+  }
+
+  .lp-gallery__car--land .lp-gallery__thumbs {
+    max-inline-size: 30rem;
+  }
+}
+
+/* ==========================================================================
+   motion — scroll-driven where supported: the viewer's photo drifts while it
+   slides, the strip's focus follows the finger, bento photos settle in. Timelines live on the slide
+   boxes (their scroller is the track; a slide clips, so it would be its own
+   scroller). Left-to-right pages only: Chromium maps view timelines of RTL
+   inline scrollers inconsistently, so Arabic pages keep the data-active
+   transitions — as do QA shots (html.lp-qa) and every other engine.
+   The viewer's photo also settles from a slight zoom when it lands.
+   ========================================================================== */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    html[dir="ltr"]:not([data-motion="off"]):not(.lp-qa) .lp-gallery__slide {
+      view-timeline: --lp-gal-slide inline;
+    }
+
+    html[dir="ltr"]:not([data-motion="off"]):not(.lp-qa) .lp-gallery__slide .lp-pic {
+      animation: lp-gal-drift linear both;
+      animation-timeline: --lp-gal-slide;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) .lp-gallery__slide .lp-pic {
+    scale: 1.06;
+    transition: scale 1.4s var(--lp-smooth);
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-gallery__slide[data-active] .lp-pic {
+    scale: 1;
+  }
+}
+
+/* the photo lags behind its slide: centered when the slide is centered */
+@keyframes lp-gal-drift {
+  from {
+    translate: -7% 0;
+  }
+
+  to {
+    translate: 7% 0;
+  }
+}

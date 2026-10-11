@@ -1,0 +1,240 @@
+/* hero · poster — rules only this variant renders (inlined after hero.css on pages whose markup
+   carries .lp-hero--poster; the admin preview loads every variant). Shared rules live in hero.css. */
+
+.lp-hero__head {
+  display: grid;
+  gap: clamp(0.9rem, 0.65rem + 0.9vw, 1.4rem);
+  justify-items: start;
+  min-inline-size: 0;
+}
+.lp-hero__mega {
+  font-family: var(--lp-font-display);
+  font-weight: var(--lp-display-weight);
+  letter-spacing: calc(var(--lp-display-tracking) * 1.5 - 0.02em);
+  text-transform: var(--lp-display-case);
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+[lang="ar"] :is(.lp-hero__word, .lp-hero__mega) {
+  letter-spacing: 0;
+}
+
+.lp-hero__mega-w {
+  display: block;
+}
+
+@media (min-width: 64rem) {
+  :is(.lp-hero--stage, .lp-hero--scrapbook, .lp-hero--poster) .lp-hero__grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-areas: "head art" "buy art";
+    column-gap: clamp(2.5rem, 5vw, 5.5rem);
+    row-gap: 2.5rem;
+  }
+
+  :is(.lp-hero--stage, .lp-hero--scrapbook, .lp-hero--poster) .lp-hero__head {
+    grid-area: head;
+    align-self: end;
+  }
+
+  :is(.lp-hero--stage, .lp-hero--scrapbook, .lp-hero--poster) .lp-hero__buy {
+    grid-area: buy;
+    align-self: start;
+  }
+
+  :is(.lp-hero__visual, .lp-hero__collage, .lp-hero__art) {
+    grid-area: art;
+  }
+}
+
+/* ==========================================================================
+   poster — color field, the giant word edge to edge, the product in front
+   ========================================================================== */
+.lp-hero--poster .lp-hero__grid {
+  container-type: inline-size;
+  gap: clamp(1.75rem, 1.2rem + 2.4vw, 3rem);
+}
+
+/* the word spans the field: its letter count × the display face's average advance (--wadv, from the
+   font's metrics) sets the size that fills ≈ 86% of the width — capped on wide screens, where a
+   taller word would push the action out of the first screen */
+.lp-hero--poster .lp-hero__grid > * {
+  --mega-fs: min(0.86 * (100vw - 2 * var(--lp-gutter)) / (var(--wl, 6) * var(--wadv, 0.55)), 0.6 * (100vw - 2 * var(--lp-gutter)), 22rem);
+}
+
+@supports (inline-size: 1cqi) {
+  .lp-hero--poster .lp-hero__grid > * {
+    --mega-fs: min(86cqi / (var(--wl, 6) * var(--wadv, 0.55)), 60cqi, 22rem);
+  }
+}
+
+.lp-hero__mega {
+  position: relative;
+  padding-block-start: 0.1em;
+  font-size: var(--mega-fs);
+  line-height: 0.8;
+  color: var(--sec-ink);
+  /* a word a touch wider than its estimate dissolves into the field's edges, never a hard cut */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent);
+}
+
+.lp-hero__art {
+  /* the print's width: its edges place the badge and the price tag that hang off its corners */
+  --print-w: min(74%, 27rem);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  margin-block-start: calc(var(--mega-fs) * -0.3 - var(--hero-gap));
+}
+
+/* a product lying on its side: a landscape print, wider */
+.lp-hero__art[data-wide] {
+  --print-w: min(92%, 34rem);
+}
+
+[data-script="ar"] > .lp-hero__art {
+  margin-block-start: calc(var(--mega-fs) * -0.2 - var(--hero-gap));
+}
+
+.lp-hero__art--solo {
+  margin-block-start: 0;
+}
+
+.lp-hero__print {
+  position: relative;
+  inline-size: var(--print-w);
+  rotate: var(--rot, 0deg);
+}
+
+/* a print with a continuous corner, lit from above (1px rim on its top edge, a device hairline
+   around it) and lifted off the field by a long soft shadow falling straight down */
+.lp-hero__print[data-kind="photo"] .lp-hero__pic {
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-l), 0 30px 60px -30px var(--mx-contact);
+}
+
+.lp-hero__print[data-kind="photo"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--lp-sq-media);
+  corner-shape: var(--lp-corner);
+  box-shadow: inset 0 0 0 var(--lp-hairline) var(--mx-edge), inset 0 1px 0 var(--mx-rim);
+  pointer-events: none;
+}
+
+.lp-hero__print[data-kind="cutout"] .lp-pic__img {
+  filter: var(--lp-shadow-product-filter, none);
+}
+
+/* the badge hangs off the print's top end corner, the price tag off its bottom start corner — both
+   measured from the print's own edge (--print-w), so they sit the same way on every print size */
+.lp-hero__badge {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: -1.25rem;
+  inset-inline-end: max(-0.25rem, calc((100% - var(--print-w)) / 2 - 3rem));
+  --badge-size: clamp(5.75rem, 4.5rem + 6vw, 9rem);
+}
+
+.lp-hero__tag {
+  position: absolute;
+  z-index: 2;
+  inset-block-end: -1.4rem;
+  inset-inline-start: max(0rem, calc((100% - var(--print-w)) / 2 - 2.25rem));
+  padding: 0.85rem 1.15rem 0.8rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-l);
+  rotate: calc(var(--rot, 0deg) * -1);
+}
+
+/* mirrored when the usual corners would cover a face, a hand or the product (framing.ts) */
+.lp-hero__art[data-flip] .lp-hero__badge {
+  inset-inline: max(-0.25rem, calc((100% - var(--print-w)) / 2 - 3rem)) auto;
+}
+
+.lp-hero__art[data-flip] .lp-hero__tag {
+  inset-inline: auto max(0rem, calc((100% - var(--print-w)) / 2 - 2.25rem));
+}
+
+.lp-hero__tag .lp-price {
+  --price-fs: clamp(1.9rem, 1.4rem + 2.4vw, 3.25rem);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.lp-hero--poster .lp-hero__head {
+  padding-block-start: 0.75rem;
+}
+
+.lp-hero--poster .lp-hero__title {
+  font-size: min(calc(var(--lp-step-4) * 0.92 * var(--lp-script-scale-display)), 10.5vw, 4.4rem);
+  max-inline-size: 16ch;
+}
+
+@media (min-width: 48rem) {
+  .lp-hero--poster .lp-hero__title--xlong {
+    max-inline-size: 20ch;
+    font-size: min(calc(var(--lp-step-4) * 0.7 * var(--lp-script-scale-display)), 3.25rem);
+  }
+}
+
+.lp-hero--poster .lp-hero__lead {
+  color: var(--sec-ink);
+  opacity: 0.86;
+}
+
+.lp-hero__beams {
+  opacity: 0.85;
+}
+
+@media (min-width: 64rem) {
+  .lp-hero--poster .lp-hero__grid {
+    grid-template-areas: "mega mega" "head art" "buy art";
+    row-gap: 2rem;
+  }
+
+  .lp-hero__mega {
+    grid-area: mega;
+  }
+
+  .lp-hero__art {
+    align-self: start;
+    margin-block-start: calc(var(--mega-fs) * -0.45 - 2rem);
+  }
+
+  [data-script="ar"] > .lp-hero__art {
+    margin-block-start: calc(var(--mega-fs) * -0.38 - 2rem);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) :is(.lp-hero__media, .lp-hero__print, .lp-hero__slot[data-i="0"] .lp-hero__card, .lp-hero__slide:first-child) .lp-pic__img {
+    animation: lp-hero-settle calc(var(--lp-dur-l) * 2) var(--lp-smooth) backwards;
+  }
+  @supports (animation-timeline: scroll()) {
+    html:not([data-motion="off"], .lp-qa) :is(.lp-hero__word, .lp-hero__mega) {
+      animation: lp-hero-drift linear;
+      animation-timeline: scroll(root block);
+      animation-range: 0 100vh;
+    }
+  }
+}
+
+@keyframes lp-hero-settle {
+  from {
+    scale: 1.07;
+  }
+}
+
+@keyframes lp-hero-drift {
+  to {
+    translate: calc(-9% * var(--lp-x)) 0;
+  }
+}

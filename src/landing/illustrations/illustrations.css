@@ -1,0 +1,1086 @@
+/* ==========================================================================
+   Illustration & light system — v2 · modern (src/landing/illustrations)
+   Product-tinted light, precise lines, clean vector shapes, modern section
+   transitions. Every color resolves from theme tokens: --sec-* inside a
+   section ([data-bg]) with --lp-* fallbacks elsewhere. Light effects are
+   gradients + masks (no blur filters); motion uses transform/opacity only.
+   Reveals belong to styles/base.css (this file stages strokes and pops end
+   dots); idle loops are gated by html[data-motion] + prefers-reduced-motion.
+   RTL mirroring of .lp-flip-rtl lives in base.css. Logical properties only.
+   ========================================================================== */
+
+/* ---------- base ------------------------------------------------------- */
+svg.lp-ill {
+  display: block;
+  overflow: visible;
+}
+svg.lp-ill.lp-layer {
+  overflow: hidden;
+}
+.lp-ill {
+  --ill-c2: var(--sec-accent, var(--lp-accent));
+  --ill-c3: var(--sec-bg, var(--lp-bg));
+  --ill-on: var(--sec-ink, var(--lp-ink));
+  /* product light: aurora hues when the theme emits them, else accent / pop / a soft tint */
+  --ill-glow: var(--lp-aurora-1, var(--lp-accent));
+  --ill-glow-2: var(--lp-aurora-2, var(--lp-pop));
+  --ill-glow-3: var(--lp-aurora-3, var(--lp-a-300, var(--lp-accent-soft)));
+  /* beams & spotlights: a pale tint of the product hue */
+  --ill-beam: var(--lp-a-200, var(--lp-accent-soft));
+  /* light strength multiplier (dark blocks need less to read as light) */
+  --ill-k: 1;
+  /* gaussian falloff used by every soft light (alpha mask) */
+  --ill-gauss: radial-gradient(closest-side, #000, rgb(0 0 0 / 0.89) 20%, rgb(0 0 0 / 0.62) 40%, rgb(0 0 0 / 0.34) 60%, rgb(0 0 0 / 0.14) 80%, transparent);
+}
+/* The aurora lights (--lp-aurora-1..3) are re-solved by the theme on every [data-bg] block (a pale
+   glow on light grounds, a deeper bloom on mid-tones, a dim colored glow on near-black), so glows
+   need no per-block overrides. Beams use a pale tint, paler still on color and dark blocks so it
+   reads as light, never as a stain. */
+[data-bg="accent"] .lp-ill,
+[data-bg="pop"] .lp-ill,
+[data-bg="dark"] .lp-ill,
+html[data-base="dark"] [data-bg="base"] .lp-ill,
+html[data-base="dark"] [data-bg="soft"] .lp-ill,
+html[data-base="dark"] [data-bg="surface"] .lp-ill {
+  --ill-beam: var(--lp-a-100, var(--lp-accent-soft));
+}
+/* dark grounds: beams a touch lower, zellige hairlines a touch higher */
+[data-bg="dark"] .lp-ill,
+html[data-base="dark"] [data-bg="base"] .lp-ill,
+html[data-base="dark"] [data-bg="soft"] .lp-ill,
+html[data-base="dark"] [data-bg="surface"] .lp-ill {
+  --ill-k: 0.82;
+  --ill-zk: 1.6;
+}
+.lp-ill[data-tone] {
+  color: var(--ill-c1);
+}
+
+/* ---------- tones: primary (--ill-c1 + readable "on" color) ------------ */
+.lp-ill[data-tone="ink"] { --ill-c1: var(--sec-ink, var(--lp-ink)); --ill-on: var(--sec-bg, var(--lp-bg)); }
+.lp-ill[data-tone="soft"] { --ill-c1: var(--sec-ink-soft, var(--lp-ink-soft)); }
+.lp-ill[data-tone="line"] { --ill-c1: var(--sec-line, var(--lp-line)); }
+.lp-ill[data-tone="accent"] { --ill-c1: var(--sec-accent, var(--lp-accent)); --ill-on: var(--sec-accent-ink, var(--lp-accent-ink)); }
+.lp-ill[data-tone="accent-ink"] { --ill-c1: var(--sec-accent-ink, var(--lp-accent-ink)); --ill-on: var(--sec-accent, var(--lp-accent)); }
+.lp-ill[data-tone="accent-soft"] { --ill-c1: var(--lp-accent-soft); --ill-on: var(--lp-accent-strong); }
+.lp-ill[data-tone="accent-strong"] { --ill-c1: var(--lp-accent-strong); --ill-on: var(--lp-accent-ink); }
+.lp-ill[data-tone="pop"] { --ill-c1: var(--lp-pop); --ill-on: var(--lp-pop-ink); }
+.lp-ill[data-tone="pop-ink"] { --ill-c1: var(--lp-pop-ink); --ill-on: var(--lp-pop); }
+.lp-ill[data-tone="bg"] { --ill-c1: var(--sec-bg, var(--lp-bg)); --ill-on: var(--sec-ink, var(--lp-ink)); }
+.lp-ill[data-tone="card"],
+.lp-ill[data-tone="paper"] { --ill-c1: var(--sec-card, var(--lp-surface)); --ill-on: var(--sec-card-ink, var(--lp-ink)); }
+.lp-ill[data-tone="card-ink"] { --ill-c1: var(--sec-card-ink, var(--lp-ink)); --ill-on: var(--sec-card, var(--lp-surface)); }
+.lp-ill[data-tone="chip"] { --ill-c1: var(--sec-chip, var(--lp-surface-2)); --ill-on: var(--sec-chip-ink, var(--lp-ink)); }
+.lp-ill[data-tone="dark"] { --ill-c1: var(--lp-dark); --ill-on: var(--lp-dark-ink); }
+.lp-ill[data-tone="glow"] { --ill-c1: var(--ill-glow); }
+/* highlight block: the kit's hue-true accent tint (--mx-tint-2: the accent mixed into the drained
+   ground, never into the ground's own color — that is how a crimson on cream turns peach); engines
+   without relative colors get the section chip, which the theme keeps distinct from — and legible
+   on — its bg */
+.lp-ill[data-tone="highlight"] { --ill-c1: var(--mx-tint-2, var(--sec-chip, var(--lp-surface-2))); }
+
+/* ---------- tones: secondary (--ill-c2) / tertiary (--ill-c3) ----------- */
+.lp-ill[data-tone2="ink"] { --ill-c2: var(--sec-ink, var(--lp-ink)); }
+.lp-ill[data-tone2="soft"] { --ill-c2: var(--sec-ink-soft, var(--lp-ink-soft)); }
+.lp-ill[data-tone2="line"] { --ill-c2: var(--sec-line, var(--lp-line)); }
+.lp-ill[data-tone2="accent"] { --ill-c2: var(--sec-accent, var(--lp-accent)); }
+.lp-ill[data-tone2="accent-ink"] { --ill-c2: var(--sec-accent-ink, var(--lp-accent-ink)); }
+.lp-ill[data-tone2="accent-soft"] { --ill-c2: var(--lp-accent-soft); }
+.lp-ill[data-tone2="accent-strong"] { --ill-c2: var(--lp-accent-strong); }
+.lp-ill[data-tone2="pop"] { --ill-c2: var(--lp-pop); }
+.lp-ill[data-tone2="pop-ink"] { --ill-c2: var(--lp-pop-ink); }
+.lp-ill[data-tone2="bg"] { --ill-c2: var(--sec-bg, var(--lp-bg)); }
+.lp-ill[data-tone2="card"],
+.lp-ill[data-tone2="paper"] { --ill-c2: var(--sec-card, var(--lp-surface)); }
+.lp-ill[data-tone2="card-ink"] { --ill-c2: var(--sec-card-ink, var(--lp-ink)); }
+.lp-ill[data-tone2="chip"] { --ill-c2: var(--sec-chip, var(--lp-surface-2)); }
+.lp-ill[data-tone2="dark"] { --ill-c2: var(--lp-dark); }
+.lp-ill[data-tone2="glow"] { --ill-c2: var(--ill-glow); }
+.lp-ill[data-tone2="highlight"] { --ill-c2: var(--mx-tint-2, var(--sec-chip, var(--lp-surface-2))); }
+.lp-ill[data-tone3="bg"] { --ill-c3: var(--sec-bg, var(--lp-bg)); }
+.lp-ill[data-tone3="card"],
+.lp-ill[data-tone3="paper"] { --ill-c3: var(--sec-card, var(--lp-surface)); }
+.lp-ill[data-tone3="chip"] { --ill-c3: var(--sec-chip, var(--lp-surface-2)); }
+.lp-ill[data-tone3="ink"] { --ill-c3: var(--sec-ink, var(--lp-ink)); }
+.lp-ill[data-tone3="accent"] { --ill-c3: var(--sec-accent, var(--lp-accent)); }
+.lp-ill[data-tone3="pop"] { --ill-c3: var(--lp-pop); }
+.lp-ill[data-tone3="dark"] { --ill-c3: var(--lp-dark); }
+
+/* ---------- paint utilities (inside illustrations) --------------------- */
+.lp-ill .i-f2 { fill: var(--ill-c2); }
+.lp-ill .i-s2 { stroke: var(--ill-c2); }
+.lp-ill .i-f3 { fill: var(--ill-c3); }
+.lp-ill .i-s3 { stroke: var(--ill-c3); }
+.lp-ill .i-on { stroke: var(--ill-on); }
+.lp-ill-mono {
+  font-family: var(--lp-font-accent, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+svg.lp-ill--glyph:not([width]) {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
+/* ---------- layering --------------------------------------------------- */
+/* host: give the section (or a media box) its own stacking context */
+.lp-decor-host {
+  position: relative;
+  isolation: isolate;
+}
+/* clip bleeding light (placed orbs/halos overhang their host by design) */
+.lp-decor-host--clip {
+  overflow: hidden;
+}
+@supports (overflow: clip) {
+  .lp-decor-host--clip {
+    overflow: clip;
+  }
+}
+/* z scale: layer 0 (light, grids) · decor 1 · content 2 · front decor 3 */
+.lp-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+.lp-decor {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+.lp-decor--front {
+  z-index: 3;
+}
+.lp-above-decor {
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------- placement (data-place) ------------------------------------ */
+.lp-ill[data-place] {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+.lp-ill[data-place="center"] { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.lp-ill[data-place="top"] { left: 50%; top: 0; transform: translate(-50%, -50%); }
+.lp-ill[data-place="bottom"] { left: 50%; bottom: 0; transform: translate(-50%, 50%); }
+.lp-ill[data-place="start"] { inset-inline-start: 0; top: 50%; transform: translate(-50%, -50%); }
+.lp-ill[data-place="end"] { inset-inline-end: 0; top: 50%; transform: translate(50%, -50%); }
+.lp-ill[data-place="top-start"] { inset-inline-start: 0; top: 0; transform: translate(-35%, -35%); }
+.lp-ill[data-place="top-end"] { inset-inline-end: 0; top: 0; transform: translate(35%, -35%); }
+.lp-ill[data-place="bottom-start"] { inset-inline-start: 0; bottom: 0; transform: translate(-35%, 35%); }
+.lp-ill[data-place="bottom-end"] { inset-inline-end: 0; bottom: 0; transform: translate(35%, 35%); }
+[dir="rtl"] .lp-ill[data-place="start"] { transform: translate(50%, -50%); }
+[dir="rtl"] .lp-ill[data-place="end"] { transform: translate(-50%, -50%); }
+[dir="rtl"] .lp-ill[data-place="top-start"] { transform: translate(35%, -35%); }
+[dir="rtl"] .lp-ill[data-place="top-end"] { transform: translate(-35%, -35%); }
+[dir="rtl"] .lp-ill[data-place="bottom-start"] { transform: translate(35%, 35%); }
+[dir="rtl"] .lp-ill[data-place="bottom-end"] { transform: translate(-35%, 35%); }
+
+/* seeded tilts (whole degrees, ≤ 6 — modern pieces sit nearly straight; uses `rotate` so it
+   composes with placement transforms) */
+.lp-ill[data-rot="-6"] { rotate: -6deg; }
+.lp-ill[data-rot="-5"] { rotate: -5deg; }
+.lp-ill[data-rot="-4"] { rotate: -4deg; }
+.lp-ill[data-rot="-3"] { rotate: -3deg; }
+.lp-ill[data-rot="-2"] { rotate: -2deg; }
+.lp-ill[data-rot="-1"] { rotate: -1deg; }
+.lp-ill[data-rot="1"] { rotate: 1deg; }
+.lp-ill[data-rot="2"] { rotate: 2deg; }
+.lp-ill[data-rot="3"] { rotate: 3deg; }
+.lp-ill[data-rot="4"] { rotate: 4deg; }
+.lp-ill[data-rot="5"] { rotate: 5deg; }
+.lp-ill[data-rot="6"] { rotate: 6deg; }
+
+/* ---------- glass ------------------------------------------------------ */
+/* Frosted surface from the theme's per-section glass: translucent fill (--sec-glass), backdrop blur +
+   saturation (--lp-glass-filter), 1px edge and inner highlight. --sec-glass-ink stays >= 4.5:1 over
+   any backdrop AND on the opaque --sec-glass-solid used when backdrop-filter is unsupported or the
+   visitor asks for reduced transparency. Smoked chip on a light block: add data-bg="dark" (the theme
+   re-declares every --sec-* token there). Without a theme: card colors. */
+.lp-glass {
+  background-color: var(--sec-glass-solid, var(--sec-card, var(--lp-surface)));
+  color: var(--sec-glass-ink, var(--sec-card-ink, var(--lp-ink)));
+  /* a device hairline (base.css §2b): the pane's edge, never a frame */
+  border: var(--lp-hairline, 1px) solid var(--sec-glass-border, var(--sec-line, var(--lp-line)));
+  box-shadow: var(--lp-highlight, inset 0 1px 0 rgb(255 255 255 / 0.3)), var(--lp-shadow-m, 0 14px 34px -18px rgb(0 0 0 / 0.34));
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-glass {
+    background-color: var(--sec-glass, var(--sec-card, var(--lp-surface)));
+    -webkit-backdrop-filter: var(--lp-glass-filter, blur(18px) saturate(150%));
+    backdrop-filter: var(--lp-glass-filter, blur(18px) saturate(150%));
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lp-glass {
+    background-color: var(--sec-glass-solid, var(--sec-card, var(--lp-surface)));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+.lp-glasschip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding-block: 0.55em;
+  padding-inline: 0.95em;
+  border-radius: 999px;
+  font-size: var(--lp-step--1, 0.875rem);
+  font-weight: var(--lp-strong-weight, 600);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.lp-glasschip[data-size="s"] {
+  padding-block: 0.35em;
+  padding-inline: 0.7em;
+  font-size: calc(var(--lp-step--1, 0.875rem) * 0.92);
+}
+
+/* ---------- draw reveal: stroke staging + pops ------------------------- */
+/* styles/base.css owns data-reveal="draw" (dash setup, hidden state, keyframes, --d / --i delays).
+   Here: multi-part drawings stage themselves with data-d="1..4" (line → head, stem → leaves →
+   buds), relative to the draw duration; solid bits (.lp-draw-pop: end dots, discs, buds) pop in
+   with a spring on their stage. */
+/* A non-scaling hairline (.lp-nss, e.g. a keyline in a preserveAspectRatio="none" box) cannot take
+   the draw dash: it is set in path units (pathLength 1) but a non-scaling stroke is dashed in screen
+   pixels, so it would stop part-way round. It fades in whole on its reveal instead. */
+html.lp-js:not([data-motion="off"]) [data-reveal="draw"] .lp-draw.lp-nss {
+  stroke-dasharray: none;
+}
+@keyframes lp-ill-fadein {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"][data-in] .lp-draw.lp-nss {
+    animation: lp-ill-fadein var(--rv-dur, var(--lp-dur-l)) var(--lp-ease-out, ease-out) var(--d, 0ms) backwards;
+  }
+}
+[data-reveal="draw"] [data-d="2"] { --ill-stage: 0.55; }
+[data-reveal="draw"] [data-d="3"] { --ill-stage: 0.9; }
+[data-reveal="draw"] [data-d="4"] { --ill-stage: 1.2; }
+.lp-draw-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"][data-in] .lp-draw[data-d] {
+    animation-delay: calc(var(--d, 0ms) + var(--i, 0) * 140ms + var(--ill-stage, 0) * var(--rv-dur, var(--lp-dur-l)));
+  }
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"]:not([data-in]) .lp-draw-pop {
+    opacity: 0;
+  }
+  html.lp-js:not([data-motion="off"]) [data-reveal="draw"][data-in] .lp-draw-pop {
+    animation: lp-ill-pop calc(var(--lp-dur-m) * 1.1) var(--lp-spring, var(--lp-ease-out))
+      calc(var(--d, 0ms) + var(--i, 0) * 140ms + var(--ill-stage, 0) * var(--rv-dur, var(--lp-dur-l))) backwards;
+  }
+}
+/* failsafe twin of base.css: if the runtime never shows a sign of life, pops appear on their own */
+@supports selector(:has(a)) {
+  @media (prefers-reduced-motion: no-preference) {
+    html.lp-js:not([data-motion="off"]):not([data-rv]):not(:has([data-in], [data-bundle-card][data-selected])) [data-reveal="draw"]:not([data-in]) .lp-draw-pop {
+      animation: lp-ill-failsafe var(--lp-dur-m) var(--lp-ease-out) 2.5s forwards;
+    }
+  }
+}
+@keyframes lp-ill-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+}
+@keyframes lp-ill-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- idle loops --------------------------------------------------- */
+/* Idle classes sit on an inner element, never on one carrying data-reveal or a placement transform.
+   spin / float / drift run on lively and (slower) calm; pulse / twinkle / ping only on lively.
+   (html always carries data-motion; "not off" keeps the selectors free of :is() expansion.) */
+g.lp-idle {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+}
+.lp-twk,
+.lp-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.lp-ping {
+  opacity: 0;
+}
+@keyframes lp-ill-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes lp-ill-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -4%, 0);
+  }
+}
+@keyframes lp-ill-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(4%, -3%, 0) scale(1.05);
+  }
+  66% {
+    transform: translate3d(-3%, 3%, 0) scale(0.97);
+  }
+}
+/* breathing light: scale only, so the element keeps its own (intensity) opacity */
+@keyframes lp-ill-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
+  }
+}
+@keyframes lp-ill-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.74) rotate(14deg);
+  }
+}
+/* upright ring text (Arabic badges) sways instead of turning: it must never go upside down */
+@keyframes lp-ill-sway {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(6deg);
+  }
+}
+@keyframes lp-ill-ping {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.5);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="calm"] {
+    --ill-tempo: 1.8;
+  }
+  html:not([data-motion="off"]) .lp-idle-spin {
+    animation: lp-ill-spin calc(28s * var(--ill-tempo, 1) * var(--ill-spin-k, 1)) linear infinite;
+  }
+  html:not([data-motion="off"]) .lp-idle-sway {
+    animation: lp-ill-sway calc(6.5s * var(--ill-tempo, 1)) var(--lp-ease-in-out, ease-in-out) infinite alternate;
+  }
+  html:not([data-motion="off"]) .lp-idle-spin-rev {
+    animation: lp-ill-spin calc(36s * var(--ill-tempo, 1)) linear infinite reverse;
+  }
+  html:not([data-motion="off"]) .lp-idle-float {
+    animation: lp-ill-float calc(7s * var(--ill-tempo, 1)) ease-in-out infinite;
+  }
+  html:not([data-motion="off"]) .lp-idle-drift {
+    animation: lp-ill-drift calc(24s * var(--ill-tempo, 1)) ease-in-out infinite;
+  }
+  html[data-motion="lively"] .lp-idle-pulse {
+    animation: lp-ill-pulse 5.5s ease-in-out infinite;
+  }
+  html[data-motion="lively"] .lp-idle-twinkle .lp-twk {
+    animation: lp-ill-twinkle 3.2s ease-in-out infinite;
+  }
+  html[data-motion="lively"] .lp-idle-twinkle [data-tw="2"] {
+    animation-delay: -1.4s;
+  }
+  html[data-motion="lively"] .lp-ping {
+    animation: lp-ill-ping 2.8s var(--lp-ease-out, ease-out) infinite;
+  }
+  html:not([data-motion="off"]) .lp-aurora--drift > .lp-aurora__f {
+    animation: lp-ill-drift calc(var(--ill-dur, 26s) * var(--ill-tempo, 1)) ease-in-out var(--ill-del, 0s) infinite;
+    will-change: transform;
+  }
+}
+
+/* ---------- light: orb, aurora, halo ----------------------------------- */
+.lp-light {
+  --ill-c1: var(--ill-glow);
+  display: block;
+  pointer-events: none;
+}
+/* multipliers of the theme's lights, which already carry a contrast-solved alpha (<= 0.55): "strong"
+   is exactly the light the theme guarantees text over, the others stay below it */
+.lp-light[data-i="subtle"] { --ill-o: 0.4; }
+.lp-light[data-i="soft"] { --ill-o: 0.65; }
+.lp-light[data-i="medium"] { --ill-o: 0.85; }
+.lp-light[data-i="strong"] { --ill-o: 1; }
+
+.lp-orb {
+  width: var(--ill-size, 60%);
+  aspect-ratio: 1;
+}
+.lp-orb[data-shape="wide"] { aspect-ratio: 1.7; }
+.lp-orb[data-shape="tall"] { aspect-ratio: 0.62; }
+.lp-orb:not([data-place]),
+.lp-halo:not([data-place]),
+.lp-shape3d:not([data-place]) {
+  position: relative;
+}
+.lp-orb__core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: var(--ill-c1);
+  opacity: calc(var(--ill-o, 0.45) * var(--ill-k, 1));
+  mask-image: var(--ill-gauss);
+}
+
+.lp-aurora {
+  overflow: hidden;
+}
+.lp-aurora:not(.lp-layer) {
+  position: relative;
+}
+.lp-aurora__f {
+  position: absolute;
+  left: calc(var(--x) - var(--w) / 2);
+  top: calc(var(--y) - var(--h) / 2);
+  width: var(--w);
+  height: var(--h);
+  border-radius: 50%;
+  background-color: var(--ill-glow);
+  opacity: calc(var(--a, 1) * var(--ill-o, 0.45) * var(--ill-k, 1));
+  mask-image: var(--ill-gauss);
+}
+/* one light per aurora hue (accent, pop, analogous), each on its own slow drift cycle */
+.lp-aurora__f[data-n="2"] { background-color: var(--ill-glow-2); --ill-dur: 31s; --ill-del: -9s; }
+.lp-aurora__f[data-n="3"] { background-color: var(--ill-glow-3); --ill-dur: 37s; --ill-del: -17s; }
+/* solved: the theme's own field, the exact one its contrast solver keeps text-safe */
+.lp-aurora__field {
+  position: absolute;
+  inset: 0;
+  background-image: var(--lp-aurora, none);
+  opacity: var(--ill-o, 1);
+}
+.lp-aurora > .lp-grain {
+  position: absolute;
+  inset: 0;
+}
+/* "auto" grain follows the theme's texture choice */
+html:not([data-texture="grain"]) .lp-grain[data-auto] {
+  display: none;
+}
+
+.lp-halo {
+  width: var(--ill-size, 80%);
+  aspect-ratio: 1;
+  color: var(--ill-c1);
+}
+.lp-halo__glow {
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background-color: var(--ill-c1);
+  opacity: calc(var(--ill-o, 0.45) * var(--ill-k, 1));
+  mask-image: var(--ill-gauss);
+}
+/* a halo is a product stage: by default it is lit by the theme's --lp-stage-glow (light 1 of the
+   block's aurora, contrast-solved on the plain section, already soft-edged) */
+.lp-halo:not([data-tone]) > .lp-halo__glow {
+  background: var(--lp-stage-glow, radial-gradient(closest-side, var(--ill-c1), transparent));
+  mask-image: none;
+}
+.lp-halo__rings {
+  color: var(--sec-accent, var(--lp-accent));
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.lp-halo .lp-idle-spin {
+  --ill-spin-k: 2.2;
+}
+
+/* ---------- light: beam, spotlight ------------------------------------- */
+/* Beams: a pale tint of the product hue, ~30% below the glows (a long shape reads stronger than a
+   round glow of the same alpha). Spotlight: the block's own aurora light 1 (contrast-solved per
+   [data-bg], alpha included) for the cone, and the theme's stage glow for the pool on the floor —
+   so text that crosses the cone keeps the contrast the theme guarantees. */
+.lp-beam,
+.lp-spot {
+  --ill-c1: var(--ill-beam);
+  --ox: 50%;
+  --oy: -8%;
+  --ill-dir: 1;
+  opacity: calc(var(--ill-o, 0.65) * 0.7 * var(--ill-k, 1));
+}
+.lp-spot {
+  --ill-c1: var(--ill-glow);
+  opacity: calc(var(--ill-o, 0.85) * var(--ill-k, 1));
+}
+.lp-beam[data-origin="top-start"],
+.lp-spot[data-origin="top-start"] { --ox: 14%; }
+.lp-beam[data-origin="top-end"],
+.lp-spot[data-origin="top-end"] { --ox: 86%; }
+[dir="rtl"] .lp-beam,
+[dir="rtl"] .lp-spot { --ill-dir: -1; }
+[dir="rtl"] .lp-light[data-origin="top-start"] { --ox: 86%; }
+[dir="rtl"] .lp-light[data-origin="top-end"] { --ox: 14%; }
+.lp-beam[data-origin="bottom"] { --oy: 108%; --ill-base: 0deg; }
+.lp-beam:not(.lp-layer) {
+  position: relative;
+}
+
+/* one beam = a soft angular cone (core + halo) fading with distance from its source; a fan is
+   several, each with its own tilt, width (--ill-spread), reach (--ill-len) and strength (--ill-ray) */
+.lp-beam__ray {
+  --ill-axis: calc(var(--ill-base, 180deg) + var(--ill-tilt, 0deg) * var(--ill-dir));
+  position: absolute;
+  inset: 0;
+  opacity: var(--ill-ray, 1);
+  background-image:
+    conic-gradient(from calc(var(--ill-axis) - var(--ill-spread, 26deg) * 0.22) at var(--ox) var(--oy), transparent 0deg, var(--ill-c1) calc(var(--ill-spread, 26deg) * 0.22), transparent calc(var(--ill-spread, 26deg) * 0.44)),
+    conic-gradient(from calc(var(--ill-axis) - var(--ill-spread, 26deg) / 2) at var(--ox) var(--oy), transparent 0deg, var(--ill-c1) calc(var(--ill-spread, 26deg) / 2), transparent var(--ill-spread, 26deg));
+  mask-image: radial-gradient(
+    farthest-side at var(--ox) var(--oy),
+    #000,
+    rgb(0 0 0 / 0.55) calc(var(--ill-len, 1) * 42%),
+    rgb(0 0 0 / 0.16) calc(var(--ill-len, 1) * 72%),
+    transparent calc(var(--ill-len, 1) * 96%)
+  );
+}
+
+/* spotlight: a cone from above + a pool of light on the floor */
+.lp-spot {
+  --ill-tilt: 0deg;
+  overflow: hidden;
+}
+.lp-spot[data-origin="top-start"] { --ill-tilt: -16deg; }
+.lp-spot[data-origin="top-end"] { --ill-tilt: 16deg; }
+.lp-spot::before,
+.lp-spot::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+.lp-spot::before {
+  inset: 0;
+  background-image: conic-gradient(
+    from calc(180deg + var(--ill-tilt) * var(--ill-dir) - 17deg) at var(--ox) var(--oy),
+    transparent 0deg,
+    var(--ill-c1) 17deg,
+    transparent 34deg
+  );
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.95), rgb(0 0 0 / 0.42) 64%, transparent 94%);
+}
+.lp-spot[data-pool]::after {
+  left: 18%;
+  right: 18%;
+  bottom: 4%;
+  height: 22%;
+  border-radius: 50%;
+  background-color: var(--ill-c1);
+  mask-image: var(--ill-gauss);
+}
+.lp-spot:not([data-tone])[data-pool]::after {
+  background: var(--lp-stage-glow, radial-gradient(closest-side, var(--ill-c1), transparent));
+  mask-image: none;
+}
+
+/* ---------- grain ------------------------------------------------------- */
+/* static, tiled film grain (feTurbulence rendered once as an image) — felt, never seen */
+.lp-grain {
+  display: block;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: var(--ill-grain, 0.025);
+  mix-blend-mode: soft-light;
+}
+.lp-grain[data-blend="overlay"] { mix-blend-mode: overlay; }
+.lp-grain[data-blend="normal"] { mix-blend-mode: normal; }
+
+/* ---------- grids & zellige -------------------------------------------- */
+.lp-gridlines,
+.lp-dotgrid {
+  display: block;
+  pointer-events: none;
+}
+.lp-gridlines {
+  --ill-line: var(--ill-c1);
+  background-image: linear-gradient(to right, var(--ill-line) 1px, transparent 1px), linear-gradient(to bottom, var(--ill-line) 1px, transparent 1px);
+  background-size: var(--ill-cell, 40px) var(--ill-cell, 40px);
+  opacity: var(--ill-o, 0.7);
+}
+@supports (color: color-mix(in oklab, black 50%, transparent)) {
+  /* majors at full line color, minors at ~45% */
+  .lp-gridlines[data-major] {
+    --ill-line: color-mix(in oklab, var(--ill-c1) 45%, transparent);
+    background-image:
+      linear-gradient(to right, var(--ill-c1) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--ill-c1) 1px, transparent 1px),
+      linear-gradient(to right, var(--ill-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--ill-line) 1px, transparent 1px);
+    background-size: var(--ill-major) var(--ill-major), var(--ill-major) var(--ill-major), var(--ill-cell) var(--ill-cell), var(--ill-cell) var(--ill-cell);
+  }
+}
+.lp-dotgrid {
+  background-image: radial-gradient(circle at center, var(--ill-c1) 0 var(--ill-dot, 1.1px), transparent calc(var(--ill-dot, 1.1px) + 0.7px));
+  background-size: var(--ill-cell, 22px) var(--ill-cell, 22px);
+  background-position: center;
+  opacity: var(--ill-o, 0.8);
+}
+.lp-zellige {
+  display: block;
+  pointer-events: none;
+  opacity: calc(var(--ill-o, 0.06) * var(--ill-zk, 1));
+}
+.lp-ill[data-fade="radial"] {
+  mask-image: radial-gradient(ellipse 72% 68% at 50% 46%, #000 18%, rgb(0 0 0 / 0.45) 55%, transparent 100%);
+}
+.lp-ill[data-fade="down"] {
+  mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / 0.4) 55%, transparent 92%);
+}
+.lp-ill[data-fade="up"] {
+  mask-image: linear-gradient(to top, #000, rgb(0 0 0 / 0.4) 55%, transparent 92%);
+}
+.lp-ill[data-fade="edges"] {
+  mask-image: linear-gradient(to right, transparent, #000 20%, #000 80%, transparent);
+}
+.lp-ill[data-fade="start"],
+[dir="rtl"] .lp-ill[data-fade="end"] {
+  mask-image: linear-gradient(to right, #000, rgb(0 0 0 / 0.35) 50%, transparent 88%);
+}
+.lp-ill[data-fade="end"],
+[dir="rtl"] .lp-ill[data-fade="start"] {
+  mask-image: linear-gradient(to left, #000, rgb(0 0 0 / 0.35) 50%, transparent 88%);
+}
+
+/* ---------- Shape3D ------------------------------------------------------ */
+/* Gradient shading only (scales with the element): key light upper-start, bounce light lower-end,
+   ambient occlusion toward the terminator, a soft contact shadow under the form. */
+.lp-shape3d {
+  display: block;
+  width: var(--ill-size, 6rem);
+  aspect-ratio: 1;
+  color: var(--ill-c1, var(--sec-accent, var(--lp-accent)));
+}
+.lp-shape3d::after {
+  content: "";
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: -9%;
+  height: 12%;
+  border-radius: 50%;
+  background-image: radial-gradient(closest-side, rgb(0 0 0 / 0.26), rgb(0 0 0 / 0.1) 55%, transparent);
+  pointer-events: none;
+}
+.lp-shape3d__body,
+.lp-shape3d__form {
+  position: absolute;
+  inset: 0;
+}
+.lp-shape3d__form {
+  border-radius: 50%;
+  background-color: currentColor;
+}
+.lp-shape3d[data-shape="sphere"] .lp-shape3d__form {
+  background-image:
+    radial-gradient(circle at 32% 26%, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.18) 20%, rgb(255 255 255 / 0) 44%),
+    radial-gradient(circle at 76% 84%, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0) 26%),
+    radial-gradient(circle at 36% 30%, rgb(0 0 0 / 0) 42%, rgb(0 0 0 / 0.12) 64%, rgb(0 0 0 / 0.3) 100%);
+}
+.lp-shape3d[data-shape="sphere"][data-finish="gloss"] .lp-shape3d__form {
+  background-image:
+    radial-gradient(circle at 31% 24%, rgb(255 255 255 / 0.95) 0 3.5%, rgb(255 255 255 / 0.35) 8%, rgb(255 255 255 / 0) 22%),
+    radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 46%),
+    radial-gradient(circle at 76% 84%, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 24%),
+    radial-gradient(circle at 36% 30%, rgb(0 0 0 / 0) 44%, rgb(0 0 0 / 0.16) 66%, rgb(0 0 0 / 0.36) 100%);
+}
+.lp-shape3d[data-shape="pill"] .lp-shape3d__form {
+  inset: 30% 0;
+  border-radius: 999px;
+  transform: rotate(var(--ill-rot, 0deg));
+  background-image:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.12) 26%, rgb(255 255 255 / 0) 46%, rgb(0 0 0 / 0.08) 70%, rgb(0 0 0 / 0.3)),
+    linear-gradient(to right, rgb(0 0 0 / 0.12), rgb(0 0 0 / 0) 18%, rgb(0 0 0 / 0) 82%, rgb(0 0 0 / 0.14));
+}
+.lp-shape3d[data-shape="pill"][data-finish="gloss"] .lp-shape3d__form::before {
+  content: "";
+  position: absolute;
+  inset: 14% 12% 62%;
+  border-radius: 999px;
+  background-image: linear-gradient(to right, rgb(255 255 255 / 0), rgb(255 255 255 / 0.75) 30%, rgb(255 255 255 / 0.75) 70%, rgb(255 255 255 / 0));
+}
+.lp-shape3d[data-shape="torus"] .lp-shape3d__form {
+  transform: rotate(var(--ill-rot, 0deg)) scaleY(0.62);
+  background-image:
+    linear-gradient(150deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 45%, rgb(0 0 0 / 0.16)),
+    radial-gradient(closest-side, rgb(0 0 0 / 0.32) 44%, rgb(0 0 0 / 0) 58%, rgb(255 255 255 / 0.34) 70%, rgb(255 255 255 / 0) 84%, rgb(0 0 0 / 0.26) 100%);
+  mask-image: radial-gradient(closest-side, transparent 43%, #000 44.5%, #000 98.5%, transparent 100%);
+}
+.lp-shape3d[data-shape="torus"]::after {
+  bottom: 6%;
+}
+.lp-shape3d[data-shape="pill"]::after {
+  bottom: 14%;
+}
+
+/* ---------- Sticker ----------------------------------------------------- */
+.lp-sticker {
+  position: relative;
+  display: inline-block;
+  width: var(--sticker-size, 6.5rem);
+  aspect-ratio: 1;
+  flex: none;
+  text-align: center;
+  line-height: 1.05;
+  color: var(--ill-c1, var(--lp-pop));
+}
+.lp-sticker__body {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.lp-sticker__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0.55em 0.9em rgb(0 0 0 / 0.16)) drop-shadow(0 0.1em 0.18em rgb(0 0 0 / 0.1));
+}
+@supports (color: color-mix(in oklab, black 50%, transparent)) {
+  /* colored soft shadow: the sticker's own hue, deepened */
+  .lp-sticker__bg {
+    filter: drop-shadow(0 0.6em 1em color-mix(in oklab, currentColor 34%, rgb(0 0 0 / 0.2))) drop-shadow(0 0.1em 0.18em rgb(0 0 0 / 0.1));
+  }
+}
+.lp-sticker[data-shadow="none"] .lp-sticker__bg {
+  filter: none;
+}
+.lp-sticker__sheen {
+  stroke: rgb(255 255 255 / 0.36);
+  stroke-width: 1px;
+}
+/* short labels ("-30%", "24 cm", "249 DH") take their direction from their own text, so Latin
+   numbers keep their order inside Arabic pages and Arabic labels still read right to left */
+.lp-sticker__content,
+.lp-pricetag__body > *,
+.lp-dim__label {
+  unicode-bidi: plaintext;
+}
+.lp-sticker__content {
+  position: relative;
+  padding: 18%;
+  color: var(--ill-on);
+  font-family: var(--lp-font-display, inherit);
+  font-weight: var(--lp-display-weight, 700);
+}
+
+/* ---------- Badge (rotating text) -------------------------------------- */
+.lp-ringbadge {
+  position: relative;
+  display: inline-block;
+  width: var(--badge-size, 8.5rem);
+  aspect-ratio: 1;
+  flex: none;
+  border-radius: 50%;
+}
+.lp-ringbadge > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.lp-ringbadge__ring {
+  transform-origin: 50% 50%;
+}
+.lp-ringbadge[data-variant="solid"] {
+  background-color: var(--ill-c1, currentColor);
+  color: var(--ill-on);
+  /* the theme's accent-surface highlight + the block-tinted shadow (no gray blob) */
+  box-shadow: var(--lp-highlight-accent, inset 0 1px 0 rgb(255 255 255 / 0.24)), var(--lp-shadow-m, 0 20px 44px -20px rgb(0 0 0 / 0.5));
+}
+.lp-ringbadge__rule {
+  stroke-opacity: 0.32;
+}
+.lp-ringbadge:not([data-variant="solid"]) .lp-ringbadge__glyph {
+  color: var(--ill-c2);
+}
+.lp-ringbadge__t {
+  font-family: var(--lp-font-body, inherit);
+  font-weight: var(--lp-strong-weight, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.lp-ringbadge__label {
+  font-family: var(--lp-font-display, inherit);
+  font-weight: var(--lp-display-weight, 700);
+  font-variant-numeric: tabular-nums;
+}
+.lp-ringbadge__sub {
+  font-family: var(--lp-font-body, inherit);
+  font-weight: var(--lp-strong-weight, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+}
+[lang="ar"] .lp-ringbadge__t,
+[lang="ar"] .lp-ringbadge__sub {
+  font-family: var(--lp-font-display, inherit);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---------- price chip (PriceTag) --------------------------------------- */
+.lp-pricetag {
+  display: inline-block;
+}
+.lp-pricetag__body {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.18em;
+  padding-block: 0.75em;
+  padding-inline: 1.15em;
+  border-radius: 1.4em;
+  background-color: var(--ill-c1);
+  color: var(--ill-on);
+  font-family: var(--lp-font-display, inherit);
+  font-weight: var(--lp-display-weight, 700);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.26), 0 16px 34px -16px rgb(0 0 0 / 0.42);
+}
+.lp-pricetag[data-variant="label"] .lp-pricetag__body {
+  border-radius: var(--lp-radius-s, 10px);
+}
+/* ---------- arch frames -------------------------------------------------- */
+.lp-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--frame-ratio, 0.8);
+}
+.lp-frame__defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.lp-frame__media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: var(--frame-clip);
+}
+.lp-frame__media > *,
+.lp-frame__media img,
+.lp-frame__media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.lp-frame__line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+/* the image settles into its mask as the frame reveals (scale 1.06 → 1) */
+@media (prefers-reduced-motion: no-preference) {
+  html.lp-js:not([data-motion="off"]) .lp-frame[data-reveal][data-in] .lp-frame__media > * {
+    animation: lp-ill-settle calc(var(--lp-dur-l) * 1.5) var(--lp-ease-out) var(--d, 0ms) backwards;
+  }
+}
+@keyframes lp-ill-settle {
+  from {
+    transform: scale(1.06);
+  }
+}
+
+/* ---------- measurement -------------------------------------------------- */
+.lp-ruler__body {
+  fill-opacity: 0.72;
+  stroke: currentColor;
+  stroke-opacity: 0.14;
+}
+.lp-dim {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lp-dim[data-o="h"] {
+  width: 100%;
+  min-height: 1.8em;
+}
+.lp-dim[data-o="v"] {
+  height: 100%;
+  min-width: 1.8em;
+  flex-direction: column;
+}
+.lp-dim__line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  opacity: 0.7;
+}
+.lp-dim__cap {
+  position: absolute;
+  width: 0.75em;
+  height: 0.75em;
+  overflow: visible;
+}
+.lp-dim[data-o="h"] .lp-dim__cap { inset-block-start: calc(50% - 0.375em); }
+.lp-dim[data-o="h"] .lp-dim__cap--start { inset-inline-start: -0.375em; }
+.lp-dim[data-o="h"] .lp-dim__cap--end { inset-inline-end: -0.375em; }
+[dir="rtl"] .lp-dim[data-o="h"] .lp-dim__cap { transform: scaleX(-1); }
+.lp-dim[data-o="v"] .lp-dim__cap { inset-inline: 0; margin-inline: auto; }
+.lp-dim[data-o="v"] .lp-dim__cap--start { inset-block-start: -0.375em; }
+.lp-dim[data-o="v"] .lp-dim__cap--end { inset-block-end: -0.375em; }
+.lp-dim__label {
+  position: relative;
+  padding-block: 0.28em;
+  padding-inline: 0.75em;
+  border: 1px solid var(--sec-line, var(--lp-line));
+  border-radius: 999px;
+  background-color: var(--sec-card, var(--lp-surface));
+  color: var(--sec-card-ink, var(--lp-ink));
+  font-family: var(--lp-font-accent, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: var(--lp-step--1, 0.85rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* ---------- dividers ----------------------------------------------------- */
+/* raw section backgrounds (the theme writes these on :root) */
+.lp-divider[data-from="base"] { --df: var(--lp-bg); }
+.lp-divider[data-from="soft"] { --df: var(--lp-soft, var(--lp-surface-2)); }
+.lp-divider[data-from="surface"] { --df: var(--lp-surface); }
+.lp-divider[data-from="accent"] { --df: var(--lp-accent); }
+.lp-divider[data-from="dark"] { --df: var(--lp-dark); }
+.lp-divider[data-from="pop"] { --df: var(--lp-pop); }
+.lp-divider[data-to="base"] { --dt: var(--lp-bg); }
+.lp-divider[data-to="soft"] { --dt: var(--lp-soft, var(--lp-surface-2)); }
+.lp-divider[data-to="surface"] { --dt: var(--lp-surface); }
+.lp-divider[data-to="accent"] { --dt: var(--lp-accent); }
+.lp-divider[data-to="dark"] { --dt: var(--lp-dark); }
+.lp-divider[data-to="pop"] { --dt: var(--lp-pop); }
+
+/* default: the upper section hangs into the lower one (shape mirrored vertically);
+   data-flip: the lower section rises into the upper one. 1px overlap on both edges hides seams. */
+.lp-divider {
+  --div-h: clamp(36px, 5.5vw, 96px);
+  --dv-fill: var(--df);
+  --dv-sy: -1;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: calc(var(--div-h) * var(--div-k, 1));
+  margin-block: -1px;
+  overflow: hidden;
+  background-color: var(--dt);
+  line-height: 0;
+}
+.lp-divider[data-flip] {
+  --dv-fill: var(--dt);
+  --dv-sy: 1;
+  background-color: var(--df);
+}
+.lp-divider[data-size="sm"] { --div-k: 0.65; }
+.lp-divider[data-size="lg"] { --div-k: 1.45; }
+.lp-divider[data-kind="curve"] { --div-h: clamp(40px, 7vw, 120px); }
+.lp-divider[data-kind="diagonal"] { --div-h: clamp(28px, 4.5vw, 80px); }
+.lp-divider[data-kind="steps"] { --div-h: clamp(28px, 4vw, 64px); }
+.lp-divider[data-kind="arch"] { --div-h: clamp(36px, 6.5vw, 112px); }
+.lp-divider[data-kind="wave"] { --div-h: clamp(28px, 4.2vw, 72px); }
+/* the shape's straight base sits 2px outside the box (clipped), so no anti-aliased seam row ever
+   shows where the divider meets its section */
+.lp-divider__svg {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: calc(100% + 4px);
+  transform: scale(var(--dv-sx, 1), var(--dv-sy));
+}
+.lp-dv-shape {
+  fill: var(--dv-fill);
+}
+/* asymmetric kinds follow the reading direction */
+[dir="rtl"] .lp-divider:not([data-kind="arch"]) {
+  --dv-sx: -1;
+}
+/* fade: a soft color transition (eased in oklab where supported) */
+.lp-divider[data-kind="fade"] {
+  --div-h: clamp(72px, 11vw, 176px);
+  background-image: linear-gradient(var(--df), var(--dt));
+}
+@supports (color: color-mix(in oklab, black 50%, transparent)) {
+  .lp-divider[data-kind="fade"] {
+    background-image: linear-gradient(
+      var(--df),
+      color-mix(in oklab, var(--df) 88%, var(--dt)) 20%,
+      color-mix(in oklab, var(--df) 50%, var(--dt)) 50%,
+      color-mix(in oklab, var(--df) 12%, var(--dt)) 80%,
+      var(--dt)
+    );
+  }
+}
+/* no orange on the way (base.css "No orange"): two grounds on opposite sides of the orange band
+   (a gold block above a rose one) would blend through amber — each step is held to a sand there
+   (--mx-safe), and the steps are close enough that the oklab ramp between them stays clean. The
+   steps follow a smoothstep, so the fade eases out of one ground and into the next */
+@supports (color: oklch(from red l min(c, calc(0.045 + 2 * clamp(0, (h - 24) * 40, 1))) h)) {
+  .lp-divider[data-kind="fade"] {
+    background-image: linear-gradient(
+      in oklab,
+      var(--df),
+      oklch(from color-mix(in oklab, var(--df) 95.7%, var(--dt)) l var(--mx-safe) h) 12.5%,
+      oklch(from color-mix(in oklab, var(--df) 84.4%, var(--dt)) l var(--mx-safe) h) 25%,
+      oklch(from color-mix(in oklab, var(--df) 66.4%, var(--dt)) l var(--mx-safe) h) 37.5%,
+      oklch(from color-mix(in oklab, var(--df) 50%, var(--dt)) l var(--mx-safe) h) 50%,
+      oklch(from color-mix(in oklab, var(--df) 33.6%, var(--dt)) l var(--mx-safe) h) 62.5%,
+      oklch(from color-mix(in oklab, var(--df) 15.6%, var(--dt)) l var(--mx-safe) h) 75%,
+      oklch(from color-mix(in oklab, var(--df) 4.3%, var(--dt)) l var(--mx-safe) h) 87.5%,
+      var(--dt)
+    );
+  }
+}
+/* floating panels: sections are separated by the page gap itself, never by a full-bleed edge */
+:root[data-surfaces="panels"] .lp-divider {
+  display: none;
+}

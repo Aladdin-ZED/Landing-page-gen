@@ -1,0 +1,413 @@
+/* steps · illustrated — rules only this variant renders (inlined after steps.css on pages whose markup
+   carries .lp-steps--illustrated; the admin preview loads every variant). Shared rules live in steps.css. */
+
+.lp-steps__outro--center {
+  flex-direction: column;
+  text-align: center;
+}
+
+/* ==========================================================================
+   illustrated — masked plates (glass lens over a shaded sphere), smooth curved connectors
+   ========================================================================== */
+.lp-steps__ill {
+  display: grid;
+  max-inline-size: 36rem;
+  margin-inline: auto;
+  container-type: inline-size;
+}
+
+.lp-steps__istep {
+  --pr: 1.25;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
+  grid-template-areas: "plate body";
+  column-gap: clamp(1.1rem, 4vw, 2rem);
+  align-items: center;
+}
+
+/* room for the S connector between two rows (a fixed-ratio drawing as wide as the row) */
+.lp-steps__istep + .lp-steps__istep {
+  margin-block-start: 5.25rem;
+  margin-block-start: calc(20cqi + 0.75rem);
+}
+
+.lp-steps__istep[data-side="end"] {
+  grid-template-columns: minmax(0, 1.16fr) minmax(0, 0.84fr);
+  grid-template-areas: "body plate";
+}
+
+:root:is([data-mask="circle"], [data-mask="blob"]) .lp-steps__istep {
+  --pr: 1;
+}
+
+:root[data-mask="pill"] .lp-steps__istep {
+  --pr: 1.4;
+}
+
+.lp-steps__plate {
+  position: relative;
+  display: grid;
+  grid-area: plate;
+  container-type: inline-size;
+}
+
+.lp-steps__pframe {
+  position: relative;
+  isolation: isolate;
+  aspect-ratio: 1 / var(--pr);
+  overflow: hidden;
+  background: var(--mx-tint);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+/* lit niche: the card's own matte tone, product-hue light pooling low, a top light falling in.
+   Built on the card color (never a dark accent mixed into white, which greys out), and on the
+   block's own dark on dark sections. */
+.lp-steps__pframe--lit {
+  --lit: var(--mx-tint);
+  --glow: var(--mx-tint-2);
+  --top: var(--mx-stage-hi);
+  background:
+    radial-gradient(64% 44% at 50% 62%, var(--glow), transparent),
+    radial-gradient(120% 70% at 50% 0%, var(--top), transparent 70%),
+    var(--lit);
+}
+
+/* the niche's light is the accent's own hue, quieter: it is mixed into the card drained of color
+   (same lightness), so it can never drift through coral or amber on a warm card */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .lp-steps__pframe--lit {
+    --pf-ground: var(--sec-card);
+    --lit: color-mix(in oklab, var(--sec-accent) 4%, var(--pf-ground));
+    --glow: color-mix(in oklab, var(--sec-accent) 16%, var(--pf-ground));
+    --top: color-mix(in oklab, var(--sec-card) 40%, #fff);
+  }
+
+  :is([data-bg="dark"], :root[data-base="dark"] :is([data-bg="base"], [data-bg="soft"], [data-bg="surface"])) .lp-steps__pframe--lit {
+    --lit: color-mix(in oklab, var(--sec-accent) 9%, var(--pf-ground));
+    --glow: color-mix(in oklab, var(--sec-accent) 26%, var(--pf-ground));
+    --top: color-mix(in oklab, var(--sec-accent) 16%, var(--pf-ground));
+  }
+}
+
+@supports (color: oklch(from red l c h)) {
+  .lp-steps__pframe--lit {
+    --pf-ground: oklch(from var(--sec-card) l 0 0);
+  }
+}
+
+.lp-steps__ppic {
+  position: absolute;
+  inset: 0;
+}
+
+.lp-steps__lit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* soft contact shadow under the floating lens */
+.lp-steps__lit::after {
+  content: "";
+  position: absolute;
+  inset-block-start: calc(50% + 27% / var(--pr));
+  inset-inline-start: 29%;
+  inline-size: 42%;
+  block-size: 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--mx-floor), transparent);
+}
+
+/* the sphere: product color with a top-left key light and a deep core; it sits beside and behind
+   the lens (--ox/--oy: seeded offsets in % of the plate width) */
+.lp-steps__orb {
+  --s: 40%;
+  position: absolute;
+  inline-size: var(--s);
+  aspect-ratio: 1;
+  inset-inline-start: calc(50% - var(--s) / 2 + var(--ox, 16) * 1%);
+  inset-block-start: calc(50% - var(--s) / 2 / var(--pr) + var(--oy, -16) * 1% / var(--pr));
+  border-radius: 50%;
+  background: var(--sec-accent);
+  background: radial-gradient(circle at 34% 28%, color-mix(in oklab, var(--sec-accent) 46%, #fff), var(--sec-accent) 52%, color-mix(in oklab, var(--sec-accent) 86%, #000) 100%);
+  box-shadow: 0 0.6rem 1.6rem -0.6rem color-mix(in oklab, var(--sec-accent) 55%, transparent);
+  transition: translate var(--lp-dur-l) var(--lp-spring);
+}
+
+/* the lens: frosted glass over the sphere, a bright rim on top, the product color welling up
+   from below, the step's icon etched on it */
+.lp-steps__lens {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  inline-size: 52%;
+  aspect-ratio: 1;
+  padding: 14.5%;
+  border-radius: 50%;
+  border: 1px solid var(--sec-glass-border, var(--mx-hair));
+  background-color: var(--sec-glass-solid, var(--sec-card));
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.16), transparent 55%);
+  color: var(--sec-glass-ink, var(--sec-ink));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -1px 0 rgb(255 255 255 / 0.18),
+    inset 0 -0.9rem 1.4rem -1rem color-mix(in oklab, var(--sec-accent) 26%, transparent),
+    0 1.4rem 2.2rem -1.2rem var(--mx-floor);
+  transition: translate var(--lp-dur-l) var(--lp-spring), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-steps__lens {
+    background-color: rgb(255 255 255 / 0.3);
+    background-color: color-mix(in oklab, var(--sec-glass-solid, var(--sec-card)) 26%, transparent);
+    /* a light saturation only: a strong boost turns the blurred sphere + a cream card behind the
+       glass into a peach wash */
+    -webkit-backdrop-filter: blur(12px) saturate(115%);
+    backdrop-filter: blur(12px) saturate(115%);
+  }
+}
+
+/* angular archetypes: the lens follows their squarer shape language */
+:root:is([data-arch="kinetic"], [data-arch="circuit"], [data-arch="garage"], [data-arch="editorial"]) .lp-steps__lens {
+  border-radius: calc(30% * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+}
+
+@media (hover: hover) {
+  /* hover: the sphere glides further behind the glass, the lens rises to meet the eye */
+  .lp-steps__istep:hover .lp-steps__orb {
+    translate: calc(var(--ox, 16) * -1.2% * var(--lp-x)) calc(var(--oy, -16) * -1.2%);
+  }
+
+  .lp-steps__istep:hover .lp-steps__lens {
+    scale: 1.04;
+  }
+}
+
+/* number + duration chips sit on the plate's foot (stacked in the frame's grid cell) */
+:is(.lp-steps__pframe, .lp-steps__badge, .lp-steps__ptime) {
+  grid-area: 1 / 1;
+}
+
+:is(.lp-steps__badge, .lp-steps__ptime) {
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  margin: clamp(0.5rem, 0.35rem + 0.6vw, 0.8rem);
+}
+
+.lp-steps__badge {
+  justify-self: start;
+  display: grid;
+  place-items: center;
+  min-inline-size: 2.3rem;
+  block-size: 2.3rem;
+  padding-inline: 0.55rem;
+  border-radius: 999px;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.lp-steps__ptime {
+  justify-self: end;
+  background-color: var(--sec-glass-solid, var(--sec-card));
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-steps__ptime {
+    background-color: var(--sec-glass, var(--sec-glass-solid, var(--sec-card)));
+  }
+}
+
+/* circles: chips straddle the curve's foot instead of hiding in a clipped corner */
+:root:is([data-mask="circle"], [data-mask="blob"]) :is(.lp-steps__badge, .lp-steps__ptime) {
+  margin-block-end: 0;
+}
+
+/* narrow plates: the duration steps out under the plate, so the two chips never collide */
+@container (max-width: 10rem) {
+  .lp-steps__ptime {
+    grid-area: 2 / 1;
+    justify-self: center;
+    margin: 0.65rem 0 0;
+  }
+}
+
+.lp-steps__ibody {
+  grid-area: body;
+  min-inline-size: 0;
+}
+
+.lp-steps__conn {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--sec-accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.lp-steps__cdot {
+  fill: var(--sec-accent);
+  stroke: none;
+}
+
+[dir="rtl"] .lp-steps__conn {
+  scale: -1 1;
+}
+
+@supports not (scale: 1) {
+  [dir="rtl"] .lp-steps__conn {
+    transform: scaleX(-1);
+  }
+}
+
+/* phones: an S from this plate down to the next one, on the other side */
+.lp-steps__conn--v {
+  stroke-width: 0.5;
+  inset-block-start: calc(100% + 0.375rem);
+  inset-inline-start: 0;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+@media (min-width: 60rem) {
+  .lp-steps__ill {
+    --gap: clamp(1.5rem, 3vw, 3rem);
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    column-gap: var(--gap);
+    max-inline-size: none;
+  }
+
+  .lp-steps__ill[data-count="2"] {
+    max-inline-size: 46rem;
+  }
+
+  .lp-steps__istep,
+  .lp-steps__istep[data-side="end"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "plate" "body";
+    row-gap: clamp(1.4rem, 2vw, 2rem);
+    align-content: start;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .lp-steps__istep + .lp-steps__istep {
+    margin-block-start: 0;
+  }
+
+  .lp-steps__plate {
+    inline-size: min(82%, 15rem);
+  }
+
+  .lp-steps__ibody .lp-steps__text {
+    margin-inline: auto;
+  }
+
+  .lp-steps__conn--v {
+    display: none;
+  }
+  @supports (width: 1cqi) {
+    .lp-steps__istep {
+      --col: calc((100cqi - (var(--n) - 1) * var(--gap)) / var(--n));
+      --p: min(var(--col) * 0.82, 15rem);
+      --d: calc(var(--col) - var(--p) + var(--gap) - 1rem);
+      --wave: calc(var(--d) * 0.4);
+    }
+
+    .lp-steps__plate {
+      inline-size: var(--p);
+    }
+
+    /* the wave lives in the plates only: every other plate sits lower and the others leave the
+       same room under theirs, so every title and text starts on one line across the row */
+    .lp-steps__istep[data-side="end"] .lp-steps__plate {
+      margin-block-start: var(--wave);
+    }
+
+    .lp-steps__istep[data-side="start"]:not(:only-child) .lp-steps__plate {
+      margin-block-end: var(--wave);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+  html.lp-js:not([data-motion="off"]) .lp-steps__plate[data-in] .lp-steps__lens {
+    animation: lp-steps-lens calc(var(--lp-dur-l) * 1.1) var(--lp-spring) calc(var(--d, 0ms) + 260ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-steps__plate[data-in] .lp-steps__orb {
+    animation: lp-steps-orb calc(var(--lp-dur-l) * 1.3) var(--lp-spring) calc(var(--d, 0ms) + 380ms) backwards;
+  }
+
+  /* lively pages: lens and sphere drift on two phases, so the light seems to move under the glass.
+     The idle loop runs from the start; the entrance joins it on reveal (they touch different
+     properties: scale/opacity vs translate/transform, so they compose). */
+  :root[data-motion="lively"] .lp-steps__lens {
+    animation: lp-steps-bob 6.5s var(--lp-sway, ease-in-out) var(--idle, 0s) infinite;
+  }
+
+  :root[data-motion="lively"] .lp-steps__orb {
+    animation: lp-steps-sway 9s var(--lp-sway, ease-in-out) var(--idle, 0s) infinite;
+  }
+
+  html.lp-js[data-motion="lively"] .lp-steps__plate[data-in] .lp-steps__lens {
+    animation-name: lp-steps-lens, lp-steps-bob;
+    animation-duration: calc(var(--lp-dur-l) * 1.1), 6.5s;
+    animation-timing-function: var(--lp-spring), var(--lp-sway, ease-in-out);
+    animation-delay: calc(var(--d, 0ms) + 260ms), var(--idle, 0s);
+    animation-iteration-count: 1, infinite;
+    animation-fill-mode: backwards, none;
+  }
+
+  html.lp-js[data-motion="lively"] .lp-steps__plate[data-in] .lp-steps__orb {
+    animation-name: lp-steps-orb, lp-steps-sway;
+    animation-duration: calc(var(--lp-dur-l) * 1.3), 9s;
+    animation-timing-function: var(--lp-spring), var(--lp-sway, ease-in-out);
+    animation-delay: calc(var(--d, 0ms) + 380ms), var(--idle, 0s);
+    animation-iteration-count: 1, infinite;
+    animation-fill-mode: backwards, none;
+  }
+
+  .lp-steps__istep:nth-child(2n) {
+    --idle: -3.2s;
+  }
+}
+
+@keyframes lp-steps-bob {
+  50% {
+    translate: 0 -6px;
+  }
+}
+
+/* on transform (not translate), so it composes with the hover glide */
+@keyframes lp-steps-sway {
+  50% {
+    transform: translate(calc(var(--lp-x) * -4px), 5px);
+  }
+}
+
+/* illustrated: the lens settles in front of the eye, the sphere swells behind it */
+@keyframes lp-steps-lens {
+  from {
+    opacity: 0;
+    scale: 0.84;
+  }
+}
+
+@keyframes lp-steps-orb {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}

@@ -1,0 +1,835 @@
+/* beforeAfter · slider — rules only this variant renders (inlined after beforeAfter.css on pages whose markup
+   carries .lp-beforeAfter--slider; the admin preview loads every variant). Shared rules live in beforeAfter.css. */
+
+.lp-beforeAfter .lp-beforeAfter__glow {
+  z-index: -1;
+}
+
+.lp-beforeAfter__legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-beforeAfter__cmp::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--mx-hair),
+    var(--lp-highlight, inset 0 0 0 0 transparent);
+  pointer-events: none;
+}
+
+/* --- tag: "Avant" over "Jour 1" — a small frosted card, concentric with the frame corner --- */
+.lp-beforeAfter__tag {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: var(--ba-in);
+  inset-inline-start: var(--ba-in);
+  display: inline-grid;
+  justify-items: start;
+  gap: 0.1rem;
+  max-inline-size: 44%;
+  padding-block: 0.45rem 0.5rem;
+  padding-inline: 0.75rem 0.85rem;
+  border-radius: max(10px, calc(var(--ba-r) * var(--lp-corner-k) - var(--ba-in) * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  line-height: 1.2;
+  letter-spacing: var(--lp-label-tracking, 0.02em);
+  text-transform: var(--lp-label-case, none);
+}
+
+.lp-beforeAfter__tagl {
+  font-size: calc(0.8125rem * var(--lp-script-scale));
+  font-weight: 700;
+}
+
+/* smoked frosted glass (the tag carries data-bg="dark": --sec-glass* are the dark glass) */
+.lp-beforeAfter__tag[data-look="glass"] {
+  border: 1px solid var(--sec-glass-border, transparent);
+  background-color: var(--sec-glass-solid, var(--sec-bg));
+  color: var(--sec-glass-ink, var(--sec-ink));
+  box-shadow:
+    var(--lp-highlight, inset 0 0 0 0 transparent),
+    0 6px 18px -8px var(--ba-drop);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-beforeAfter__tag[data-look="glass"] {
+    background-color: var(--sec-glass, var(--sec-glass-solid));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+.lp-beforeAfter__tag[data-look="solid"] {
+  background-color: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow:
+    inset 0 1px 0 var(--mx-on-accent),
+    0 8px 22px -8px var(--ba-lit);
+}
+
+/* times keep their case and tight spacing ("40 s", "Jour 1") even where labels are tracked caps */
+.lp-beforeAfter__tagw,
+.lp-beforeAfter__roww {
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.lp-beforeAfter__tagw {
+  font-size: calc(0.75rem * var(--lp-script-scale));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.82;
+}
+
+/* arch frames (arch / pill pages, portrait photos): a true half-circle top. The mask would clip a
+   box-shadow, so the shadow moves to the wrapper as drop-shadows that follow the arch. */
+:root:is([data-mask="arch"], [data-mask="pill"])
+  :is(
+    .lp-beforeAfter__frame[data-shape="tall"] .lp-beforeAfter__cmp,
+    .lp-beforeAfter__pair[data-shape="tall"] .lp-beforeAfter__photo
+  ) {
+  border-radius: 0 0 calc(var(--ba-r) * var(--lp-corner-k)) calc(var(--ba-r) * var(--lp-corner-k));
+  box-shadow: none;
+  -webkit-mask-image: var(--lp-arch-mask);
+  mask-image: var(--lp-arch-mask);
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 50% 0;
+  mask-position: 50% 0;
+}
+
+/* the 1px edge is a rectangle: it would stop at the shoulders of the arch */
+:root:is([data-mask="arch"], [data-mask="pill"])
+  :is(
+    .lp-beforeAfter__frame[data-shape="tall"] .lp-beforeAfter__cmp,
+    .lp-beforeAfter__pair[data-shape="tall"] .lp-beforeAfter__photo
+  )::after {
+  content: none;
+}
+
+:root:is([data-mask="arch"], [data-mask="pill"])
+  :is(
+    .lp-beforeAfter__frame[data-shape="tall"],
+    .lp-beforeAfter__pair[data-shape="tall"] .lp-beforeAfter__lift
+  ) {
+  filter: drop-shadow(0 2px 3px var(--ba-drop-s))
+    drop-shadow(0 22px 26px var(--ba-drop-s));
+}
+
+:root:is([data-mask="arch"], [data-mask="pill"])
+  .lp-beforeAfter__pair[data-shape="tall"]
+  [data-side="after"]
+  .lp-beforeAfter__lift {
+  filter: drop-shadow(0 2px 3px var(--ba-drop-s))
+    drop-shadow(0 28px 32px var(--ba-lit));
+}
+
+:root[data-shadow="none"] :is(.lp-beforeAfter__frame, .lp-beforeAfter__lift) {
+  filter: none;
+}
+
+/* the arch takes the top of the photo: the tags move to its feet */
+:root:is([data-mask="arch"], [data-mask="pill"])
+  .lp-beforeAfter__pair[data-shape="tall"]
+  .lp-beforeAfter__tag {
+  inset-block: auto var(--ba-in);
+}
+
+/* ==========================================================================
+   slider — the before over the after, cut by a draggable line of light
+   ========================================================================== */
+.lp-beforeAfter--slider .lp-beforeAfter__grid {
+  display: grid;
+  gap: var(--ba-gap);
+}
+
+.lp-beforeAfter__grid > .lp-beforeAfter__head {
+  margin: 0;
+}
+
+.lp-beforeAfter__body {
+  display: grid;
+  gap: 1.75rem;
+  align-content: start;
+}
+
+/* one column (phones, small tablets): the frame never grows past a comfortable size */
+.lp-beforeAfter__stage {
+  inline-size: 100%;
+  max-inline-size: 34rem;
+  margin: 0;
+}
+
+@media (min-width: 48rem) {
+  .lp-beforeAfter--slider .lp-beforeAfter__grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-rows: 1fr auto auto 1fr;
+    grid-template-areas: ". stage" "head stage" "body stage" ". stage";
+    column-gap: clamp(2rem, 5vw, 6.5rem);
+    row-gap: 2.25rem;
+  }
+
+  .lp-beforeAfter--slider .lp-beforeAfter__head {
+    grid-area: head;
+  }
+
+  .lp-beforeAfter--slider .lp-beforeAfter__stage {
+    grid-area: stage;
+    align-self: center;
+    max-inline-size: none;
+  }
+
+  .lp-beforeAfter--slider .lp-beforeAfter__body {
+    grid-area: body;
+  }
+}
+
+/* the frame and its product light (the credit stays out of the glow) */
+.lp-beforeAfter__lit {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp-beforeAfter__frame {
+  position: relative;
+}
+
+.lp-beforeAfter__cmp {
+  /* the cut: --pos comes from the runtime (range input), the start value is rendered inline */
+  --p: var(--pos, 50%);
+  --peek: 12%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  inline-size: 100%;
+  aspect-ratio: var(--ratio, 4 / 5);
+  max-block-size: min(84vh, 46rem);
+  border-radius: calc(var(--ba-r) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background-color: var(--mx-tint);
+  box-shadow: var(--lp-shadow-l, 0 24px 48px -24px var(--ba-drop));
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lp-beforeAfter__pane {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+
+.lp-beforeAfter__pane::after {
+  content: none;
+}
+
+/* the before is clipped to the start side of the cut */
+.lp-beforeAfter__pane--before {
+  z-index: 1;
+  clip-path: inset(0 calc(100% - var(--p)) 0 0);
+  transition: clip-path 140ms var(--lp-smooth);
+}
+
+[dir="rtl"] .lp-beforeAfter__pane--before {
+  clip-path: inset(0 0 0 calc(100% - var(--p)));
+}
+
+/* tags at the feet of the photo (clear of faces and of the arch): the before's at the start, the
+   after's at the far end; each slides away under the cut with its photo */
+.lp-beforeAfter__pane .lp-beforeAfter__tag {
+  inset-block: auto var(--ba-in);
+}
+
+.lp-beforeAfter__pane:not(.lp-beforeAfter__pane--before) .lp-beforeAfter__tag {
+  inset-inline: auto var(--ba-in);
+  justify-items: end;
+  text-align: end;
+}
+
+/* full-width handle box: its inline-start edge is the cut (translateX % = frame width) */
+.lp-beforeAfter__handle {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  transform: translateX(calc(var(--p) * var(--lp-x)));
+  transition: transform 140ms var(--lp-smooth);
+  pointer-events: none;
+}
+
+/* the line of light: solid through the photo, melting into the frame's top and bottom edges */
+.lp-beforeAfter__handle::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -1px;
+  inline-size: 2px;
+  background-image: linear-gradient(
+    transparent,
+    var(--ba-on) 7%,
+    var(--ba-on) 93%,
+    transparent
+  );
+  box-shadow: 0 0 18px 1px var(--ba-on-soft);
+}
+
+/* zero-size anchor on the cut, half-way down: centers the knob (whatever its width) by flexbox,
+   so the knob's own scale never shifts it */
+.lp-beforeAfter__grip {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 0;
+  block-size: 0;
+}
+
+/* frosted knob: two chevrons (and, during the intro, a word between them) */
+.lp-beforeAfter__knob {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 3.25rem;
+  block-size: 3.25rem;
+  padding-inline: 0.2rem;
+  border-radius: 999px;
+  background-color: var(--ba-on);
+  color: var(--ba-shade);
+  box-shadow:
+    inset 0 1px 0 var(--ba-on),
+    0 0 0 1px var(--ba-on-soft),
+    0 2px 6px -1px var(--ba-drop),
+    0 14px 32px -10px var(--ba-drop);
+  transition:
+    scale var(--lp-dur-s) var(--lp-spring),
+    box-shadow var(--lp-dur-s) var(--lp-smooth);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-beforeAfter__knob {
+    background-color: var(--ba-on-soft);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    backdrop-filter: blur(14px) saturate(170%);
+  }
+}
+
+.lp-beforeAfter__knob .lp-icon {
+  flex: none;
+  transition: translate var(--lp-dur-s) var(--lp-spring);
+}
+
+/* the word folds away (collapsed at rest; the intro animation opens it) */
+.lp-beforeAfter__knobl {
+  overflow: hidden;
+  max-inline-size: 0;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(0.8125rem * var(--lp-script-scale));
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+/* idle invite (lively pages): a ring of light leaves the knob now and then */
+.lp-beforeAfter__knob::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 1.5px var(--ba-on);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* the range covers the frame: drag anywhere, arrow keys when focused; invisible. It overhangs
+   each side by half a thumb so the thumb's center (= the finger) maps exactly onto the frame. */
+.lp-beforeAfter__range {
+  position: absolute;
+  inset-block: 0;
+  inset-inline: -1.75rem;
+  z-index: 4;
+  inline-size: calc(100% + 3.5rem);
+  block-size: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.lp-beforeAfter__range::-webkit-slider-runnable-track {
+  block-size: 100%;
+  background: transparent;
+}
+
+.lp-beforeAfter__range::-webkit-slider-thumb {
+  inline-size: 3.5rem;
+  block-size: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.lp-beforeAfter__range::-moz-range-track {
+  block-size: 100%;
+  background: transparent;
+}
+
+.lp-beforeAfter__range::-moz-range-thumb {
+  inline-size: 3.5rem;
+  block-size: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+/* while dragging the cut follows the finger 1:1 */
+.lp-beforeAfter__range:active ~ .lp-beforeAfter__pane--before,
+.lp-beforeAfter__range:active ~ .lp-beforeAfter__handle {
+  transition: none;
+}
+
+.lp-beforeAfter__range:focus-visible ~ .lp-beforeAfter__handle .lp-beforeAfter__knob {
+  box-shadow:
+    0 0 0 3px var(--ba-shade),
+    0 0 0 5.5px var(--ba-on),
+    0 14px 32px -10px var(--ba-drop);
+}
+
+.lp-beforeAfter__range:active ~ .lp-beforeAfter__handle .lp-beforeAfter__knob {
+  scale: 1.1;
+}
+
+@media (hover: hover) {
+  .lp-beforeAfter__cmp:hover .lp-beforeAfter__knob {
+    scale: 1.06;
+  }
+
+  .lp-beforeAfter__cmp:hover .lp-beforeAfter__knob .lp-icon:first-child {
+    translate: calc(-1.5px * var(--lp-x)) 0;
+  }
+
+  .lp-beforeAfter__cmp:hover .lp-beforeAfter__knob .lp-icon:last-child {
+    translate: calc(1.5px * var(--lp-x)) 0;
+  }
+}
+
+.lp-beforeAfter__fcap {
+  display: flex;
+  margin-block-start: 1.25rem;
+}
+
+/* legend: the two moments as precise rows, keys joined by a fine line */
+.lp-beforeAfter__legend {
+  display: grid;
+}
+
+.lp-beforeAfter__row {
+  --key: 0.75rem;
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  padding-block: 1rem;
+  padding-inline-start: calc(var(--key) + 1rem);
+}
+
+.lp-beforeAfter__row + .lp-beforeAfter__row {
+  border-block-start: 1px solid var(--mx-hair);
+}
+
+.lp-beforeAfter__rowhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.6rem;
+  min-block-size: 1.5rem;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(0.875rem * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight, 600);
+  letter-spacing: var(--lp-label-tracking, 0.02em);
+  text-transform: var(--lp-label-case, none);
+}
+
+.lp-beforeAfter__roww {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--sec-ink-soft);
+}
+
+.lp-beforeAfter__rowcap {
+  margin: 0;
+  max-inline-size: 40ch;
+  font-size: calc(var(--lp-step-0) * var(--lp-script-scale));
+  line-height: 1.5;
+  color: var(--sec-ink-soft);
+  text-wrap: pretty;
+}
+
+.lp-beforeAfter__row[data-side="after"] .lp-beforeAfter__rowcap {
+  color: var(--sec-ink);
+}
+
+.lp-beforeAfter__key {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: calc(1.75rem - var(--key) / 2);
+  inline-size: var(--key);
+  block-size: var(--key);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--sec-line-strong);
+}
+
+.lp-beforeAfter__row[data-side="after"] .lp-beforeAfter__key {
+  background-color: var(--sec-accent);
+  box-shadow: 0 0 0 4px var(--mx-tint-2);
+}
+
+/* the fine line from the before key down to the after key */
+.lp-beforeAfter__row[data-side="before"]::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(var(--key) / 2 - 0.5px);
+  inset-block: calc(1.75rem + var(--key) / 2 + 0.3rem)
+    calc(-1.75rem + var(--key) / 2 + 0.3rem);
+  inline-size: 1px;
+  background-image: linear-gradient(var(--sec-line-strong), var(--sec-accent));
+}
+
+/* ==========================================================================
+   cards — two framed moments, the after larger and lit, an arrow disc on the seam
+   ========================================================================== */
+.lp-beforeAfter__pair {
+  --seam: clamp(1.5rem, 3vw, 2.75rem);
+  --disc: 3.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 1.75rem;
+}
+
+.lp-beforeAfter__card {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+  margin: 0;
+  inline-size: 80%;
+}
+
+/* phones: staggered column, the after card larger and pushed to the end */
+.lp-beforeAfter__card[data-side="after"] {
+  justify-self: end;
+  inline-size: 90%;
+}
+
+/* tilt is state (transform); hover straightens it with the motion-only rotate */
+.lp-beforeAfter__lift {
+  position: relative;
+  transform: rotate(var(--tilt, 0deg));
+  transition:
+    translate var(--lp-dur-m) var(--lp-spring),
+    rotate var(--lp-dur-m) var(--lp-spring),
+    filter var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-beforeAfter__photo {
+  aspect-ratio: var(--ratio, 4 / 5);
+  box-shadow: var(--lp-shadow-m, 0 16px 36px -18px var(--ba-drop));
+}
+
+/* the after is lit: the theme's large shadow plus a long accent-tinted glow */
+.lp-beforeAfter__card[data-side="after"] .lp-beforeAfter__photo {
+  box-shadow:
+    var(--lp-shadow-l, 0 24px 48px -22px var(--ba-drop)),
+    0 40px 70px -36px var(--ba-lit);
+}
+
+:root[data-shadow="none"] .lp-beforeAfter__card .lp-beforeAfter__photo {
+  box-shadow: none;
+}
+
+.lp-beforeAfter__meta {
+  padding-inline: 0.25rem;
+}
+
+.lp-beforeAfter__card[data-side="after"] .lp-beforeAfter__cap {
+  color: var(--sec-ink);
+}
+
+/* the disc: solid accent, cut out of the section by a ring of its background. Phones: astride the
+   after photo's top edge (the keystone of an arch), pointing down to it. */
+.lp-beforeAfter__arrow {
+  position: absolute;
+  z-index: 4;
+  inset-block-start: calc(var(--disc) / -2);
+  inset-inline-start: calc(50% - var(--disc) / 2);
+  display: grid;
+  place-items: center;
+  inline-size: var(--disc);
+  block-size: var(--disc);
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(160deg, var(--mx-on-accent), transparent 60%);
+  color: var(--sec-accent-ink);
+  box-shadow:
+    0 0 0 6px var(--sec-bg),
+    0 12px 26px -8px var(--ba-lit);
+}
+
+/* stacked: the arrow points down (the rotation applies before the RTL mirror, so 90deg in both) */
+.lp-beforeAfter__arrow .lp-icon {
+  transform: rotate(90deg);
+}
+
+.lp-beforeAfter__pair > .lp-beforeAfter__base {
+  margin-block-start: 0.25rem;
+}
+
+/* side by side: the disc moves to the middle of the seam, pointing at the after photo */
+@media (min-width: 48rem) {
+  .lp-beforeAfter__pair {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: end;
+    column-gap: var(--seam);
+    row-gap: var(--ba-gap);
+  }
+
+  .lp-beforeAfter__card,
+.lp-beforeAfter__card[data-side="after"] {
+    grid-row: 1;
+    inline-size: 100%;
+  }
+
+  .lp-beforeAfter__card[data-side="after"] {
+    grid-column: 2;
+  }
+
+  .lp-beforeAfter__arrow {
+    inset-block-start: calc(50% - var(--disc) / 2);
+    inset-inline-start: calc(var(--seam) / -2 - var(--disc) / 2);
+  }
+
+  .lp-beforeAfter__arrow .lp-icon {
+    transform: none;
+  }
+
+  .lp-beforeAfter__pair > .lp-beforeAfter__base {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+}
+
+/* desktop: an asymmetric pair — credit and results stand above the smaller before card, the
+   after card spans the full height beside them */
+@media (min-width: 64rem) {
+  .lp-beforeAfter__pair {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 5.4fr);
+    grid-template-rows: auto auto;
+    row-gap: clamp(1.75rem, 3vw, 2.5rem);
+  }
+
+  .lp-beforeAfter__card[data-side="before"] {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .lp-beforeAfter__card[data-side="after"] {
+    grid-row: 1 / span 2;
+  }
+
+  .lp-beforeAfter__pair > .lp-beforeAfter__base {
+    grid-row: 1;
+    grid-column: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: start;
+    gap: 1.25rem;
+  }
+}
+
+@media (hover: hover) {
+  .lp-beforeAfter__card:hover .lp-beforeAfter__lift {
+    translate: 0 -6px;
+    rotate: calc(-1 * var(--tilt, 0deg));
+  }
+
+  .lp-beforeAfter__card:hover .lp-pic__img {
+    scale: 1.035;
+  }
+
+  .lp-beforeAfter__arrow .lp-icon {
+    transition: translate var(--lp-dur-m) var(--lp-spring);
+  }
+}
+
+/* side by side, pointing at the after photo: hovering the pair nudges the arrow toward it */
+@media (hover: hover) and (min-width: 48rem) {
+  .lp-beforeAfter__pair:hover .lp-beforeAfter__arrow .lp-icon {
+    translate: calc(3px * var(--lp-x)) 0;
+  }
+}
+
+/* ==========================================================================
+   Motion — choreography on top of the kit's reveals (motion allowed, JS on)
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  /* slider: the line of light grows out of the knob as the frame lands */
+  html.lp-js:not([data-motion="off"])
+    .lp-beforeAfter__frame[data-in]
+    .lp-beforeAfter__handle::before {
+    animation: lp-ba-line calc(var(--lp-dur-l) * 1.1) var(--lp-smooth)
+      calc(var(--d, 0ms) + 220ms) backwards;
+  }
+
+  /* …then the cut glides across the photo and settles back */
+  html.lp-js:not([data-motion="off"])
+    .lp-beforeAfter__frame[data-in]
+    .lp-beforeAfter__pane--before {
+    animation: lp-ba-peek-clip 2s var(--lp-sway) calc(var(--d, 0ms) + 650ms)
+      backwards;
+  }
+
+  html.lp-js:not([data-motion="off"])[dir="rtl"]
+    .lp-beforeAfter__frame[data-in]
+    .lp-beforeAfter__pane--before {
+    animation-name: lp-ba-peek-clip-rtl;
+  }
+
+  html.lp-js:not([data-motion="off"])
+    .lp-beforeAfter__frame[data-in]
+    .lp-beforeAfter__handle {
+    animation: lp-ba-peek-handle 2s var(--lp-sway) calc(var(--d, 0ms) + 650ms)
+      backwards;
+  }
+
+  /* …the knob spells its word while it glides, then folds into its round grip */
+  html.lp-js:not([data-motion="off"])
+    .lp-beforeAfter__frame[data-in]
+    .lp-beforeAfter__knobl {
+    animation: lp-ba-word 3.1s linear calc(var(--d, 0ms) + 120ms) backwards;
+  }
+
+  html.lp-js[data-motion="lively"]
+    .lp-beforeAfter__frame[data-in]
+    .lp-beforeAfter__knob::after {
+    animation: lp-ba-ping 3.2s var(--lp-smooth) calc(var(--d, 0ms) + 3.6s)
+      infinite;
+  }
+
+  /* any touch, click or key stops the demo and the invite at once */
+  html.lp-js .lp-beforeAfter__range:focus ~ .lp-beforeAfter__pane--before,
+  html.lp-js .lp-beforeAfter__range:focus ~ .lp-beforeAfter__handle,
+  html.lp-js .lp-beforeAfter__range:active ~ .lp-beforeAfter__pane--before,
+  html.lp-js .lp-beforeAfter__range:active ~ .lp-beforeAfter__handle,
+  html.lp-js .lp-beforeAfter__range:focus ~ .lp-beforeAfter__handle .lp-beforeAfter__knobl,
+  html.lp-js .lp-beforeAfter__range:active ~ .lp-beforeAfter__handle .lp-beforeAfter__knobl,
+  html.lp-js .lp-beforeAfter__range:focus ~ .lp-beforeAfter__handle .lp-beforeAfter__knob::after,
+  html.lp-js .lp-beforeAfter__cmp:hover .lp-beforeAfter__knob::after {
+    animation: none;
+  }
+
+  /* card photos settle as they scroll in (progressive: scroll-driven where supported) */
+  @supports (animation-timeline: view()) {
+    html.lp-js:not([data-motion="off"]) .lp-beforeAfter__card .lp-pic__img {
+      animation: lp-ba-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 45%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-beforeAfter__pane--before,
+.lp-beforeAfter__handle,
+.lp-beforeAfter__knob,
+.lp-beforeAfter__knob .lp-icon,
+.lp-beforeAfter__arrow .lp-icon,
+.lp-beforeAfter__lift,
+.lp-beforeAfter__photo {
+    transition: none;
+  }
+}
+
+@keyframes lp-ba-line {
+  from {
+    scale: 1 0;
+  }
+}
+
+@keyframes lp-ba-peek-clip {
+  38% {
+    clip-path: inset(0 calc(100% - clamp(4%, var(--p) + var(--peek), 96%)) 0 0);
+  }
+  72% {
+    clip-path: inset(0 calc(100% - clamp(4%, var(--p) - var(--peek) * 0.6, 96%)) 0 0);
+  }
+}
+
+@keyframes lp-ba-peek-clip-rtl {
+  38% {
+    clip-path: inset(0 0 0 calc(100% - clamp(4%, var(--p) + var(--peek), 96%)));
+  }
+  72% {
+    clip-path: inset(0 0 0 calc(100% - clamp(4%, var(--p) - var(--peek) * 0.6, 96%)));
+  }
+}
+
+@keyframes lp-ba-peek-handle {
+  38% {
+    transform: translateX(calc(clamp(4%, var(--p) + var(--peek), 96%) * var(--lp-x)));
+  }
+  72% {
+    transform: translateX(calc(clamp(4%, var(--p) - var(--peek) * 0.6, 96%) * var(--lp-x)));
+  }
+}
+
+/* open from the start, held through the glide (≈ 0.65 → 2.65 s), folded by 3.1 s */
+@keyframes lp-ba-word {
+  0%,
+  86% {
+    max-inline-size: 7em;
+    margin-inline: 0.2rem 0.15rem;
+    opacity: 1;
+    animation-timing-function: var(--lp-smooth);
+  }
+  100% {
+    max-inline-size: 0;
+    margin-inline: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes lp-ba-ping {
+  0% {
+    opacity: 0.75;
+    scale: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+    scale: 1.7;
+  }
+}
+
+@keyframes lp-ba-settle {
+  from {
+    scale: 1.07;
+  }
+  to {
+    scale: 1;
+  }
+}

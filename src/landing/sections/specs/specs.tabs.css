@@ -1,0 +1,427 @@
+/* specs · tabs — rules only this variant renders (inlined after specs.css on pages whose markup
+   carries .lp-specs--tabs; the admin preview loads every variant). Shared rules live in specs.css. */
+
+.lp-specs__panel .lp-specs__i {
+  display: none;
+}
+.lp-specs__foot {
+  container-type: inline-size;
+}
+
+/* ==========================================================================
+   tabs
+   ========================================================================== */
+/* heading start; the control set against it (beside it on wide screens) */
+.lp-specs__top {
+  display: grid;
+  gap: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+}
+
+@media (min-width: 64rem) {
+  .lp-specs__top {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: clamp(2rem, 5vw, 5rem);
+  }
+
+  /* five or six tabs need the full width: the control drops under the heading */
+  .lp-specs__top:has(.lp-specs__tab:nth-of-type(5)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* the control scrolls sideways when the labels outgrow a phone */
+.lp-specs__bar {
+  display: flex;
+  overflow-x: auto;
+  margin: -1.25rem;
+  padding: 1.25rem;
+  scrollbar-width: none;
+  /* tabs that scroll slip softly under the edges */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+}
+
+.lp-specs__bar::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-specs__tablist {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1 0 auto;
+  padding: 0.3rem;
+  border-radius: 999px;
+  /* a compact shadow: the scroll box around the control would clip a long one */
+  box-shadow: var(--lp-highlight, 0 0 #0000), var(--lp-shadow-s);
+}
+
+.lp-specs__tab {
+  position: relative;
+  z-index: 1;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-block-size: 3.6rem;
+  padding-block: 0.45rem;
+  /* tighter on phones, so four tabs sit inside the column instead of scrolling past its edge */
+  padding-inline: clamp(0.55rem, 2.4vw, 0.85rem);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: calc(0.8rem * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: color var(--lp-dur-m) var(--lp-smooth), opacity var(--lp-dur-m) var(--lp-smooth), background-color var(--lp-dur-m) var(--lp-smooth), box-shadow var(--lp-dur-m) var(--lp-smooth), scale var(--lp-dur-s) var(--lp-spring);
+}
+
+.lp-specs__tab:hover {
+  opacity: 1;
+}
+
+.lp-specs__tab:active {
+  scale: 0.96;
+}
+
+/* a click or tap on a tab (or into its panel) never rings; keyboard focus does (below) */
+.lp-specs__tab:focus:not(:focus-visible),
+.lp-specs__panel:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.lp-specs__tab:focus-visible {
+  outline-offset: -3px;
+}
+
+/* selected: an accent pill (morphs in place; glides where anchor positioning exists, below) */
+.lp-specs__tab[aria-selected="true"] {
+  opacity: 1;
+  color: var(--sec-accent-ink);
+  background-color: var(--sec-accent);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 8px 20px -8px var(--mx-btn-2);
+}
+
+/* the indicator is anchored to the selected tab and glides to the next one on a spring */
+.lp-specs__ind {
+  display: none;
+}
+
+@supports (anchor-scope: all) {
+  .lp-specs__tablist {
+    anchor-scope: --lp-specs-tab;
+  }
+
+  .lp-specs__tab[aria-selected="true"] {
+    anchor-name: --lp-specs-tab;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .lp-specs__ind {
+    display: block;
+    position: absolute;
+    z-index: 0;
+    position-anchor: --lp-specs-tab;
+    inset-block: anchor(start) anchor(end);
+    inset-inline: anchor(start) anchor(end);
+    border-radius: 999px;
+    background: var(--sec-accent);
+    box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 8px 20px -8px var(--mx-btn-2);
+    transition: inset-inline-start calc(var(--lp-dur-l) * 1.1) var(--lp-spring), inset-inline-end calc(var(--lp-dur-l) * 1.1) var(--lp-spring);
+  }
+}
+
+@media (min-width: 40rem) {
+  .lp-specs__tablist {
+    flex: none;
+    margin-inline: auto;
+  }
+
+  .lp-specs__tab {
+    flex-direction: row;
+    gap: 0.5rem;
+    min-block-size: 3.25rem;
+    padding-inline: 1.3rem;
+    font-size: calc(var(--lp-step-0) * 0.92 * var(--lp-script-scale));
+  }
+}
+
+@media (min-width: 64rem) {
+  .lp-specs__tablist {
+    margin-inline: 0;
+  }
+}
+
+/* before the runtime binds: only the selected panel shows */
+@supports selector(:has(a)) {
+  html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(1)[aria-selected="false"]) .lp-specs__panel:nth-of-type(1),
+  html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(2)[aria-selected="false"]) .lp-specs__panel:nth-of-type(2),
+  html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(3)[aria-selected="false"]) .lp-specs__panel:nth-of-type(3),
+  html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(4)[aria-selected="false"]) .lp-specs__panel:nth-of-type(4),
+  html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(5)[aria-selected="false"]) .lp-specs__panel:nth-of-type(5),
+  html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(6)[aria-selected="false"]) .lp-specs__panel:nth-of-type(6) {
+    display: none;
+  }
+}
+
+/* the stage: one large raised card, a soft light from the copy side */
+.lp-specs__stage {
+  --stage-pad: clamp(0.5rem, 0.35rem + 0.6vw, 0.75rem);
+  /* the panel and its photo nest inside the stage's padding: concentric continuous corners */
+  --stage-inner-r: max(var(--lp-sq-xs), calc(var(--lp-sq-xl) - var(--stage-pad) * var(--lp-corner-d)));
+  position: relative;
+  isolation: isolate;
+  margin-block-start: clamp(1.25rem, 1rem + 1vw, 2rem);
+  padding: var(--stage-pad);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  background-image: radial-gradient(90% 70% at 0% 0%, var(--mx-tint), transparent 70%);
+  box-shadow: var(--lp-highlight, 0 0 #0000), 0 0 0 1px var(--mx-hair), var(--lp-shadow-l);
+}
+
+[dir="rtl"] .lp-specs__stage {
+  background-image: radial-gradient(90% 70% at 100% 0%, var(--mx-tint), transparent 70%);
+}
+
+.lp-specs__panel {
+  display: grid;
+  gap: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+  border-radius: var(--stage-inner-r);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-specs__panel:focus-visible {
+  outline-offset: -4px;
+}
+
+.lp-specs__pcopy {
+  padding: 0.5rem clamp(0.75rem, 0.4rem + 1.4vw, 1.25rem) clamp(1rem, 0.7rem + 1vw, 1.5rem);
+}
+
+.lp-specs__phead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: clamp(1rem, 0.8rem + 0.8vw, 1.5rem);
+}
+
+.lp-specs__ptitle {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.8rem, var(--lp-step--1)) * var(--lp-script-scale));
+  font-weight: var(--lp-accent-weight, 600);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  line-height: 1.3;
+  color: var(--sec-ink-soft);
+}
+
+.lp-specs__pico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 6px 16px -8px var(--mx-btn-2);
+}
+
+.lp-specs__pmeta {
+  display: flex;
+  gap: 0.4em;
+  margin: 0;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--sec-accent);
+}
+
+.lp-specs__pmax {
+  color: var(--sec-ink-soft);
+}
+
+/* the panel's first line reads as a statement */
+.lp-specs__pcopy > .lp-specs__body > p:first-child {
+  max-inline-size: 34ch;
+  font-size: calc(var(--lp-step-1) * 1.08 * var(--lp-script-scale));
+  font-weight: 500;
+  line-height: 1.32;
+  text-wrap: balance;
+}
+
+.lp-specs__pcopy > .lp-specs__body > p:first-child + * {
+  margin-block-start: 1.1em;
+}
+
+.lp-specs__pmedia {
+  order: -1;
+}
+
+.lp-specs__pmedia .lp-pic {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--stage-inner-r);
+  corner-shape: var(--lp-corner);
+}
+
+.lp-specs__pmedia[data-fit="mat"] .lp-pic {
+  aspect-ratio: var(--ratio);
+}
+
+/* footer: chips at the start, the buy bar at the end */
+.lp-specs__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+  margin-block-start: clamp(1.5rem, 1rem + 1.5vw, 2.25rem);
+}
+
+.lp-specs__foot:empty {
+  display: none;
+}
+
+.lp-specs__foot .lp-specs__buy {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+@container (min-width: 40rem) {
+  .lp-specs__foot .lp-specs__buy {
+    flex: 0 1 auto;
+    gap: 2rem;
+    margin-inline-start: auto;
+  }
+}
+
+/* without JS: no control, every panel in sequence */
+html:not(.lp-js) .lp-specs__bar {
+  display: none;
+}
+
+html:not(.lp-js) .lp-specs__panel + .lp-specs__panel {
+  margin-block-start: 0.75rem;
+  padding-block-start: 1.25rem;
+  border-block-start: 1px solid var(--mx-line);
+}
+
+@media (min-width: 52rem) {
+  /* the photo sets the panel's height; a longer copy (a spec list) grows it, the photo then centred */
+  .lp-specs__panel[data-media] {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .lp-specs__pcopy {
+    align-self: center;
+    padding: clamp(1.25rem, 3vw, 3rem);
+  }
+
+  /* the photo fills its half, flush with the stage: at least 6:5 (the proportion its crop is fitted
+     to), taller when another panel's copy sets a taller stage — a taller box only ever shows MORE of
+     the fitted crop, never less. A landscape shot keeps its own proportions, centred on its mat. */
+  .lp-specs__pmedia {
+    order: 0;
+    position: relative;
+    align-self: center;
+  }
+
+  .lp-specs__pmedia:is([data-fit="fill"], [data-fit="cutout"]) {
+    align-self: stretch;
+    justify-self: stretch;
+    inline-size: 100%;
+    aspect-ratio: 6 / 5;
+  }
+
+  .lp-specs__pmedia:is([data-fit="fill"], [data-fit="cutout"]) .lp-pic {
+    position: absolute;
+    inset: 0;
+    aspect-ratio: auto;
+  }
+
+  /* panels share one cell: the stage keeps the tallest height and panels cross-fade */
+  html.lp-js .lp-specs__stage {
+    display: grid;
+  }
+
+  html.lp-js .lp-specs__panel {
+    grid-area: 1 / 1;
+    transition: opacity var(--lp-dur-m) var(--lp-smooth);
+  }
+
+  html.lp-js .lp-specs__panel[hidden] {
+    display: grid !important;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity var(--lp-dur-m) var(--lp-smooth), visibility 0s linear var(--lp-dur-m);
+  }
+
+  @supports selector(:has(a)) {
+    html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(1)[aria-selected="false"]) .lp-specs__panel:nth-of-type(1),
+    html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(2)[aria-selected="false"]) .lp-specs__panel:nth-of-type(2),
+    html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(3)[aria-selected="false"]) .lp-specs__panel:nth-of-type(3),
+    html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(4)[aria-selected="false"]) .lp-specs__panel:nth-of-type(4),
+    html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(5)[aria-selected="false"]) .lp-specs__panel:nth-of-type(5),
+    html.lp-js .lp-specs__tabs:has(.lp-specs__tab:nth-of-type(6)[aria-selected="false"]) .lp-specs__panel:nth-of-type(6) {
+      display: grid;
+      visibility: hidden;
+      opacity: 0;
+    }
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  /* tabs: the chosen panel settles in (copy rises from a soft blur, its photo comes into focus) —
+     bound to the selected state, so it replays on every selection */
+  html:not([data-motion="off"]) .lp-specs__panel:not([hidden]) > * {
+    animation: lp-specs-in var(--lp-dur-l) var(--lp-smooth) backwards;
+  }
+
+  html:not([data-motion="off"]) .lp-specs__panel:not([hidden]) > .lp-specs__pcopy {
+    animation-delay: 60ms;
+  }
+
+  html:not([data-motion="off"]) .lp-specs__panel:not([hidden]) > .lp-specs__pmedia {
+    animation-name: lp-specs-focus;
+    animation-duration: calc(var(--lp-dur-l) * 1.3);
+    animation-delay: 0ms;
+  }
+}
+
+/* motion off: the tab pill and the panels switch instantly */
+:root[data-motion="off"] .lp-specs__ind,
+:root[data-motion="off"] .lp-specs__panel {
+  transition: none;
+}
+
+@keyframes lp-specs-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+    filter: blur(6px);
+  }
+}
+
+@keyframes lp-specs-focus {
+  from {
+    opacity: 0;
+    scale: 1.04;
+    filter: blur(10px);
+  }
+}

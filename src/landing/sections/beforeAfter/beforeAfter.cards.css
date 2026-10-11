@@ -1,0 +1,298 @@
+/* beforeAfter · cards — rules only this variant renders (inlined after beforeAfter.css on pages whose markup
+   carries .lp-beforeAfter--cards; the admin preview loads every variant). Shared rules live in beforeAfter.css. */
+
+.lp-beforeAfter .lp-beforeAfter__glow {
+  z-index: -1;
+}
+.lp-beforeAfter__tag {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: var(--ba-in);
+  inset-inline-start: var(--ba-in);
+  display: inline-grid;
+  justify-items: start;
+  gap: 0.1rem;
+  max-inline-size: 44%;
+  padding-block: 0.45rem 0.5rem;
+  padding-inline: 0.75rem 0.85rem;
+  border-radius: max(10px, calc(var(--ba-r) * var(--lp-corner-k) - var(--ba-in) * var(--lp-corner-d)));
+  corner-shape: var(--lp-corner);
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  line-height: 1.2;
+  letter-spacing: var(--lp-label-tracking, 0.02em);
+  text-transform: var(--lp-label-case, none);
+}
+
+.lp-beforeAfter__tagl {
+  font-size: calc(0.8125rem * var(--lp-script-scale));
+  font-weight: 700;
+}
+
+/* one tag per card (the slider shares its frame between two): room for "Avant" over a two-word
+   time, each on one line */
+.lp-beforeAfter__card .lp-beforeAfter__tag {
+  max-inline-size: min(64%, 16rem);
+}
+.lp-beforeAfter__tag[data-look="glass"] {
+  border: 1px solid var(--sec-glass-border, transparent);
+  background-color: var(--sec-glass-solid, var(--sec-bg));
+  color: var(--sec-glass-ink, var(--sec-ink));
+  box-shadow:
+    var(--lp-highlight, inset 0 0 0 0 transparent),
+    0 6px 18px -8px var(--ba-drop);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lp-beforeAfter__tag[data-look="glass"] {
+    background-color: var(--sec-glass, var(--sec-glass-solid));
+    -webkit-backdrop-filter: var(--lp-glass);
+    backdrop-filter: var(--lp-glass);
+  }
+}
+
+.lp-beforeAfter__tag[data-look="solid"] {
+  background-color: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow:
+    inset 0 1px 0 var(--mx-on-accent),
+    0 8px 22px -8px var(--ba-lit);
+}
+.lp-beforeAfter__tagw {
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.lp-beforeAfter__tagw {
+  font-size: calc(0.75rem * var(--lp-script-scale));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.82;
+}
+:root:is([data-mask="arch"], [data-mask="pill"])
+  :is(
+    .lp-beforeAfter__frame[data-shape="tall"] .lp-beforeAfter__cmp,
+    .lp-beforeAfter__pair[data-shape="tall"] .lp-beforeAfter__photo
+  ) {
+  border-radius: 0 0 calc(var(--ba-r) * var(--lp-corner-k)) calc(var(--ba-r) * var(--lp-corner-k));
+  box-shadow: none;
+  -webkit-mask-image: var(--lp-arch-mask);
+  mask-image: var(--lp-arch-mask);
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 50% 0;
+  mask-position: 50% 0;
+}
+:root:is([data-mask="arch"], [data-mask="pill"])
+  :is(
+    .lp-beforeAfter__frame[data-shape="tall"] .lp-beforeAfter__cmp,
+    .lp-beforeAfter__pair[data-shape="tall"] .lp-beforeAfter__photo
+  )::after {
+  content: none;
+}
+
+:root:is([data-mask="arch"], [data-mask="pill"])
+  :is(
+    .lp-beforeAfter__frame[data-shape="tall"],
+    .lp-beforeAfter__pair[data-shape="tall"] .lp-beforeAfter__lift
+  ) {
+  filter: drop-shadow(0 2px 3px var(--ba-drop-s))
+    drop-shadow(0 22px 26px var(--ba-drop-s));
+}
+
+:root:is([data-mask="arch"], [data-mask="pill"])
+  .lp-beforeAfter__pair[data-shape="tall"]
+  [data-side="after"]
+  .lp-beforeAfter__lift {
+  filter: drop-shadow(0 2px 3px var(--ba-drop-s))
+    drop-shadow(0 28px 32px var(--ba-lit));
+}
+
+:root[data-shadow="none"] :is(.lp-beforeAfter__frame, .lp-beforeAfter__lift) {
+  filter: none;
+}
+:root:is([data-mask="arch"], [data-mask="pill"])
+  .lp-beforeAfter__pair[data-shape="tall"]
+  .lp-beforeAfter__tag {
+  inset-block: auto var(--ba-in);
+}
+.lp-beforeAfter__pair {
+  --seam: clamp(1.5rem, 3vw, 2.75rem);
+  --disc: 3.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 1.75rem;
+}
+
+.lp-beforeAfter__card {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+  margin: 0;
+  inline-size: 80%;
+}
+.lp-beforeAfter__card[data-side="after"] {
+  justify-self: end;
+  inline-size: 90%;
+}
+.lp-beforeAfter__lift {
+  position: relative;
+  transform: rotate(var(--tilt, 0deg));
+  transition:
+    translate var(--lp-dur-m) var(--lp-spring),
+    rotate var(--lp-dur-m) var(--lp-spring),
+    filter var(--lp-dur-m) var(--lp-smooth);
+}
+
+.lp-beforeAfter__photo {
+  aspect-ratio: var(--ratio, 4 / 5);
+  box-shadow: var(--lp-shadow-m, 0 16px 36px -18px var(--ba-drop));
+}
+.lp-beforeAfter__card[data-side="after"] .lp-beforeAfter__photo {
+  box-shadow:
+    var(--lp-shadow-l, 0 24px 48px -22px var(--ba-drop)),
+    0 40px 70px -36px var(--ba-lit);
+}
+
+:root[data-shadow="none"] .lp-beforeAfter__card .lp-beforeAfter__photo {
+  box-shadow: none;
+}
+
+.lp-beforeAfter__meta {
+  padding-inline: 0.25rem;
+}
+
+.lp-beforeAfter__card[data-side="after"] .lp-beforeAfter__cap {
+  color: var(--sec-ink);
+}
+.lp-beforeAfter__arrow {
+  position: absolute;
+  z-index: 4;
+  inset-block-start: calc(var(--disc) / -2);
+  inset-inline-start: calc(50% - var(--disc) / 2);
+  display: grid;
+  place-items: center;
+  inline-size: var(--disc);
+  block-size: var(--disc);
+  border-radius: 50%;
+  background-color: var(--sec-accent);
+  background-image: linear-gradient(160deg, var(--mx-on-accent), transparent 60%);
+  color: var(--sec-accent-ink);
+  box-shadow:
+    0 0 0 6px var(--sec-bg),
+    0 12px 26px -8px var(--ba-lit);
+}
+.lp-beforeAfter__arrow .lp-icon {
+  transform: rotate(90deg);
+}
+
+.lp-beforeAfter__pair > .lp-beforeAfter__base {
+  margin-block-start: 0.25rem;
+}
+@media (min-width: 48rem) {
+  .lp-beforeAfter__pair {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: end;
+    column-gap: var(--seam);
+    row-gap: var(--ba-gap);
+  }
+
+  .lp-beforeAfter__card,
+.lp-beforeAfter__card[data-side="after"] {
+    grid-row: 1;
+    inline-size: 100%;
+  }
+
+  .lp-beforeAfter__card[data-side="after"] {
+    grid-column: 2;
+  }
+
+  .lp-beforeAfter__arrow {
+    inset-block-start: calc(50% - var(--disc) / 2);
+    inset-inline-start: calc(var(--seam) / -2 - var(--disc) / 2);
+  }
+
+  .lp-beforeAfter__arrow .lp-icon {
+    transform: none;
+  }
+
+  .lp-beforeAfter__pair > .lp-beforeAfter__base {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+}
+@media (min-width: 64rem) {
+  .lp-beforeAfter__pair {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 5.4fr);
+    grid-template-rows: auto auto;
+    row-gap: clamp(1.75rem, 3vw, 2.5rem);
+  }
+
+  .lp-beforeAfter__card[data-side="before"] {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .lp-beforeAfter__card[data-side="after"] {
+    grid-row: 1 / span 2;
+  }
+
+  .lp-beforeAfter__pair > .lp-beforeAfter__base {
+    grid-row: 1;
+    grid-column: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: start;
+    gap: 1.25rem;
+  }
+}
+
+@media (hover: hover) {
+  .lp-beforeAfter__card:hover .lp-beforeAfter__lift {
+    translate: 0 -6px;
+    rotate: calc(-1 * var(--tilt, 0deg));
+  }
+
+  .lp-beforeAfter__card:hover .lp-pic__img {
+    scale: 1.035;
+  }
+
+  .lp-beforeAfter__arrow .lp-icon {
+    transition: translate var(--lp-dur-m) var(--lp-spring);
+  }
+}
+@media (hover: hover) and (min-width: 48rem) {
+  .lp-beforeAfter__pair:hover .lp-beforeAfter__arrow .lp-icon {
+    translate: calc(3px * var(--lp-x)) 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    html.lp-js:not([data-motion="off"]) .lp-beforeAfter__card .lp-pic__img {
+      animation: lp-ba-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 45%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-beforeAfter__arrow .lp-icon,
+.lp-beforeAfter__lift,
+.lp-beforeAfter__photo {
+    transition: none;
+  }
+}
+
+@keyframes lp-ba-settle {
+  from {
+    scale: 1.07;
+  }
+  to {
+    scale: 1;
+  }
+}

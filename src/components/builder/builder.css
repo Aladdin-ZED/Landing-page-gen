@@ -1,0 +1,225 @@
+/*
+ * Page builder — material layer on top of the admin tokens (src/app/globals.css).
+ * Plain CSS for what utilities express badly: glass, canvas light, springy selection, thin scrollbars.
+ * Everything reads the shadcn tokens, so dark mode follows automatically.
+ */
+
+.bld-root {
+  --bld-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --bld-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --bld-tint: 20 22 34;
+  --bld-highlight: rgb(255 255 255 / 0.7);
+  --bld-panel: color-mix(in oklab, var(--background) 55%, var(--card));
+  --bld-hairline: color-mix(in oklab, var(--border) 85%, transparent);
+}
+.dark .bld-root {
+  --bld-tint: 0 0 0;
+  --bld-highlight: rgb(255 255 255 / 0.06);
+}
+
+/* ------------------------------------------------------------------ */
+/* surfaces                                                            */
+/* ------------------------------------------------------------------ */
+
+.bld-glass {
+  background: color-mix(in oklab, var(--background) 94%, transparent);
+  box-shadow:
+    inset 0 -1px 0 var(--bld-hairline),
+    0 1px 0 rgb(var(--bld-tint) / 0.02);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .bld-glass {
+    background: color-mix(in oklab, var(--background) 74%, transparent);
+    backdrop-filter: blur(20px) saturate(1.7);
+  }
+}
+
+.bld-float {
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--popover) 92%, transparent);
+  box-shadow:
+    inset 0 1px 0 var(--bld-highlight),
+    0 0 0 1px color-mix(in oklab, var(--border) 85%, transparent),
+    0 10px 30px -12px rgb(var(--bld-tint) / 0.22),
+    0 2px 6px rgb(var(--bld-tint) / 0.05);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .bld-float {
+    background: color-mix(in oklab, var(--popover) 76%, transparent);
+    backdrop-filter: blur(18px) saturate(1.6);
+  }
+}
+
+.bld-card {
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow:
+    inset 0 1px 0 var(--bld-highlight),
+    0 0 0 1px color-mix(in oklab, var(--border) 90%, transparent),
+    0 1px 2px rgb(var(--bld-tint) / 0.04);
+}
+
+.bld-panel {
+  background: var(--bld-panel);
+}
+
+/* ------------------------------------------------------------------ */
+/* canvas                                                              */
+/* ------------------------------------------------------------------ */
+
+/* the stage is color-neutral on purpose: a tinted canvas would bias how the page's own palette
+   reads. One soft white key light from the top, like a photo table. */
+.bld-canvas {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(60% 46% at 50% 0%, color-mix(in oklab, var(--card) 85%, transparent), transparent 72%),
+    color-mix(in oklab, var(--muted) 78%, var(--background));
+}
+/* dark: lift the stage a little so the near-black device bezel still reads against it */
+.dark .bld-canvas {
+  background:
+    radial-gradient(60% 46% at 50% 0%, oklch(1 0 0 / 0.045), transparent 72%),
+    color-mix(in oklab, var(--muted) 88%, var(--foreground) 5%);
+}
+.bld-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(color-mix(in oklab, var(--foreground) 12%, transparent) 1px, transparent 1.3px);
+  background-size: 20px 20px;
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, #000 30%, transparent 85%);
+}
+
+/* ------------------------------------------------------------------ */
+/* interaction                                                         */
+/* ------------------------------------------------------------------ */
+
+.bld-press {
+  transition:
+    transform 260ms var(--bld-spring),
+    box-shadow 260ms var(--bld-ease),
+    background-color 200ms var(--bld-ease),
+    color 200ms var(--bld-ease);
+}
+.bld-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* selectable tile: soft ring that springs in when selected */
+.bld-tile {
+  position: relative;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--border) 95%, transparent),
+    0 1px 2px rgb(var(--bld-tint) / 0.04);
+  transition:
+    box-shadow 300ms var(--bld-ease),
+    transform 380ms var(--bld-spring);
+}
+@media (hover: hover) {
+  .bld-tile:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--border) 60%, var(--foreground) 12%),
+      0 12px 24px -14px rgb(var(--bld-tint) / 0.3);
+  }
+}
+.bld-tile[data-selected="true"] {
+  box-shadow:
+    0 0 0 2px var(--brand),
+    0 0 0 6px color-mix(in oklab, var(--brand) 16%, transparent),
+    0 14px 28px -16px color-mix(in oklab, var(--brand) 60%, transparent);
+}
+.bld-tile:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--ring),
+    0 0 0 6px color-mix(in oklab, var(--ring) 22%, transparent);
+}
+
+/* primary action: .bld-primary shares the jade material defined in src/app/globals.css
+   (@layer components) with Button variant="brand" */
+
+/* status dot with a soft breathing halo (saving / live) */
+.bld-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.bld-dot[data-pulse="true"]::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.25;
+  animation: bld-breathe 1.6s var(--bld-ease) infinite;
+}
+@keyframes bld-breathe {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* quiet scrollbars inside panels */
+.bld-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 16%, transparent) transparent;
+  scrollbar-gutter: stable;
+}
+
+/* thumbnail placeholder shimmer */
+.bld-shimmer {
+  background: linear-gradient(100deg, transparent 20%, color-mix(in oklab, var(--background) 65%, transparent) 50%, transparent 80%)
+    color-mix(in oklab, var(--muted) 85%, transparent);
+  background-size: 220% 100%;
+  animation: bld-shimmer 1.6s linear infinite;
+}
+@keyframes bld-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* checkerboard behind transparent cutouts */
+.bld-checker {
+  background-color: var(--card);
+  background-image:
+    linear-gradient(45deg, color-mix(in oklab, var(--muted) 90%, var(--foreground) 6%) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in oklab, var(--muted) 90%, var(--foreground) 6%) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in oklab, var(--muted) 90%, var(--foreground) 6%) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in oklab, var(--muted) 90%, var(--foreground) 6%) 75%);
+  background-size: 14px 14px;
+  background-position:
+    0 0,
+    0 7px,
+    7px -7px,
+    -7px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bld-tile,
+  .bld-tile:hover,
+  .bld-press:active {
+    transform: none;
+  }
+  .bld-dot[data-pulse="true"]::after,
+  .bld-shimmer {
+    animation: none;
+  }
+}

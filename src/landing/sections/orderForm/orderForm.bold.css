@@ -1,0 +1,180 @@
+/* orderForm · bold — rules only this variant renders (inlined after orderForm.css on pages whose markup
+   carries .lp-orderForm--bold; the admin preview loads every variant). Shared rules live in orderForm.css. */
+
+/* ==========================================================================
+   bold — an accent slab: giant headline, big inputs, light cards, a turning saving seal
+   ========================================================================== */
+.lp-orderForm--bold .lp-of__panel {
+  --slab-ink: var(--sec-ink);
+  display: grid;
+  gap: var(--of-gap);
+  padding: clamp(1.25rem, 0.4rem + 3.8vw, 3.75rem);
+  padding-block-start: clamp(2rem, 1rem + 4vw, 3.75rem);
+  border-radius: var(--lp-sq-xl);
+  corner-shape: var(--lp-corner);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--sec-accent-ink) 14%, transparent),
+    0 2px 4px color-mix(in oklab, var(--sec-bg) 25%, transparent),
+    0 40px 80px -40px color-mix(in oklab, var(--sec-bg) 80%, transparent);
+}
+
+:root[data-shadow="none"] .lp-orderForm--bold .lp-of__panel {
+  box-shadow: none;
+}
+
+.lp-orderForm--bold .lp-of__title {
+  max-inline-size: 14ch;
+  font-size: min(calc(var(--lp-step-5) * 0.9 * var(--lp-script-scale-display)), 11.5vw);
+  text-transform: var(--lp-display-case);
+}
+
+/* on the colour slab a highlight band reads as a muddy block: the emphasis becomes a two-tone headline
+   instead — the stressed words in the slab's soft ink, no band (swoosh and colour keep their own look) */
+:root[data-emphasis="highlight"] .lp-orderForm--bold .lp-of__title :is(.lp-em, .lp-em__w) {
+  color: var(--sec-ink-soft);
+}
+
+:root[data-emphasis="highlight"] .lp-orderForm--bold .lp-of__title .lp-em__w::before {
+  content: none;
+}
+
+:root[data-emphasis="highlight"] .lp-orderForm--bold .lp-of__title .lp-em--plain {
+  background: none;
+}
+
+/* on the slab the accent ring alone would melt into the color: a slab-ink halo frames the choice */
+.lp-orderForm--bold .lp-packs {
+  --pk-ring: var(--slab-ink);
+}
+
+.lp-orderForm--bold .lp-of__trust--side {
+  display: none;
+}
+
+.lp-orderForm--bold .lp-of__lead,
+.lp-orderForm--bold .lp-of__legend,
+.lp-orderForm--bold .lp-field__label {
+  color: var(--sec-ink);
+}
+
+.lp-orderForm--bold .lp-of__trust--side .lp-of__trust-ico {
+  inline-size: 2.4rem;
+  block-size: 2.4rem;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--sec-ink) 12%, transparent);
+  color: var(--sec-ink);
+  font-size: 1em;
+}
+
+.lp-orderForm--bold .lp-of__trust-item {
+  color: var(--sec-ink);
+}
+
+.lp-orderForm--bold .lp-of__trust-ico {
+  color: inherit;
+}
+
+.lp-orderForm--bold .lp-of__trust-item + .lp-of__trust-item {
+  box-shadow: inset calc(1px * var(--lp-x)) 0 0 color-mix(in oklab, var(--sec-ink) 18%, transparent);
+}
+
+.lp-orderForm--bold .lp-of__trust--side .lp-of__trust-item {
+  box-shadow: none;
+}
+
+.lp-orderForm--bold {
+  --disc: clamp(7rem, 5.5rem + 5vw, 9.5rem);
+}
+
+/* phones: the seal's lower half needs its own room above the kicker */
+.lp-orderForm--bold .lp-of__panel:has(> .lp-of__disc) {
+  padding-block-start: calc(var(--disc) * 0.5 + 1.25rem);
+}
+
+.lp-orderForm--bold .lp-input,
+.lp-orderForm--bold .lp-select__el,
+.lp-orderForm--bold .lp-input-group {
+  --f-h: 4rem;
+  box-shadow: 0 10px 22px -16px color-mix(in oklab, var(--lp-ink) 55%, transparent);
+}
+
+.lp-orderForm--bold .lp-input-group .lp-input {
+  box-shadow: none;
+}
+
+.lp-orderForm--bold .lp-of__no {
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+}
+
+/* done steps on the slab: an ink disc with the slab color's tick (the accent would vanish) */
+@supports selector(:has(a)) {
+  .lp-orderForm--bold .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__no {
+    background: var(--sec-ink);
+    color: var(--sec-bg);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--sec-ink) 16%, transparent);
+  }
+}
+
+.lp-orderForm--bold .lp-of__submit {
+  --btn-h: 4.5rem;
+  --btn-bg: var(--sec-ink);
+  --btn-ink: var(--sec-bg);
+  --btn-shadow: inset 0 1px 0 color-mix(in oklab, var(--sec-bg) 22%, transparent), 0 16px 32px -14px color-mix(in oklab, var(--lp-ink) 70%, transparent);
+  --btn-shadow-hover: inset 0 1px 0 color-mix(in oklab, var(--sec-bg) 22%, transparent), 0 22px 44px -16px color-mix(in oklab, var(--lp-ink) 80%, transparent);
+}
+
+.lp-orderForm--bold .lp-of__submit .lp-btn__price {
+  background: color-mix(in oklab, var(--sec-bg) 22%, transparent);
+}
+
+.lp-orderForm--bold .lp-of__assure .lp-icon,
+.lp-orderForm--bold .lp-of__privacy .lp-icon,
+.lp-orderForm--bold .lp-of__wa .lp-icon {
+  color: inherit;
+}
+
+.lp-orderForm--bold .lp-of__privacy {
+  color: var(--sec-ink);
+  opacity: 0.85;
+}
+
+.lp-orderForm--bold .lp-of__or {
+  color: var(--sec-ink);
+}
+
+.lp-orderForm--bold .lp-of__or::before,
+.lp-orderForm--bold .lp-of__or::after {
+  background: color-mix(in oklab, var(--sec-ink) 22%, transparent);
+}
+
+.lp-orderForm--bold .lp-of__ship {
+  background: color-mix(in oklab, var(--sec-ink) 12%, transparent);
+}
+
+.lp-orderForm--bold .lp-of__ship .lp-icon {
+  color: inherit;
+}
+
+@media (min-width: 64rem) {
+  .lp-orderForm--bold .lp-of__panel,
+  .lp-orderForm--bold .lp-of__panel:has(> .lp-of__disc) {
+    padding-block-start: clamp(2rem, 1rem + 4vw, 3.75rem);
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    align-items: start;
+    column-gap: clamp(2.5rem, 5vw, 5.5rem);
+  }
+
+  .lp-orderForm--bold .lp-of__title {
+    max-inline-size: none;
+    font-size: min(calc(var(--lp-step-5) * 0.85 * var(--lp-script-scale-display)), 5vw);
+  }
+
+  .lp-orderForm--bold .lp-of__trust--side {
+    display: grid;
+  }
+
+  .lp-orderForm--bold .lp-of__form .lp-of__trust {
+    display: none;
+  }
+}

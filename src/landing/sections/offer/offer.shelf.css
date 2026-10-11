@@ -1,0 +1,660 @@
+/* offer · shelf — rules only this variant renders (inlined after offer.css on pages whose markup
+   carries .lp-offer--shelf; the admin preview loads every variant). Shared rules live in offer.css. */
+
+.lp-ofr__flag {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: calc(max(0.68rem, var(--lp-step--1) * 0.8) * var(--lp-script-scale));
+  line-height: 1.15;
+}
+.lp-ofr__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.34em 0.7em 0.3em;
+  border-radius: 999px;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), 0 6px 14px -8px var(--mx-btn-2);
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.lp-ofr__flag {
+  --flag-bg: var(--lp-pop);
+  --flag-ink: var(--lp-pop-ink);
+  position: absolute;
+  z-index: 25;
+  inset-block-start: 0;
+  inset-inline-start: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  max-inline-size: calc(100% - 4rem);
+  padding: 0.45em 0.85em 0.42em;
+  border-radius: 999px;
+  background: var(--flag-bg);
+  color: var(--flag-ink);
+  box-shadow: var(--lp-highlight-accent, 0 0 #0000), var(--lp-shadow-s);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.lp-ofr__flag > bdi {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-ofr__flag .lp-icon {
+  flex: none;
+}
+
+[data-badge="popular"] .lp-ofr__flag {
+  --flag-bg: var(--ofr-ring);
+  --flag-ink: var(--ofr-ring-ink);
+}
+
+[data-badge="best"] .lp-ofr__flag {
+  --flag-bg: var(--ofr-ink);
+  --flag-ink: var(--ofr-bg);
+}
+
+/* ==========================================================================
+   shelf → display window. Each pack: a stage (deeper wall, floor, a spotlight
+   cone, a cylinder podium whose height follows the quantity with "×n" on its
+   face, the product standing on it) and a caption card. Phones: one row per
+   pack — the window at the start, its caption overlapping the window's end
+   edge. From 44rem: the stages abut into one panoramic window, the captions
+   hanging over its bottom edge. The spotlight follows the selection.
+   ========================================================================== */
+.lp-shf {
+  --r: var(--lp-sq-xl);
+  /* floor line, lowest podium, extra height per quantity step (fractions of the stage height) */
+  --floor: 9%;
+  --p0: 12%;
+  --pr: 16%;
+  /* copy width: one product scale for the whole window */
+  --u: min(6.25rem, calc(100% * 0.8 / var(--ws, 1)));
+  /* the caption overlapping the window's end edge (phones), and the set's shift to stay clear of it */
+  --ov: 1.4rem;
+  --sx: calc(var(--ov) / 2);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  max-inline-size: 34rem;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-shf__slot {
+  display: flex;
+  min-inline-size: 0;
+}
+
+/* phones: window | caption */
+.lp-shf__pack {
+  --ph: calc(var(--p0) + var(--lvl, 0.5) * var(--pr));
+  grid-template-columns: minmax(7.5rem, 0.82fr) minmax(0, 1fr);
+  align-items: center;
+  translate: none;
+}
+
+.lp-shf__stage {
+  position: relative;
+  isolation: isolate;
+  align-self: stretch;
+  min-block-size: 16.5rem;
+  overflow: hidden;
+  border-radius: var(--r);
+  corner-shape: var(--lp-corner);
+  /* the back wall curves into a lighter floor (an infinity cove) */
+  background:
+    linear-gradient(to top, var(--ofr-floor), var(--ofr-floor) var(--floor), transparent calc(var(--floor) + 22%)),
+    var(--ofr-wall);
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+}
+
+/* spotlight: a soft cone from above — dim on every pack, full on the selection */
+.lp-shf__stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: conic-gradient(from 152deg at calc(50% - var(--sx, 0rem) * var(--lp-x)) -12%, transparent, var(--mx-stage-hi) 20deg, var(--mx-stage-hi) 36deg, transparent 56deg);
+  -webkit-mask-image: linear-gradient(#000 10%, rgb(0 0 0 / 0.45) 68%, transparent 96%);
+  mask-image: linear-gradient(#000 10%, rgb(0 0 0 / 0.45) 68%, transparent 96%);
+  opacity: 0.28;
+  transition: opacity var(--lp-dur-l) var(--lp-smooth);
+}
+
+/* a pool of light on the floor under the chosen pack */
+.lp-shf__stage::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-inline: 8%;
+  inset-block-end: calc(var(--floor) - 6%);
+  block-size: 16%;
+  background: radial-gradient(closest-side, var(--mx-stage-hi), transparent);
+  opacity: 0;
+  transition: opacity var(--lp-dur-l) var(--lp-smooth);
+}
+
+[data-featured] .lp-shf__stage::before {
+  opacity: 0.5;
+}
+
+[data-selected] .lp-shf__stage::before {
+  opacity: 1;
+}
+
+[data-selected] .lp-shf__stage::after {
+  opacity: 0.8;
+}
+
+/* podium: a lit cylinder — shaded across its body, an elliptic top face catching the light */
+.lp-shf__plinth {
+  --pw: min(88%, calc(var(--u) * var(--gs, 1) + 1.6rem));
+  position: absolute;
+  z-index: 1;
+  inset-block-end: var(--floor);
+  inset-inline-start: calc(50% - var(--sx) - var(--pw) / 2);
+  display: grid;
+  place-items: center;
+  inline-size: var(--pw);
+  block-size: var(--ph);
+  container: plinth / size;
+  background: linear-gradient(to right, var(--mx-plinth-side), var(--mx-plinth) 28%, var(--mx-plinth-top) 46%, var(--mx-plinth) 66%, var(--mx-plinth-side));
+  color: var(--sec-ink);
+  box-shadow: 0 1.4rem 1.6rem -1.2rem var(--mx-contact);
+  transform-origin: 50% 100%;
+}
+
+/* the curved base and the lit top face */
+.lp-shf__plinth::before,
+.lp-shf__plinth::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  aspect-ratio: 5 / 1;
+  border-radius: 50%;
+}
+
+.lp-shf__plinth::after {
+  inset-block-end: 0;
+  z-index: -1;
+  background: linear-gradient(to right, var(--mx-plinth-side), var(--mx-plinth) 28%, var(--mx-plinth-top) 46%, var(--mx-plinth) 66%, var(--mx-plinth-side));
+  transform: translateY(50%);
+}
+
+.lp-shf__plinth::before {
+  inset-block-start: 0;
+  z-index: 1;
+  background: radial-gradient(70% 90% at 50% 30%, var(--mx-plinth-top), var(--mx-plinth));
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 -1px 0 var(--mx-hair);
+  transform: translateY(-50%);
+  transition: box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+[data-selected] .lp-shf__plinth::before {
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1.5px var(--ofr-ring);
+}
+
+/* "×3" set on the podium's face, sized by the podium itself */
+.lp-shf__face {
+  position: relative;
+  z-index: 2;
+  padding-block-start: 0.15em;
+  font-size: 1.1rem;
+  font-size: clamp(1.15rem, 52cqb, 3.25rem);
+  /* the visible face runs from under the lit top ellipse (podium width / 10 down) to the curved
+     base: centre the figure on it, not on the box (the low ×1 podium hid half of a tiny "×1") */
+  translate: 0 10cqi;
+  letter-spacing: -0.03em;
+  color: var(--ofr-face);
+  text-shadow: 0 1px 0 var(--mx-rim);
+}
+
+/* the product stands on the podium's top face */
+.lp-shf__group {
+  position: absolute;
+  z-index: 2;
+  inset-block-end: calc(var(--floor) + var(--ph) - 0.3rem);
+  inset-inline-start: calc(50% - var(--sx) - var(--u) * var(--gs, 1) / 2);
+  inline-size: calc(var(--u) * var(--gs, 1));
+  transition: translate var(--lp-dur-m) var(--lp-spring);
+}
+
+[data-look="photo"] .lp-shf__group {
+  aspect-ratio: 4 / 5;
+}
+
+/* cutout copies: the group is exactly one copy tall (--gr = group width / copy height) */
+.lp-shf__group > .lp-ofv--line {
+  --rise: -4%;
+  --shrink: 0.08;
+  position: relative;
+  inset: auto;
+  display: block;
+  aspect-ratio: var(--gr, 0.8) / 1;
+}
+
+.lp-shf__tile {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: max(0.5rem, calc(var(--lp-sq-media) * 0.6));
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--lp-shadow-m), 0 18px 26px -18px var(--mx-contact);
+}
+
+.lp-shf__tile > .lp-pic {
+  position: absolute;
+  inset: 0;
+}
+
+/* a rim of light over the photo */
+.lp-shf__tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 var(--mx-rim), inset 0 0 0 1px var(--mx-hair);
+  pointer-events: none;
+}
+
+/* photos stand as tiles in the page's shape: arch windows, capsules or soft panels */
+:root[data-mask="arch"] .lp-shf__tile {
+  border-radius: 999px 999px var(--lp-radius-s) var(--lp-radius-s);
+  corner-shape: round;
+}
+
+/* a capsule is taller than a portrait tile; a circle page gets a true disc */
+:root[data-mask="pill"] .lp-shf__tile {
+  border-radius: 999px;
+  corner-shape: round;
+}
+
+:root[data-mask="pill"] [data-look="photo"] .lp-shf__group {
+  aspect-ratio: 2 / 3;
+}
+
+:root[data-mask="circle"] .lp-shf__tile {
+  border-radius: 50%;
+  corner-shape: round;
+}
+
+:root[data-mask="circle"] [data-look="photo"] .lp-shf__group {
+  aspect-ratio: 1 / 1;
+}
+
+/* a wide product stands as a landscape tile (a capsule lies down; a disc stays a disc — fit.ts) */
+.lp-shf__slot[data-wide] [data-look="photo"] .lp-shf__group {
+  aspect-ratio: 5 / 4;
+}
+
+:root[data-mask="pill"] .lp-shf__slot[data-wide] [data-look="photo"] .lp-shf__group {
+  aspect-ratio: 3 / 2;
+}
+
+/* each tile's height / width (the badge clearance on the panoramic window reads it) */
+:root[data-mask="pill"] .lp-shf {
+  --tile-k: 1.5;
+}
+
+:root[data-mask="circle"] .lp-shf {
+  --tile-k: 1;
+}
+
+.lp-shf__slot[data-wide] {
+  --tile-k: 0.8;
+}
+
+:root[data-mask="pill"] .lp-shf__slot[data-wide] {
+  --tile-k: 0.667;
+}
+
+/* no picture: the quantity stands on the podium as the object on display */
+.lp-shf__num {
+  position: absolute;
+  inset: auto 0 0;
+  font-size: 3.25rem;
+  font-size: clamp(2.5rem, 14cqi, 4.5rem);
+  letter-spacing: -0.04em;
+  text-align: center;
+  color: var(--sec-accent);
+}
+
+[data-look="none"] .lp-shf__group {
+  aspect-ratio: 1 / 1;
+}
+
+.lp-shf__flag {
+  inset-block-start: 0.7rem;
+  inset-inline-start: 0.7rem;
+  max-inline-size: calc(100% - 1.4rem);
+  font-size: calc(max(0.62rem, var(--lp-step--1) * 0.74) * var(--lp-script-scale));
+  transform: none;
+}
+
+/* caption card: overlaps the window's end edge (phones) / hangs over its bottom edge */
+.lp-shf__cap {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "id chip" "price price" "perks perks" "gift gift" "go go";
+  justify-items: start;
+  align-content: start;
+  gap: 0.45rem 0.6rem;
+  min-inline-size: 0;
+  margin-inline-start: calc(var(--ov) * -1);
+  padding: 0.95rem 1rem 1rem;
+  border-radius: var(--lp-sq-l);
+  corner-shape: var(--lp-corner);
+  box-shadow: var(--card-ring, 0 0 #0000), var(--lp-highlight, 0 0 #0000), var(--lp-shadow-m);
+  translate: 0 calc(var(--lift) * -1);
+  transition:
+    box-shadow var(--lp-dur-m) var(--lp-smooth),
+    translate var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-shf__cap > .lp-ofr__id {
+  grid-area: id;
+}
+
+.lp-shf__cap > .lp-ofr__price {
+  grid-area: price;
+}
+
+.lp-shf__cap > .lp-shf__chip {
+  grid-area: chip;
+  align-self: start;
+}
+
+.lp-shf__cap > .lp-ofr__perks {
+  grid-area: perks;
+}
+
+.lp-shf__cap > .lp-ofr__gift {
+  grid-area: gift;
+}
+
+.lp-shf__cap > .lp-shf__go {
+  grid-area: go;
+}
+
+.lp-shf__cap > .lp-ofr__check {
+  inset-block-start: -0.55rem;
+  inset-inline-end: -0.55rem;
+}
+
+.lp-shf__cap .lp-ofr__price {
+  row-gap: 0.25rem;
+}
+
+.lp-shf__cap .lp-ofr__now {
+  font-size: calc(var(--lp-step-2) * 1.05 * var(--lp-script-scale-display));
+}
+
+.lp-shf__chip {
+  font-size: calc(var(--lp-step--1) * 0.9 * var(--lp-script-scale));
+}
+
+.lp-shf__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-block-start: 0.2rem;
+  font-size: calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--mx-line);
+  text-underline-offset: 0.35em;
+  transition: text-decoration-color var(--lp-dur-s) var(--lp-smooth);
+}
+
+.lp-shf__go .lp-icon {
+  flex: none;
+  color: var(--sec-accent);
+  transition: translate var(--lp-dur-s) var(--lp-smooth);
+}
+
+[data-featured] .lp-shf__go,
+[data-selected] .lp-shf__go {
+  text-decoration-color: var(--sec-accent);
+}
+
+/* pressed: the action's arrow nudges forward while the whole pack scales down (.lp-ofr__card:active) */
+.lp-shf__pack:active .lp-shf__go .lp-icon {
+  translate: calc(var(--lp-x) * 0.2em) 0;
+}
+
+/* the smallest phones: each window above its caption, the caption hanging over its bottom edge */
+@container ofr (max-width: 20rem) {
+  .lp-shf {
+    /* the floor clears the caption's overlap (2.25rem) so the lowest podium's "×1" face stays whole */
+    --floor: max(17%, 3.6rem);
+    --sx: 0rem;
+    --u: min(6rem, calc(100% * 0.62 / var(--ws, 1)));
+  }
+
+  .lp-shf__pack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lp-shf__stage {
+    min-block-size: 15rem;
+  }
+
+  .lp-shf__cap {
+    margin: -2.25rem 0.6rem 0;
+  }
+}
+
+/* the panoramic window: stages abut, captions hang below */
+@container ofr (min-width: 44rem) {
+  .lp-shf:not([data-n="1"]) {
+    --u: min(8.5rem, calc(100% * 0.82 / var(--ws, 1)));
+    --sx: 0rem;
+    --floor: 16%;
+    --p0: 13%;
+    --pr: 18%;
+    --stage-h: clamp(25rem, 16rem + 15vw, 30rem);
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    gap: 0;
+    max-inline-size: 72rem;
+  }
+
+  /* a photo tile on the highest podium keeps clear of the badge at the top of its stage: its width
+     is capped by the height left above the podiums (stage × (1 − floor − p0 − pr) − the badge's
+     band) over the tile's height / width (--tile-k: 4:5 → 1.25, capsule 2:3 → 1.5, disc → 1) */
+  .lp-shf:not([data-n="1"]) [data-look="photo"] .lp-shf__group {
+    --tile-w: min(calc(var(--u) * var(--gs, 1)), calc((var(--stage-h) * 0.53 - 3.4rem) / var(--tile-k, 1.25)));
+    inset-inline-start: calc(50% - var(--sx) - var(--tile-w) / 2);
+    inline-size: var(--tile-w);
+  }
+
+  .lp-shf[data-n="2"] {
+    max-inline-size: 48rem;
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__pack {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    align-items: stretch;
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__stage {
+    block-size: var(--stage-h);
+    border-radius: 0;
+    box-shadow: inset 0 1px 0 var(--mx-rim);
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__slot:first-child .lp-shf__stage {
+    border-start-start-radius: var(--r);
+    border-end-start-radius: var(--r);
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__slot:last-child .lp-shf__stage {
+    border-start-end-radius: var(--r);
+    border-end-end-radius: var(--r);
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__flag {
+    inset-block-start: 1rem;
+    inset-inline-start: 50%;
+    max-inline-size: calc(100% - 1rem);
+    transform: translateX(calc(var(--lp-x) * -50%));
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__cap {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "id" "price" "chip" "perks" "gift" "go";
+    justify-items: center;
+    gap: 0.45rem;
+    margin: -2.75rem clamp(0.45rem, 1.3cqi, 0.9rem) 0;
+    text-align: center;
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__cap > .lp-ofr__price {
+    justify-content: center;
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-ofr__perks {
+    justify-content: center;
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-ofr__gift {
+    justify-self: stretch;
+  }
+
+  .lp-shf:not([data-n="1"]) .lp-shf__go {
+    align-self: end;
+    padding-block-start: 0.3rem;
+  }
+
+  /* captions of one height: the action rests on the card's bottom edge */
+  .lp-shf:not([data-n="1"]) .lp-shf__cap {
+    grid-template-rows: auto auto auto auto auto 1fr;
+  }
+
+  /* the captions share their rows across the window: names, totals, savings chips, perks and the
+     actions each sit on one line whatever a neighbour carries (a quantity line, a struck price) */
+  @supports (grid-template-rows: subgrid) {
+    .lp-shf:not([data-n="1"]) {
+      grid-auto-rows: auto;
+    }
+
+    .lp-shf:not([data-n="1"]) > .lp-shf__slot,
+    .lp-shf:not([data-n="1"]) .lp-shf__pack {
+      display: grid;
+      grid-row: span 7;
+      grid-template-rows: subgrid;
+      row-gap: 0;
+    }
+
+    .lp-shf:not([data-n="1"]) .lp-shf__stage {
+      grid-row: 1;
+    }
+
+    .lp-shf:not([data-n="1"]) .lp-shf__cap {
+      grid-row: 2 / span 6;
+      grid-template-rows: subgrid;
+      row-gap: 0.45rem;
+    }
+  }
+
+  /* a lone pack: a wide window, its caption overlapping the end edge */
+  .lp-shf[data-n="1"] {
+    --u: min(10rem, 34%);
+    --ov: 3rem;
+    max-inline-size: 52rem;
+  }
+
+  .lp-shf[data-n="1"] .lp-shf__pack {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+
+  .lp-shf[data-n="1"] .lp-shf__stage {
+    min-block-size: 24rem;
+  }
+
+  .lp-shf[data-n="1"] .lp-shf__cap {
+    padding: 1.4rem 1.5rem 1.5rem;
+  }
+
+  .lp-shf[data-n="1"] .lp-shf__cap .lp-ofr__now {
+    font-size: calc(var(--lp-step-3) * var(--lp-script-scale-display));
+  }
+}
+
+@media (hover: hover) {
+  .lp-shf__pack:hover .lp-shf__group {
+    translate: 0 -5px;
+  }
+
+  .lp-shf__pack:hover .lp-shf__go {
+    text-decoration-color: currentColor;
+  }
+
+  .lp-shf__pack:hover .lp-shf__go .lp-icon {
+    translate: calc(var(--lp-x) * 3px) 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+
+  html.lp-js:not([data-motion="off"]) .lp-shf__slot[data-in] .lp-shf__plinth {
+    animation: lp-ofr-rise calc(var(--lp-dur-l) * 1.1) var(--lp-smooth) calc(var(--d, 0ms) + 120ms + var(--lvl, 0) * 160ms) backwards;
+  }
+
+  html.lp-js:not([data-motion="off"]) .lp-shf__slot[data-in] .lp-shf__group {
+    animation: lp-ofr-land var(--lp-dur-l) var(--lp-spring) calc(var(--d, 0ms) + 380ms + var(--lvl, 0) * 160ms) backwards;
+  }
+}
+
+/* progressive enhancement: on wide screens the products settle onto their podiums as the window scrolls in */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) and (min-width: 48rem) {
+    html:not([data-motion="off"]) .lp-shf__group > * {
+      animation: lp-ofr-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 40%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-shf__cap,
+.lp-shf__group,
+.lp-shf__stage::before,
+.lp-shf__stage::after,
+.lp-shf__plinth::before {
+    transition: none;
+  }
+}
+
+@keyframes lp-ofr-rise {
+  from {
+    transform: translateY(18%) scaleY(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes lp-ofr-land {
+  from {
+    translate: 0 -14%;
+    opacity: 0;
+  }
+}
+
+@keyframes lp-ofr-settle {
+  from {
+    translate: 0 -5%;
+  }
+}
