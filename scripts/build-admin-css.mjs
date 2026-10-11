@@ -69,6 +69,8 @@ async function run() {
   }
 }
 
+// a recognisable line in the Hostinger build log: if it is missing, the host built an older commit
+if (!WATCH) console.log("[admin-css] COD Studio build: admin Tailwind precompiled, Turbopack runs without loaders");
 const ok = await run();
 if (!WATCH) process.exit(ok ? 0 : 1);
 
