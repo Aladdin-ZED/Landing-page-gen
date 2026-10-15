@@ -30,6 +30,8 @@ export interface BurstResult {
 
 /** Limits per network and window, per public endpoint. */
 export const BURST_LIMITS = {
+  /** COD orders: the database keeps 60 per 10 min per network (then per-phone and per-page limits) */
+  order: { limit: 120, windowSec: 60 },
   /** analytics beacons: the database keeps 240 per 10 min per network */
   event: { limit: 240, windowSec: 60 },
   /** abandoned-lead capture: the database keeps 30 per 10 min per network */

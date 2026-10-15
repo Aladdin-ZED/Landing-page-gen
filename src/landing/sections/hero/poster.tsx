@@ -109,6 +109,7 @@ export function PosterHero({ id, variant, bg, data, ctx }: HeroProps): ReactElem
               spin
               reveal
               delay={420}
+              minPx={92}
             />
           </span>
           <div className="lp-hero__tag" data-bg={TAG_BG[field]} {...reveal("rise", 520)}>

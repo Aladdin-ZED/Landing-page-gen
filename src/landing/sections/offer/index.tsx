@@ -29,6 +29,8 @@ import {
   cssVars,
   cx,
   editAttr,
+  frameRegions,
+  pictureCrop,
   resolveProductVisual,
   round,
   type TrustItem,
@@ -300,7 +302,7 @@ function Stacked({ id, ctx, packs, visual, cta, featured, paper }: Common) {
                 ) : (
                   <>
                     {look === "stack" ? (
-                      <Stack ctx={ctx} pack={p} visual={visual} sizes={sizes} />
+                      <Stack ctx={ctx} pack={p} visual={visual} sizes={sizes} square={isFeat && (packs.length === 3 || packs.length === 4)} />
                     ) : (
                       <Lineup ctx={ctx} pack={p} visual={visual} sizes={sizes} max={4} />
                     )}
@@ -444,6 +446,27 @@ function shelfPlan(asset: ResolvedAsset | null, tile: { shape: "arch" | "pill" |
   return photoPlan(asset, tile.ratio, tile.shape === "pill" ? 3 / 2 : WIDE);
 }
 
+/**
+ * Phones: the pack's flag sits in a top corner of the podium stage, where a tall tile's top meets it.
+ * "end" when the start corner would cover a face or a hand of the photo (or clearly more of the
+ * product) than the end corner — the tile fitted to its window exactly as <Picture> crops it.
+ */
+function flagSide(ctx: RenderContext, asset: ResolvedAsset | null, plan: PhotoPlan | null, tile: { shape: "arch" | "pill" | "circle" | "rounded" }): "end" | undefined {
+  if (!asset || asset.alpha || !plan || plan.fit !== "cover" || !asset.subjectKind || asset.subjectKind === "none") return undefined;
+  const reg = frameRegions(asset, plan.ratio, pictureCrop(asset, { frame: { shape: tile.shape, ratio: plan.ratio } }));
+  const rtl = ctx.dir === "rtl";
+  const cost = (left: boolean) => {
+    // the flag's reach into the tile's top band (tile fractions; it overhangs the tile's side)
+    const z = { x: left ? -0.2 : 0.55, y: -0.12, w: 0.65, h: 0.3 };
+    const a = (b: { x: number; y: number; w: number; h: number }) =>
+      Math.max(0, Math.min(z.x + z.w, b.x + b.w) - Math.max(z.x, b.x)) * Math.max(0, Math.min(z.y + z.h, b.y + b.h) - Math.max(z.y, b.y));
+    return reg.heads.reduce((c, b) => c + 100 * a(b), 0) + reg.hands.reduce((c, b) => c + 30 * a(b), 0) + (asset.subjectKind === "product" ? 2 * a(reg.subject) : 0);
+  };
+  const start = cost(!rtl);
+  const end = cost(rtl);
+  return end + 0.05 < start ? "end" : undefined;
+}
+
 function tileFrame(ctx: RenderContext): { shape: "arch" | "pill" | "circle" | "rounded"; ratio: number } {
   const mask = ARCHETYPE_DEFS[ctx.archetype]?.mask;
   if (mask === "arch") return { shape: "arch", ratio: 4 / 5 };
@@ -482,7 +505,7 @@ function Shelf({ id, ctx, packs, visual, cta, featured, paper }: Common) {
               featured={isFeat}
               style={cssVars({ "--lvl": lvlOf(p), "--gs": round(gs, 3), "--gr": round(gs * 0.8, 4) })}
             >
-              <span className="lp-shf__stage" data-look={look}>
+              <span className="lp-shf__stage" data-look={look} data-flag={p.badge && look === "photo" ? flagSide(ctx, asset, shelfPlan(asset, tile), tile) : undefined}>
                 <span className="lp-shf__plinth" aria-hidden="true">
                   {look === "none" ? null : <Times ctx={ctx} qty={p.qty} className="lp-shf__face" />}
                 </span>

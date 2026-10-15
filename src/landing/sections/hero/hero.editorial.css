@@ -334,6 +334,6 @@
 
 @keyframes lp-hero-settle {
   from {
-    scale: 1.07;
+    scale: calc(var(--pic-zoom, 1) * 1.07);
   }
 }

@@ -30,6 +30,8 @@ interface Facts {
   delivery: string;
   /** names of the ad / analytics pixels configured on the page */
   pixels: string[];
+  /** platforms among them that can also receive server events (Meta, TikTok): hashed contact data */
+  serverPlatforms: string[];
   fields: { city: boolean; citySelect: boolean; address: boolean; note: boolean; email: boolean };
   links: PageLinks;
 }
@@ -242,7 +244,7 @@ function fr(f: Facts): Record<LegalKind, LegalText> {
           ["l'équipe de la boutique, pour la confirmation et le suivi des commandes ;"],
           ["la société de livraison, qui reçoit uniquement ce qui est nécessaire à la livraison : nom, téléphone, ville, adresse et montant à encaisser ;"],
           ["nos prestataires techniques (hébergement du site, outils de gestion des commandes), qui agissent sur nos instructions", f.pixels.length ? " ;" : "."],
-          ...(f.pixels.length ? [["les plateformes publicitaires citées dans « Cookies et traceurs », pour les seules informations de navigation et de commande."] as Inline[]] : []),
+          ...(f.pixels.length ? [["les plateformes publicitaires citées dans « Cookies et traceurs », pour les seules informations qui y sont décrites."] as Inline[]] : []),
         ),
         p("Vos données ne sont jamais vendues ni louées.", MA ? " Certains prestataires techniques peuvent être situés hors du Maroc." : EU ? " Si un prestataire est situé hors de l'Union européenne, le transfert est encadré par les garanties prévues par le RGPD." : ""),
       ),
@@ -258,6 +260,12 @@ function fr(f: Facts): Record<LegalKind, LegalText> {
         f.pixels.length
           ? p("Pour mesurer nos publicités, la page charge également : ", b(enumerate(f.pixels, "fr")), ". Ces services peuvent déposer leurs propres cookies et recevoir des informations sur votre visite et votre commande (produit, montant), selon leurs propres politiques de confidentialité.")
           : p("Aucun pixel publicitaire tiers n'est utilisé sur cette page."),
+        f.serverPlatforms.length > 0 &&
+          p(
+            "Quand vous passez commande, notre serveur peut aussi confirmer l'achat directement à ",
+            b(enumerate(f.serverPlatforms, "fr")),
+            " pour mesurer nos publicités. Votre numéro de téléphone et votre nom (ainsi que votre e-mail et votre ville si vous les indiquez) ne leur sont jamais envoyés en clair : seule une empreinte irréversible (hachage SHA-256) est transmise, avec l'adresse IP et le type de navigateur utilisés pour la commande.",
+          ),
         p("Vous pouvez effacer ces données à tout moment depuis les réglages de votre navigateur."),
       ),
       sec(
@@ -547,7 +555,7 @@ function ar(f: Facts): Record<LegalKind, LegalText> {
           ["فريق المتجر، لتأكيد الطلبات وتتبعها؛"],
           ["شركة التوصيل، التي لا تتوصل إلا بما يلزم للتسليم: الاسم والهاتف والمدينة والعنوان والمبلغ المطلوب تحصيله؛"],
           ["مزودونا التقنيون (استضافة الموقع وأدوات تدبير الطلبات)، الذين يعملون وفق تعليماتنا", f.pixels.length ? "؛" : "."],
-          ...(f.pixels.length ? [["المنصات الإعلانية المذكورة في فقرة «ملفات تعريف الارتباط وأدوات التتبع»، وذلك فقط بخصوص معطيات التصفح والطلب."] as Inline[]] : []),
+          ...(f.pixels.length ? [["المنصات الإعلانية المذكورة في فقرة «ملفات تعريف الارتباط وأدوات التتبع»، وذلك فقط بخصوص المعطيات الموضحة فيها."] as Inline[]] : []),
         ),
         p("لا نبيع معطياتك ولا نؤجرها أبدا.", MA ? " وقد يوجد بعض المزودين التقنيين خارج المغرب." : EU ? " وإذا وُجد مزود خارج الاتحاد الأوروبي، يتم النقل وفق الضمانات المنصوص عليها في النظام الأوروبي العام لحماية البيانات." : ""),
       ),
@@ -563,6 +571,12 @@ function ar(f: Facts): Record<LegalKind, LegalText> {
         f.pixels.length
           ? p("ولقياس إعلاناتنا، تحمّل الصفحة أيضا: ", b(enumerate(f.pixels, "ar")), ". قد تضع هذه الخدمات ملفات تعريف ارتباط خاصة بها وتتوصل بمعلومات عن زيارتك وطلبك (المنتج والمبلغ)، وفق سياسات الخصوصية الخاصة بها.")
           : p("لا تستعمل هذه الصفحة أي أداة تتبع إعلانية تابعة لجهات خارجية."),
+        f.serverPlatforms.length > 0 &&
+          p(
+            "عند تأكيد طلبك، قد يُبلغ خادمنا أيضا ",
+            b(enumerate(f.serverPlatforms, "ar")),
+            " بعملية الشراء مباشرة، لقياس أداء إعلاناتنا. لا نرسل إليها أبدا رقم هاتفك واسمك (ولا بريدك الإلكتروني ومدينتك إن أدخلتهما) بشكل مقروء، بل فقط بصمة رقمية لا يمكن الرجوع منها إلى المعلومة الأصلية (تجزئة SHA-256)، مع عنوان IP ونوع المتصفح المستعملين في الطلب.",
+          ),
         p("يمكنك مسح هذه المعطيات في أي وقت من إعدادات متصفحك."),
       ),
       sec("security", "الأمان", p("تُعرض هذه الصفحة عبر اتصال مشفر (HTTPS)، ولا يطلع على الطلبات إلا الأشخاص المؤهلون داخل المتجر.")),
@@ -826,7 +840,7 @@ function en(f: Facts): Record<LegalKind, LegalText> {
           ["the store team, to confirm and follow up orders;"],
           ["the delivery company, which only receives what delivery requires: name, phone, city, address and the amount to collect;"],
           ["our technical providers (website hosting, order management tools), acting on our instructions", f.pixels.length ? ";" : "."],
-          ...(f.pixels.length ? [["the advertising platforms named under “Cookies and trackers”, for browsing and order events only."] as Inline[]] : []),
+          ...(f.pixels.length ? [["the advertising platforms named under “Cookies and trackers”, for the information described there only."] as Inline[]] : []),
         ),
         p("Your data is never sold or rented.", MA ? " Some technical providers may be located outside Morocco." : EU ? " If a provider is located outside the European Union, the transfer is covered by the safeguards required by the GDPR." : ""),
       ),
@@ -842,6 +856,12 @@ function en(f: Facts): Record<LegalKind, LegalText> {
         f.pixels.length
           ? p("To measure our ads, the page also loads: ", b(enumerate(f.pixels, "en")), ". These services may set their own cookies and receive information about your visit and your order (product, amount), under their own privacy policies.")
           : p("No third-party advertising pixel is used on this page."),
+        f.serverPlatforms.length > 0 &&
+          p(
+            "When you place an order, our server may also confirm the purchase directly to ",
+            b(enumerate(f.serverPlatforms, "en")),
+            " to measure our ads. Your phone number and name (and your email and city, if you give them) are never sent to them in readable form: only an irreversible fingerprint (a SHA-256 hash) is shared, along with the IP address and browser type used for the order.",
+          ),
         p("You can clear this data at any time in your browser settings."),
       ),
       sec("security", "Security", p("This page is served over an encrypted connection (HTTPS). Access to orders is restricted to authorised store staff.")),
@@ -1079,6 +1099,16 @@ const PIXEL_NAMES = {
   ga4Id: "Google Analytics",
 } as const;
 
+/**
+ * Platforms whose pixels can also get the order from the server (Meta Conversions API, TikTok
+ * Events API, when the store adds an access token): the customer's phone and name (email and city
+ * when given) go out hashed with SHA-256, with the IP address and browser of the order.
+ */
+const SERVER_EVENT_PLATFORMS = {
+  metaPixelId: "Meta",
+  tiktokPixelId: "TikTok",
+} as const;
+
 function factsOf(ctx: RenderContext): Facts {
   const { doc } = ctx;
   const market = doc.market;
@@ -1091,6 +1121,7 @@ function factsOf(ctx: RenderContext): Facts {
     feeText: ctx.money(doc.offers.shippingFee),
     delivery: ctx.t("trust.delivery"),
     pixels: (Object.keys(PIXEL_NAMES) as (keyof typeof PIXEL_NAMES)[]).filter((k) => !!doc.tracking[k]).map((k) => PIXEL_NAMES[k]),
+    serverPlatforms: (Object.keys(SERVER_EVENT_PLATFORMS) as (keyof typeof SERVER_EVENT_PLATFORMS)[]).filter((k) => !!doc.tracking[k]).map((k) => SERVER_EVENT_PLATFORMS[k]),
     fields: {
       city: doc.form.city !== "hidden",
       citySelect: doc.form.city === "select",

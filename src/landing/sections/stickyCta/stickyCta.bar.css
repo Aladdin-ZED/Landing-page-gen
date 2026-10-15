@@ -237,7 +237,7 @@
 /* --- pointer & press ----------------------------------------------------- */
 @media (hover: hover) {
   .lp-sticky__dock:hover .lp-sticky__thumb[data-kind="photo"] .lp-pic__img {
-    transform: scale(1.08);
+    scale: calc(var(--pic-zoom, 1) * 1.08);
   }
 
   .lp-sticky__dock:hover .lp-sticky__thumb[data-kind="cutout"] .lp-sticky__pic {

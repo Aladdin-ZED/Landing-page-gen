@@ -20,6 +20,7 @@ import {
   syncSheetAfterResponse,
 } from "@/lib/orders/http";
 import { resolvePageKey } from "@/lib/orders/resolve";
+import { burstLimit } from "@/lib/security/burst-limit";
 import { hashIp } from "@/lib/security/crypto";
 import { rateLimit } from "@/lib/security/rate-limit";
 
@@ -45,7 +46,17 @@ export async function POST(req: NextRequest): Promise<Response> {
   // CORS for early answers: any active export's origin may read them
   let earlyCors: string | null = null;
   try {
+    // (the origin allow-list is cached in-process; an unknown origin is re-checked at most every few seconds)
     if (client.origin && (await exportOriginAllowed(client.origin))) earlyCors = client.origin;
+
+    // in-memory burst guard first, so a flood never reaches the database limit below
+    const burst = burstLimit("order", client.ip);
+    if (!burst.ok) {
+      return json({ ok: false, error: "rate_limited" } satisfies OrderResponse, 429, {
+        ...corsHeaders(earlyCors),
+        "Retry-After": String(burst.retryAfter),
+      });
+    }
 
     const coarse = await rateLimit(`api:order:${hashIp(client.ip)}`, 60, 600);
     if (!coarse.ok) {

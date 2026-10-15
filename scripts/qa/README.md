@@ -80,10 +80,20 @@ the documents). They answer 404 in production.
 npx tsx scripts/qa/render-check.ts    # all fixtures × ar/fr/en × every document: CSP hashes, scripts, dividers, v1 migration
 npx tsx scripts/qa/money-parity.ts    # server-rendered vs runtime-updated prices are byte-identical
 npx tsx scripts/qa/turnstile-e2e.ts   # Turnstile: lazy load, token sent as "cf", renewal, real CSP
+npm run test:conversions              # server-side Purchase events: payloads, hashing, per-pixel tokens, "Send test event"
+npm run test:pixels                   # browser pixels end to end: 2 Meta + 2 TikTok + Snap + GA4, event order, ids, CSP
 ```
 
-All three exit with code 1 on failure (render-check writes no files). The Turnstile check serves the real rendered page with its real CSP
+All exit with code 1 on failure (render-check writes no files). The Turnstile check serves the real rendered page with its real CSP
 header from a local server and replaces Cloudflare's `api.js` with a mock (no network needed).
+
+`test:conversions` (`scripts/qa/conversions-check.ts`) is offline (fetch mocked, no database) and runs in
+`npm test`: Tracking schema limits, per-pixel credentials, masked tokens, Purchase payloads (event id =
+order id, SHA-256 hashed contact data, one request per pixel with a token), retries and test events.
+`test:pixels` (`scripts/qa/pixels-e2e.ts`) renders the real landing and thank-you pages, serves them with
+their real CSP and replaces the vendors' scripts with recording stubs through Playwright (no network):
+ViewContent → AddToCart → InitiateCheckout → Lead → Purchase on every platform, Purchase event id = order
+id, nothing in preview mode, no second Purchase on reload. It needs Playwright's browser (or Edge).
 
 ## 6. Fixture photos
 

@@ -6,9 +6,9 @@
  */
 import type { ReactElement } from "react";
 import type { SectionBg } from "@/lib/page/schema";
-import { Container, Counter, Picture, SectionShell, Stars, cssVars, cx, reveal, round } from "../../primitives";
+import { Container, Counter, Picture, SectionShell, Stars, cssVars, cx, pictureCrop, reveal, round } from "../../primitives";
 import type { RenderContext, ResolvedAsset } from "../../types";
-import { chipBand } from "./frames";
+import { coverAt } from "./frames";
 import { UI, type Data, type Item, type Props } from "./model";
 import { countLabel, say, type Score } from "./parts";
 import { Byline, CtaRow, Detail, Header, Photo, Quote, QuoteMark, ReviewTitle, Verified, productVisual, sectionScore, titleId } from "./shared";
@@ -130,6 +130,18 @@ function LeadCard({ ctx, data, item }: { ctx: RenderContext; data: Data; item: I
  */
 const TILE_LG = { score: 4 / 3, alone: 0.7 } as const;
 
+/**
+ * The edge of the tile's window where the name chip (a band `h` of the frame tall) covers no face,
+ * hand or product — checked with the crop fitted for `lg` (no zoom) seen in every shape the window
+ * really takes: it fills the tile's free height, so it stretches from `lg` up to ≈ 1.35 × wider.
+ */
+function tileChipBand(prod: ResolvedAsset, lg: number, h: number): "top" | "bottom" | null {
+  const crop = pictureCrop(prod, { frame: { shape: "rounded", ratio: lg, maxZoom: 1 } });
+  const shapes = [1, 1.12, 1.24, 1.36].map((k) => lg * k);
+  const clear = (y: number) => shapes.every((r) => coverAt(prod, r, crop, { y, h }) < 0.04);
+  return clear(1 - h) ? "bottom" : clear(0) ? "top" : null;
+}
+
 function ScoreTile({ ctx, score, prod, bg }: { ctx: RenderContext; score: Score | null; prod: ResolvedAsset | null; bg: SectionBg }) {
   const label = score ? say(ctx, score.fromProduct ? UI.average : UI.shown) : undefined;
   // alone, a landscape photo keeps its own proportions (a portrait window would clip the product)
@@ -137,7 +149,7 @@ function ScoreTile({ ctx, score, prod, bg }: { ctx: RenderContext; score: Score 
   const wide = !score && !!prod && !prod.alpha && prod.width > prod.height * 1.05;
   const lg = score ? TILE_LG.score : wide ? Math.min(1.45, prod!.width / prod!.height) : TILE_LG.alone;
   // the name chip sits on the photo's edge that holds no face and no hands; beside it otherwise
-  const at = prod ? (prod.alpha ? "bottom" : wide ? "below" : (chipBand(prod, lg, 0.17) ?? "below")) : undefined;
+  const at = prod ? (prod.alpha ? "bottom" : wide ? "below" : (tileChipBand(prod, lg, 0.17) ?? "below")) : undefined;
   return (
     <aside
       className={cx("lp-rv__tile", score && prod && "lp-rv__tile--both", !score && "lp-rv__tile--prod", wide && "lp-rv__tile--wide", prod?.alpha && "lp-rv__tile--cutout")}

@@ -70,7 +70,20 @@ interface VisualProps {
   className?: string;
 }
 
-export function Stack({ ctx, pack, visual, sizes, max = 4, className }: VisualProps): ReactElement | null {
+/**
+ * The window a featured stack opens to from the bento layout up (offer.stacked.css: square sheets in
+ * the hero card of a 3–4 pack bento, @container ofr ≥ 56rem ≈ a 60rem viewport). Two frames switch
+ * positions only (no zoom), so the product's top is never cut by a zoom fitted for 4:5.
+ */
+const SQUARE_SHEET: PictureFrame = { shape: "rounded", ratio: 1 };
+const SQUARE_MIN = "60rem";
+
+interface StackProps extends VisualProps {
+  /** the sheets open to a square from SQUARE_MIN up (the bento's hero card) */
+  square?: boolean;
+}
+
+export function Stack({ ctx, pack, visual, sizes, max = 4, square = false, className }: StackProps): ReactElement | null {
   const own = pack.image;
   const asset = own ?? visual.asset;
   if (!asset) return null;
@@ -81,7 +94,7 @@ export function Stack({ ctx, pack, visual, sizes, max = 4, className }: VisualPr
     <span className={cx("lp-ofv lp-ofv--stack", className)} data-n={n} data-wide={plan.wide ? "" : undefined} aria-hidden="true">
       {Array.from({ length: n }, (_, l) => (
         <span key={l} className="lp-ofv__sheet" data-l={l} style={cssVars({ "--l": l })}>
-          <PlannedPhoto asset={asset} sizes={sizes} plan={plan} />
+          <PlannedPhoto asset={asset} sizes={sizes} plan={plan} frameLg={square ? SQUARE_SHEET : undefined} frameMin={square ? SQUARE_MIN : undefined} />
         </span>
       ))}
       {own ? null : <More ctx={ctx} n={pack.qty - n} />}

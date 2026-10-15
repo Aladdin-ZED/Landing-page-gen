@@ -216,6 +216,9 @@
 
 @keyframes lp-cta-settle {
   from {
-    scale: 1.3;
+    scale: calc(var(--pic-zoom, 1) * 1.3);
+  }
+  to {
+    scale: var(--pic-zoom, 1);
   }
 }

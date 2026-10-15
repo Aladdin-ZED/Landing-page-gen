@@ -18,6 +18,7 @@ import {
   Price,
   reveal,
   RichText,
+  stagePhotoFrame,
   Stars,
   TrustRow,
   type StageKind,
@@ -25,7 +26,7 @@ import {
 } from "../../primitives";
 import type { RenderContext, ResolvedAsset, SectionProps } from "../../types";
 import { bigWordOf, micro } from "./copy";
-import { headsClear, stageWindow, visualFacts } from "./framing";
+import { headsClear, visualFacts } from "./framing";
 import type { HeroData, HeroNoteData } from "./schema";
 
 export type HeroProps = SectionProps<HeroData>;
@@ -164,7 +165,7 @@ export function heroStage(ctx: RenderContext, key: string, asset: ResolvedAsset 
     if (!facts.person) return true;
     if (s === "halo") return false;
     if (!curved) return true;
-    const w = stageWindow(s, R);
+    const w = stagePhotoFrame(s, R);
     return headsClear(asset, w.shape, w.ratio);
   });
   return fits.length ? pick(ctx, key, fits) : PLAIN_STAGE.has(ctx.archetype) ? "podium" : "frame";

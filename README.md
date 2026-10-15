@@ -55,8 +55,10 @@ copy) with EU markets ready (FR, BE, ES, DE, IT, NL, PT and an international fal
 - **Google Sheets**: every order is appended to a formatted *Commandes* tab. Statuses your team sets
   in the sheet sync back to the admin. Setup: paste the sheet link
   ([docs/GOOGLE-SHEETS-SETUP.md](docs/GOOGLE-SHEETS-SETUP.md)).
-- Tracking: Meta, TikTok, Snap and GA4 browser pixels. Server-side Purchase events go to the Meta
-  Conversions API and the TikTok Events API, deduplicated with the browser pixel by event id.
+- Tracking: up to 3 Meta and 3 TikTok pixels, plus Snap and GA4 (ViewContent, AddToCart,
+  InitiateCheckout, Lead, Purchase; TikTok's purchase event is Purchase). Server-side Purchase events go to
+  the Meta Conversions API and the TikTok Events API with a token and test code per pixel ("Send test
+  event"), deduplicated with the browser pixel by event id (= the order id). Contact data is SHA-256 hashed.
 
 **Exports**
 - Export any published version as a ZIP and host it anywhere (Hostinger Premium, Netlify, Vercel,

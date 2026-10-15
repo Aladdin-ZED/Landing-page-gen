@@ -6,7 +6,8 @@
  *    subject whole with a margin — a massage gun lying on its side needs a landscape window).
  *  - pageMaskShape(): the media mask the theme gives this archetype (arch, pill, rounded…).
  *  - headsClear(): are all heads inside a mask (arch head, blob, circle) once the photo is fitted?
- *  - stageCalloutTops(): vertical slots of the stage's glass callouts, clear of faces and hands.
+ *  - stageCalloutTops(): vertical slots of the stage's glass callouts, clear of faces, hands and
+ *    the product as the stage really shows it (the fitted zoom included).
  *  - collageChipSpots(): where the collage's glass chips go, clear of faces, hands and the sticker.
  *  - posterFlip(): whether the poster's badge and price tag swap sides to stay off faces / product.
  *
@@ -15,7 +16,7 @@
  */
 import type { Box, FrameShape } from "@/lib/media/focus";
 import { ARCHETYPE_DEFS } from "@/lib/theme/archetypes";
-import { frameRegions, pictureCrop, type FrameRegions } from "../../primitives";
+import { frameRegions, pictureCrop, stageCutoutBox, stagePhotoFrame, type FrameRegions } from "../../primitives";
 import type { RenderContext, ResolvedAsset } from "../../types";
 
 /* ------------------------------------------------------------------ */
@@ -161,21 +162,41 @@ function chipSize(chars: number, px: number, maxFrac: number, charPx: number, pa
   return { w: w / px, lines: Math.max(1, Math.ceil((chars * charPx) / Math.max(40, w - padPx))) };
 }
 
-/** The photo window of each stage inside the stage box (insets, fractions) — mirrors base.css §12. */
-const STAGE_WINDOW: Record<string, { ix: number; iy: number; shape: FrameShape; ratio: (R: number) => number }> = {
-  arch: { ix: 0.06, iy: 0, shape: "arch", ratio: (R) => R * 0.88 },
-  halo: { ix: 0.08, iy: 0, shape: "circle", ratio: () => 1 },
-  slab: { ix: 0.05, iy: 0.03, shape: "rounded", ratio: (R) => (R * 0.9) / 0.94 },
-  blob: { ix: 0.03, iy: 0.03, shape: "blob", ratio: (R) => R },
-  podium: { ix: 0.04, iy: 0, shape: "rounded", ratio: (R) => R * 0.92 },
-  frame: { ix: 0.04, iy: 0.04, shape: "rounded", ratio: (R) => R },
-  none: { ix: 0, iy: 0, shape: "rounded", ratio: (R) => R },
+const clip01 = (b: Box): Box | null => {
+  const x0 = clamp(b.x, 0, 1);
+  const y0 = clamp(b.y, 0, 1);
+  const x1 = clamp(b.x + b.w, 0, 1);
+  const y1 = clamp(b.y + b.h, 0, 1);
+  return x1 - x0 > 0.01 && y1 - y0 > 0.01 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
 };
 
-/** The window shape and aspect a stage gives a regular photo (ProductStage PHOTO_WINDOW). */
-export function stageWindow(stage: string, R: number): { shape: FrameShape; ratio: number } {
-  const w = STAGE_WINDOW[stage] ?? STAGE_WINDOW.frame!;
-  return { shape: w.shape, ratio: r4(w.ratio(R)) };
+/**
+ * What the stage shows of a visual, in stage fractions (x of its width, y of its height): faces and
+ * hands of a photo (both the fitted-zoom and the plain view), and the visible product — a product
+ * photo's subject through the crop <Picture> really applies (zoom included), or a cutout contained
+ * bottom-aligned in its box.
+ */
+function stageVisual(asset: ResolvedAsset, stage: string, R: number): { obs: Obstacle[]; product: Box | null } {
+  if (asset.alpha) {
+    const b = stageCutoutBox(stage);
+    const A = asset.aspect > 0 ? asset.aspect : asset.width > 0 && asset.height > 0 ? asset.width / asset.height : 1;
+    // stage units: height 1, width R; object-fit: contain, centred across, standing on the bottom edge
+    const bw = b.w * R;
+    const dw = Math.min(bw, b.h * A);
+    const dh = dw / A;
+    const x0 = b.x * R + (bw - dw) / 2;
+    const y0 = b.y + b.h - dh;
+    const s = asset.subject ?? { x: 0, y: 0, w: 1, h: 1 };
+    const product = { x: (x0 + s.x * dw) / R, y: y0 + s.y * dh, w: (s.w * dw) / R, h: s.h * dh };
+    return { obs: [], product };
+  }
+  const f = stagePhotoFrame(stage, R);
+  const regions = fittedRegions(asset, f.shape, f.ratio);
+  const into = f.box;
+  const zoomed = regions[regions.length - 1]!;
+  const vis = asset.subjectKind === "person" || asset.subjectKind === "none" ? null : clip01(zoomed.subject);
+  const product = vis ? { x: into.x + vis.x * into.w, y: into.y + vis.y * into.h, w: vis.w * into.w, h: vis.h * into.h } : null;
+  return { obs: obstacles(regions, into), product };
 }
 
 export interface CalloutText {
@@ -184,11 +205,12 @@ export interface CalloutText {
 }
 
 /**
- * Vertical position (fraction of the stage height) of each stage callout, kept off faces and hands:
- * the chip and its leader sweep a band beside the product (end-side chips on the end edge, start-side
- * chips on the start edge — both overhang the stage by 9%); each slot slides from its default height
- * to the nearest band that covers no face, same-side chips never overlapping. Null when the photo
- * shows no people (the default slots suit products).
+ * Vertical position (fraction of the stage height) of each stage callout, kept off faces, hands and
+ * the product: the chip and its leader sweep a band beside the product (end-side chips on the end
+ * edge, start-side chips on the start edge — both overhang the stage by 9%); each slot slides from
+ * its default height to the nearest band that covers no face and the least of the product as the
+ * stage shows it (a photo's fitted zoom included; the leader may reach onto it), same-side chips
+ * never overlapping. Null when nothing needs avoiding (the default slots then stand).
  */
 export function stageCalloutTops(
   ctx: RenderContext,
@@ -200,17 +222,10 @@ export function stageCalloutTops(
   defaults: readonly number[],
 ): number[] | null {
   if (!asset || !notes.length) return null;
-  const facts = visualFacts(asset);
-  if (facts.kind !== "photo" || !facts.person) return null;
-  const win = STAGE_WINDOW[stage] ?? STAGE_WINDOW.frame!;
-  const { shape, ratio } = stageWindow(stage, R);
-  let into: Box = { x: win.ix, y: win.iy, w: 1 - 2 * win.ix, h: 1 - 2 * win.iy };
-  if (stage === "halo") {
-    const h = 0.84 * R;
-    into = { x: 0.08, y: 0.5 - h / 2, w: 0.84, h };
-  }
-  const obs = obstacles(fittedRegions(asset, shape, ratio), into);
-  if (!obs.length) return null;
+  if (visualFacts(asset).kind === "empty") return null;
+  const { obs, product } = stageVisual(asset, stage, R);
+  if (!obs.length && !product) return null;
+  const prodArea = product ? Math.max(1e-4, product.w * product.h) : 1;
   const rtl = ctx.dir === "rtl";
   // worst case of the two layouts: a 300px phone stage (chips ≤ 46%, titles only) and a 540px desktop
   // stage (chips ≤ 36%, details shown); the leader reaches ≈ 9.5% of the stage toward the product
@@ -230,7 +245,9 @@ export function stageCalloutTops(
       const hPx = 18 + 16.5 * t.lines + (d ? 15.5 * d.lines + 2 : 0);
       const h = hPx / (l.px / R);
       const x = right ? 1.09 - w - lead : -0.09;
-      return { x, w: w + lead, h };
+      // the chip alone (its leader is meant to land on the product)
+      const cx = right ? 1.09 - w : -0.09;
+      return { x, w: w + lead, cx, cw: w, h };
     });
     const h = Math.max(...zones.map((z) => z.h));
     const def = defaults[k] ?? 0.5;
@@ -238,7 +255,11 @@ export function stageCalloutTops(
     let bestCost = Infinity;
     for (let t = 0.02; t <= 0.98 - h + 1e-9; t += 0.01) {
       let c = 0;
-      for (const z of zones) c += cost({ x: z.x, y: t, w: z.w, h }, obs);
+      for (const z of zones) {
+        c += cost({ x: z.x, y: t, w: z.w, h }, obs);
+        // each percent of the visible product under the chip weighs like half a stage-height move
+        if (product) c += (0.75 * 100 * area({ x: z.cx, y: t, w: z.cw, h }, product)) / prodArea;
+      }
       for (const p of placed) if (p.right === right && t < p.y1 + 0.035 && t + h > p.y0 - 0.035) c += 500;
       c += 1.5 * Math.abs(t - def);
       if (c < bestCost - 1e-9) [best, bestCost] = [t, c];

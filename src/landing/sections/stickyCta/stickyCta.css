@@ -197,7 +197,9 @@ html:not(.lp-js) .lp-sticky [data-bundle-card]:not([data-default]) {
 
 .lp-sticky__pic,
 .lp-sticky__pic .lp-pic__img {
-  transition: transform var(--lp-dur-l) var(--lp-smooth);
+  transition:
+    transform var(--lp-dur-l) var(--lp-smooth),
+    scale var(--lp-dur-l) var(--lp-smooth);
 }
 
 .lp-sticky__pic {

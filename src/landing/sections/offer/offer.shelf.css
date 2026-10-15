@@ -341,6 +341,13 @@
   transform: none;
 }
 
+/* phones: the start corner would sit on a face or a hand of the tile (index.tsx flagSide) */
+@container ofr (max-width: 43.99rem) {
+  .lp-shf__stage[data-flag="end"] .lp-shf__flag {
+    inset-inline: auto 0.7rem;
+  }
+}
+
 /* caption card: overlaps the window's end edge (phones) / hangs over its bottom edge */
 .lp-shf__cap {
   position: relative;

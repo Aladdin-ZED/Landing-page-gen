@@ -37,3 +37,16 @@ export function GET(req: NextRequest, ctx: Params): Promise<Response> {
 export function HEAD(req: NextRequest, ctx: Params): Promise<Response> {
   return serve(req, ctx);
 }
+
+/*
+ * Every other method answers exactly like an unknown URL (left to Next, OPTIONS would answer 204 and
+ * POST 405 with an Allow list, which told a page address apart from a hidden admin path).
+ */
+function unknownMethod(req: NextRequest): Response {
+  return notFoundResponse(req);
+}
+export const OPTIONS = unknownMethod;
+export const POST = unknownMethod;
+export const PUT = unknownMethod;
+export const PATCH = unknownMethod;
+export const DELETE = unknownMethod;

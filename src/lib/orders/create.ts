@@ -217,7 +217,7 @@ export async function createOrder(payload: OrderPayload, ctx: CreateOrderContext
     db
       .select({ n: sql<number>`COUNT(*)` })
       .from(orders)
-      // (page_id, created_at) index narrows the scan; ip_hash has no index of its own
+      // served by orders_ip_idx (ip_hash, created_at), migration 0002, or the (page_id, created_at) index
       .where(and(eq(orders.pageId, target.pageId), gte(orders.createdAt, since24h), eq(orders.ipHash, ipHash))),
     db
       .select({ status: orders.status, n: sql<number>`COUNT(*)` })

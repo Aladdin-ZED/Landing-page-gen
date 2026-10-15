@@ -127,7 +127,7 @@
   }
 
   .lp-benefits__row:hover .lp-benefits__thumbpic .lp-pic__img {
-    scale: 1.06;
+    scale: calc(var(--pic-zoom, 1) * 1.06);
   }
 }
 

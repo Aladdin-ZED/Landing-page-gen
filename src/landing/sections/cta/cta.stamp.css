@@ -155,6 +155,20 @@
   aspect-ratio: 1;
 }
 
+/* phones, where the orb is largest against the disc: over a product photo that fills the disc it
+   hangs lower off the disc's edge, so it covers the corner of the shot rather than the product
+   (the stage keeps the room under it) */
+@container (max-width: 39.99rem) {
+  .lp-cta__stage[data-fill] {
+    margin-block-end: calc(0.5rem + 15cqi);
+  }
+
+  .lp-cta__stage[data-fill] .lp-cta__orb {
+    inset-block-end: -18%;
+    inset-inline-end: -4%;
+  }
+}
+
 /* the ring: a frosted disc carrying the text, the core button sits in its middle */
 .lp-cta__ring {
   --wind: 80deg;

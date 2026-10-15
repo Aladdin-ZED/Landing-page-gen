@@ -1186,7 +1186,10 @@ html.lp-js:not([data-motion="off"]) .lp-urg--hairline .lp-urg__stage[data-in]::a
 
 @keyframes lp-urg-settle {
   from {
-    scale: 1.08;
+    scale: calc(var(--pic-zoom, 1) * 1.08);
+  }
+  to {
+    scale: var(--pic-zoom, 1);
   }
 }
 

@@ -224,7 +224,7 @@
   }
 
   .lp-stats__hero[data-media="photo"]:hover .lp-pic__img {
-    scale: 1.045;
+    scale: calc(var(--pic-zoom, 1) * 1.045);
   }
 
   .lp-stats__hero[data-media="cutout"] .lp-stats__pic {

@@ -6,7 +6,8 @@
  * a subtle parallax (desktop). A glass place chip captions the photo and, when the product has
  * another shot, a round detail sits in a frosted glass bezel on the frame's edge — a lens over the
  * photo. Chip and lens take the photo's quiet spots: never over a face or a hand (a crowded photo
- * simply keeps its lens off). The media side is seeded per page.
+ * simply keeps its lens off). The media side is seeded per page. The card only overlaps the photo
+ * where it covers no face or hand (and little of a product): otherwise it sits beside / below it.
  */
 import type { ReactElement } from "react";
 import { GlowOrb } from "@/landing/illustrations";
@@ -52,6 +53,32 @@ function lensSeat(media: ResolvedAsset, fr: StoryFrame, F: number, rtl: boolean,
   return null;
 }
 
+/** Area of the overlap of two boxes. */
+const overlap = (a: Box, b: Box) =>
+  Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+/**
+ * Would the card, laid over `zone` of the frame, cover a head or a hand of the photo — or more than an
+ * eighth of the product shown? (the photo fitted to the frame as <Picture> crops it, zoom included)
+ */
+function cardCovers(media: ResolvedAsset | null, fr: StoryFrame, F: number, frameZone: Box): boolean {
+  if (!media || media.alpha || media.subjectKind === "none") return false;
+  // the photo rides a parallax layer 10% taller than the frame (inset: -5% 0) unless it is still
+  const k = fr.still ? 1 : 1.1;
+  const L = fr.still ? F : F / k;
+  const zone: Box = { x: frameZone.x, y: (frameZone.y + (k - 1) / 2) / k, w: frameZone.w, h: frameZone.h / k };
+  const reg = frameRegions(media, L, pictureCrop(media, { frame: { shape: fr.shape, ratio: L } }));
+  if ([...reg.heads, ...reg.hands].some((b) => overlap(zone, pad(b, 0.01)) > 0)) return true;
+  if (media.subjectKind !== "product") return false;
+  // the product as the frame shows it (the layer's slack above and below is hidden)
+  const s = reg.subject;
+  const m = (k - 1) / 2 / k;
+  const x0 = Math.max(0, s.x);
+  const y0 = Math.max(m, s.y);
+  const vis: Box = { x: x0, y: y0, w: Math.min(1, s.x + s.w) - x0, h: Math.min(1 - m, s.y + s.h) - y0 };
+  return vis.w > 0 && vis.h > 0 && overlap(zone, vis) / (vis.w * vis.h) > 0.12;
+}
+
 export function ImageText({ ctx, data, id, titleId }: ViewProps): ReactElement {
   const media = pickMedia(ctx, data);
   const cutout = !!media?.alpha;
@@ -81,6 +108,12 @@ export function ImageText({ ctx, data, id, titleId }: ViewProps): ReactElement {
   const lensZone = (seat: Seat | null): Box[] => (seat ? [pad(seatZone(seat, F, rtl), 0.03)] : []);
   const innerRight = (outer === "b") !== rtl; // the card overlaps the side facing it
   const cardZone: Box = { x: innerRight ? 0.7 : 0, y: 0.3, w: 0.3, h: 0.7 };
+  // phones: the card rises over the photo's foot (≈ 16% of a portrait frame, 12% of a landscape one)
+  const footZone: Box = ratio === "4/3" ? { x: 0.03, y: 0.88, w: 0.94, h: 0.12 } : { x: 0.03, y: 0.83, w: 0.94, h: 0.17 };
+  // side by side the card covers the frame's inner two columns (a landscape frame: centred on its edge)
+  const sideZone: Box = ratio === "4/3" ? { x: innerRight ? 0.75 : 0, y: 0.15, w: 0.25, h: 0.7 } : cardZone;
+  const clear = cardCovers(media, fr, F, footZone);
+  const clearLg = cardCovers(media, fr, F, sideZone);
   const at = place && media ? placeOverlay(media, { shape: fr.shape, ratio: F }, chipSpots, { ...chipOpts, lift: 0.16, avoid: lensZone(showLens ? lens : null) }).spot : undefined;
   const atLg =
     place && media ? placeOverlay(media, { shape: fr.shape, ratio: F }, chipSpotsLg, { ...chipOpts, avoid: [...lensZone(showLens ? lensLg : null), cardZone] }).spot : undefined;
@@ -93,6 +126,8 @@ export function ImageText({ ctx, data, id, titleId }: ViewProps): ReactElement {
         showLens && "lp-story__it--inset",
         fr.dome && "lp-story__it--dome",
         ratio === "4/3" && "lp-story__it--wide",
+        clear && "lp-story__it--clear",
+        clearLg && "lp-story__it--clear-lg",
       )}
     >
       {/* no product photo at all: the card stands alone rather than over an empty frame */}

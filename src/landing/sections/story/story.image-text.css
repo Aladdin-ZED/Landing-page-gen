@@ -237,6 +237,11 @@
   margin-block-start: calc(-1 * clamp(2.25rem, 1.5rem + 5vw, 3.5rem));
 }
 
+/* the photo's foot holds a face, a hand or most of the product: the card sits just below it */
+.lp-story__it--clear .lp-story__card {
+  margin-block-start: clamp(0.75rem, 2.5vw, 1.25rem);
+}
+
 .lp-story__it--solo {
   position: relative;
   isolation: isolate;
@@ -395,6 +400,25 @@
     grid-column: 1 / -1;
     justify-self: center;
     margin: 0;
+  }
+
+  /* the photo's inner side holds a face, a hand or most of the product: the card stands beside it */
+  .lp-story__it--clear-lg .lp-story__card {
+    grid-column: 8 / -1;
+    margin-block-end: 0;
+    align-self: center;
+  }
+
+  .lp-story__it--clear-lg.lp-story__it--flip .lp-story__card {
+    grid-column: 1 / 6;
+  }
+
+  .lp-story__it--clear-lg.lp-story__it--wide .lp-story__card {
+    grid-column: 9 / -1;
+  }
+
+  .lp-story__it--clear-lg.lp-story__it--wide.lp-story__it--flip .lp-story__card {
+    grid-column: 1 / 5;
   }
 }
 

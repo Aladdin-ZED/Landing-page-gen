@@ -94,7 +94,7 @@
   }
 
   .lp-benefits__tile:hover .lp-benefits__tilepic .lp-pic__img {
-    scale: 1.045;
+    scale: calc(var(--pic-zoom, 1) * 1.045);
   }
 
   .lp-benefits__tile:hover .lp-benefits__ico {

@@ -668,7 +668,7 @@
   }
 
   .lp-beforeAfter__card:hover .lp-pic__img {
-    scale: 1.035;
+    scale: calc(var(--pic-zoom, 1) * 1.035);
   }
 
   .lp-beforeAfter__arrow .lp-icon {
@@ -827,9 +827,9 @@
 
 @keyframes lp-ba-settle {
   from {
-    scale: 1.07;
+    scale: calc(var(--pic-zoom, 1) * 1.07);
   }
   to {
-    scale: 1;
+    scale: var(--pic-zoom, 1);
   }
 }

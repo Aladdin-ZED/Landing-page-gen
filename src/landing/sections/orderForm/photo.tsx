@@ -5,7 +5,7 @@
  */
 import type { ReactElement } from "react";
 import type { FrameShape } from "@/lib/media/focus";
-import { Picture, cx } from "../../primitives";
+import { Picture, cx, type PictureFrame } from "../../primitives";
 import type { ResolvedAsset } from "../../types";
 import { LETTERBOX, type PhotoPlan } from "./fit";
 
@@ -14,6 +14,8 @@ export function PlannedPhoto({
   sizes,
   plan,
   shape = "rounded",
+  frameLg,
+  frameMin,
   className,
 }: {
   asset: ResolvedAsset;
@@ -21,11 +23,14 @@ export function PlannedPhoto({
   plan: PhotoPlan;
   /** the window's mask geometry (its safe area) */
   shape?: FrameShape;
+  /** art direction: the window from `frameMin` up when the section reshapes it (positions only) */
+  frameLg?: PictureFrame;
+  frameMin?: string;
   className?: string;
 }): ReactElement {
   return plan.fit === "contain" ? (
     <Picture asset={asset} sizes={sizes} alt="" fit="contain" className={cx(LETTERBOX, className)} />
   ) : (
-    <Picture asset={asset} sizes={sizes} alt="" frame={{ shape, ratio: plan.ratio }} className={className} />
+    <Picture asset={asset} sizes={sizes} alt="" frame={{ shape, ratio: plan.ratio }} frameLg={frameLg} frameMin={frameMin} className={className} />
   );
 }

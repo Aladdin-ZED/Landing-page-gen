@@ -4,7 +4,7 @@
  * Frame fractions come from the subject analysis (`frameRegions`): heads, hands and the subject box
  * mapped into the exact frame the Picture shows. Pure.
  */
-import { fitFrame, percentPair, type FrameShape } from "@/lib/media/focus";
+import { fitFrame, percentPair, type Crop, type FrameShape } from "@/lib/media/focus";
 import { ARCHETYPE_DEFS } from "@/lib/theme/archetypes";
 import { cropSubjectOf, frameRegions, pictureCrop } from "../../primitives";
 import type { RenderContext, ResolvedAsset } from "../../types";
@@ -34,7 +34,16 @@ const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, 
 export function coverOf(asset: ResolvedAsset | null | undefined, frame: { ratio: number; shape?: FrameShape; maxZoom?: number }, band: Band): number {
   if (!asset || asset.alpha || !asset.subjectKind || asset.subjectKind === "none") return 0;
   const crop = pictureCrop(asset, { frame: { shape: frame.shape ?? "rounded", ratio: frame.ratio, maxZoom: frame.maxZoom } });
-  const r = frameRegions(asset, frame.ratio, crop);
+  return coverAt(asset, frame.ratio, crop, band);
+}
+
+/**
+ * The same share for a box of aspect `boxRatio` showing the photo with `crop` — a crop fitted for
+ * one shape seen in a box the layout stretched to another (a tile filling its row's free height).
+ */
+export function coverAt(asset: ResolvedAsset | null | undefined, boxRatio: number, crop: Crop | null, band: Band): number {
+  if (!asset || asset.alpha || !asset.subjectKind || asset.subjectKind === "none") return 0;
+  const r = frameRegions(asset, boxRatio, crop);
   const x0 = band.x ?? 0;
   const x1 = x0 + (band.w ?? 1);
   let cost = 0;

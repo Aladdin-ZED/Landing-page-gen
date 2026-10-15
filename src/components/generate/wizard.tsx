@@ -721,6 +721,8 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
           name,
           chosen: index,
           directions: directions.map((d) => ({ archetype: d.archetype, label: d.label, doc: d.doc })),
+          // the Ad tracking step showed the store pixels: its choices are final
+          ...(pixelStore.summary ? { pixels: "chosen" as const } : {}),
         }),
         { success: "Page created — opening the builder" },
       );
@@ -733,7 +735,7 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
       setCopyJob(null);
       router.push(`/admin/pages/${res.id}/edit`);
     },
-    [built.directions, copyState.state, stopCopy, name, router],
+    [built.directions, copyState.state, stopCopy, name, router, pixelStore.summary],
   );
 
   /* ---- navigation ---- */

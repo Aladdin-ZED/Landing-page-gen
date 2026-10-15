@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { plainLabel } from "@/lib/editor/paths";
 import { MARKET_SPECS, PHONE_SPECS } from "@/lib/markets/specs";
 import { LOCALES, MARKETS, type Locale, type Market, type PageDoc } from "@/lib/page/schema";
+import { relocalizeVariants } from "@/lib/page/variant-presets";
 import { PIXEL_ID_RE, PIXEL_LIMIT, PIXEL_PLATFORMS, normalizePixelId, type PixelPlatform } from "@/lib/pixels/ids";
 import { serverEventsFor, type StorePixelSummary } from "@/lib/pixels/summary";
 import { mergeStorePixels, trackingIds, withTrackingIds } from "@/lib/pixels/tracking";
@@ -57,7 +58,18 @@ export function SeoPanel() {
       <div className="bld-scroll min-h-0 flex-1 overflow-y-auto pb-10">
         <PanelSection title="Language & market" collapsible>
           <FieldRow label="Page language" hint={doc.locale === "ar" ? "Arabic pages read right-to-left." : undefined}>
-            <Choice value={doc.locale} onChange={(v) => set((d) => void (d.locale = v))} options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l] }))} />
+            <Choice
+              value={doc.locale}
+              onChange={(v) =>
+                set((d) => {
+                  // the app's own variant words follow the language ("Couleur · Noir" → "اللون · أسود")
+                  const variants = relocalizeVariants(d.product.variants, d.locale, v);
+                  if (variants !== d.product.variants) d.product.variants = variants;
+                  d.locale = v;
+                })
+              }
+              options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l] }))}
+            />
           </FieldRow>
           <div className="grid grid-cols-2 gap-2.5">
             <FieldRow label="Market">

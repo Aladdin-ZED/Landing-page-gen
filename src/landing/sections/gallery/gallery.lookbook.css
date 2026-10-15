@@ -90,7 +90,7 @@
 
 @media (hover: hover) {
   .lp-gallery__lk-fig:hover .lp-pic__img {
-    scale: 1.04;
+    scale: calc(var(--pic-zoom, 1) * 1.04);
   }
 }
 

@@ -196,13 +196,25 @@ Pages published before the keys existed (and exported pages) keep taking orders,
 *captcha missing*, until they are re-published. A Cloudflare outage never blocks a sale.
 
 ## 8. Pixels and server-side tracking
-*Settings → Pixels*: enter the pixel IDs (Meta, TikTok, Snap, Google tag/GA4) once, then use **Apply to
-pages**. New pages start with them. Live pages pick them up when you re-publish them.
+*Settings → Pixels*: enter the pixel IDs once, then use **Apply to pages**. New pages start with them (the
+Generate wizard's *Ad tracking* step lets you untick any of them for that page). Live pages pick them up
+when you re-publish them.
+- **Up to 3 Meta pixels and 3 TikTok pixels**, plus one Snap pixel and one Google tag (GA4). Every pixel
+  of a platform receives the same events.
+- Browser events: **ViewContent** (page view), **AddToCart** (first offer chosen), **InitiateCheckout**
+  (form started), **Lead** (TikTok: *SubmitForm*) and **Purchase** (order confirmed). The TikTok purchase
+  event is **Purchase** (not *CompletePayment*).
+- The **Purchase event id is the order id**, in the browser pixel and in the server event alike, so each
+  platform counts an order once.
 
-Purchases are also sent **server to server**, deduplicated with the browser pixel by event id:
+Purchases are also sent **server to server** for each Meta and TikTok pixel that has its own token:
 - **Meta Conversions API**: Events Manager → your pixel → Settings → *Generate access token*.
 - **TikTok Events API**: Events Manager → your pixel → Settings → *Generate access token*.
-- Optional *test event codes* route events to the platforms' "Test events" screens. Remove them after testing.
+- Each pixel has its own **access token** and optional **test event code**. With a test code set, that
+  pixel's server events land in the platform's *Test events* screen only. **Send test event** next to the
+  pixel sends one test Purchase and shows the platform's own answer. Remove the test code after testing.
+- The customer's phone and name (email and city when given) are sent **hashed (SHA-256)**, never in
+  clear; the privacy policy says so on pages with a Meta or TikTok pixel.
 - Snap and GA4 Measurement Protocol secrets can be stored, but purchases on those platforms are tracked by
   the browser tag only.
 
@@ -260,6 +272,17 @@ Then:
 - [ ] Turnstile keys set in *Settings → Anti-spam* if you get fake orders
 
 ## 12. Updating and backups
+**Updating the live site.** The live app was created from a repository URL, so Hostinger deploys its own
+GitHub copy (a snapshot) in the owner's `aladdinzed35` account, not the `Aladdin-ZED` repository you push
+to. Pushing to `Aladdin-ZED` therefore does **not** update the live site. Two ways to ship an update:
+- **Upload an archive** of the new version through the Hostinger connector/API (a fresh build of the
+  uploaded code; environment variables and the database are kept); or
+- give the `Aladdin-ZED` account **push access** to the `aladdinzed35` copy and push there: every push to
+  its connected branch then deploys automatically.
+
+**Never click Redeploy while the site is linked to the old snapshot**: it rebuilds that old copy and replaces
+the newer version you uploaded.
+
 **Ship a new version.** With a GitHub-connected app, every push to the connected branch (`main`) starts a
 new deployment of **that latest commit**: Hostinger pulls the code fresh each time, it never rebuilds an old
 copy. To rebuild without a new commit (after a failed build, or to retry), use **Redeploy** on the site

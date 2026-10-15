@@ -131,7 +131,7 @@
   }
 
   .lp-sp__story:hover .lp-pic__img {
-    scale: 1.05;
+    scale: calc(var(--pic-zoom, 1) * 1.05);
   }
 }
 
@@ -413,7 +413,7 @@
 
 @keyframes lp-sp-breathe {
   to {
-    scale: 1.07;
+    scale: calc(var(--pic-zoom, 1) * 1.07);
   }
 }
 

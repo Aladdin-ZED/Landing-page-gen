@@ -164,7 +164,8 @@ export function Stamp({ ctx, data, id, titleId }: ViewProps): ReactElement {
         editBase=""
         className="lp-cta__head"
       />
-      <div className="lp-cta__stage" data-media={kind}>
+      {/* a product photo fills the disc: on phones the orb hangs lower off its edge (cta.stamp.css) */}
+      <div className="lp-cta__stage" data-media={kind} data-fill={kind === "photo" && visual.asset?.subjectKind === "product" ? "" : undefined}>
         <div className="lp-cta__halo" aria-hidden="true">
           <GlowOrb size="118%" intensity="strong" place="center" idle="pulse" />
           <Ambient ctx={ctx} uid={`${id}-stage`} scope="stage" />

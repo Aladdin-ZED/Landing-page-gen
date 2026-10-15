@@ -189,7 +189,7 @@
   }
 
   .lp-benefits__cardin:hover .lp-benefits__cardmedia .lp-pic__img {
-    scale: 1.035;
+    scale: calc(var(--pic-zoom, 1) * 1.035);
   }
 }
 
