@@ -2,39 +2,31 @@
 /**
  * Product panel: identity (name, tagline, description, category, SKU), price, photos (sortable,
  * alt text), transparent cutout (pick one, or generate it in the browser with the local AI when
- * available), variant groups with swatches, and the real rating (never invented).
+ * available), options (colors, sizes… — the editor shared with the generate wizard) and the real
+ * rating (never invented).
  */
-import { CircleAlert, LoaderCircle, Plus, Scissors, Star, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { CircleAlert, LoaderCircle, Scissors, Star } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { VariantsEditor, type VariantPhoto } from "@/components/admin/variants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { AiError, useAi } from "@/lib/ai/client";
 import { PRODUCT_CATEGORIES, type AssetRef, type Product } from "@/lib/page/schema";
+import { parseExtractedPalette } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useEditor, useEditorApi, useEditorStore } from "../context";
 import { assetUrl, useEnv } from "../env";
 import { ImageField, ImagesField } from "../fields/ImageField";
 import { TextField } from "../fields/TextField";
 import { useMedia } from "../media";
-import { Choice, ColorInput, FieldRow, Hint, NumberInput, PanelHeader, PanelSection, Segmented, useCommitted } from "../ui";
+import { Choice, FieldRow, Hint, NumberInput, PanelHeader, PanelSection, useCommitted } from "../ui";
 
 const CATEGORY_LABELS: Partial<Record<(typeof PRODUCT_CATEGORIES)[number], string>> = {
   "organic-food": "Organic food",
 };
 const categoryLabel = (c: string) => CATEGORY_LABELS[c as keyof typeof CATEGORY_LABELS] ?? c.charAt(0).toUpperCase() + c.slice(1);
-
-const ID_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
-function shortId(prefix: string, taken: Iterable<string>): string {
-  const used = new Set(taken);
-  for (;;) {
-    const b = new Uint8Array(5);
-    crypto.getRandomValues(b);
-    const id = `${prefix}-${[...b].map((x) => ID_ALPHABET[x % ID_ALPHABET.length]).join("")}`;
-    if (!used.has(id)) return id;
-  }
-}
 
 export function ProductPanel() {
   const product = useEditor((s) => s.doc.product);
@@ -90,8 +82,8 @@ export function ProductPanel() {
           <CutoutBlock />
         </PanelSection>
 
-        <PanelSection title="Variants" collapsible defaultOpen={product.variants.length > 0} hint="Colors, sizes… Customers pick per unit in multi-packs.">
-          <VariantsEditor />
+        <PanelSection title="Options" collapsible defaultOpen={product.variants.length > 0} hint="Colors, sizes or any choice the customer makes on the order form.">
+          <VariantsSection />
         </PanelSection>
 
         <PanelSection title="Rating" collapsible defaultOpen={!!product.rating}>
@@ -229,146 +221,47 @@ function CutoutBlock() {
 }
 
 /* ------------------------------------------------------------------ */
-/* variants                                                            */
+/* variants (options)                                                  */
 /* ------------------------------------------------------------------ */
 
-function VariantsEditor() {
+/**
+ * The shared options editor (src/components/admin/variants) on the page document: photos are the
+ * product's photos (their palettes feed the color suggestions), the library picker links any other
+ * photo, and typing bursts are coalesced into one undo step each.
+ */
+function VariantsSection() {
   const groups = useEditor((s) => s.doc.product.variants);
+  const locale = useEditor((s) => s.doc.locale);
+  const images = useEditor((s) => s.doc.product.images);
+  const assets = useEditor((s) => s.assets);
   const api = useEditorApi();
   const media = useMedia();
-  const allIds = () => groups.flatMap((g) => [g.id, ...g.options.map((o) => o.id)]);
-
-  const addGroup = () =>
-    api.updateDoc((d) => {
-      if (d.product.variants.length >= 3) return;
-      d.product.variants.push({
-        id: shortId("g", allIds()),
-        name: d.locale === "ar" ? "اللون" : d.locale === "fr" ? "Couleur" : "Color",
-        kind: "text",
-        perUnit: true,
-        options: [{ id: shortId("o", allIds()), label: "1", soldOut: false }],
-      });
-    });
-
-  return (
-    <div className="space-y-3">
-      {groups.map((g, gi) => (
-        <div key={g.id} className="bld-card space-y-3 p-3">
-          <div className="flex items-end gap-2">
-            <GroupName value={g.name} onCommit={(v) => api.updateDoc((d) => void (d.product.variants[gi]!.name = v), `variant:${g.id}:name`)} />
-            <Button variant="ghost" size="icon-sm" aria-label={`Remove ${g.name}`} onClick={() => api.updateDoc((d) => void d.product.variants.splice(gi, 1))} className="mb-px text-muted-foreground hover:text-destructive">
-              <Trash2 />
-            </Button>
-          </div>
-          <Segmented
-            value={g.kind}
-            onChange={(kind) => api.updateDoc((d) => void (d.product.variants[gi]!.kind = kind))}
-            label="Display"
-            size="sm"
-            options={[
-              { value: "text", label: "Text" },
-              { value: "swatch", label: "Swatches" },
-              { value: "image", label: "Photos" },
-            ]}
-          />
-          <ul className="space-y-1.5">
-            {g.options.map((o, oi) => (
-              <li key={o.id} className="flex items-center gap-1.5">
-                {g.kind === "swatch" ? (
-                  <div className="w-[5.5rem] shrink-0">
-                    <ColorInput label={`${o.label} swatch`} value={o.swatch ?? "#cccccc"} onCommit={(hex) => api.updateDoc((d) => void (d.product.variants[gi]!.options[oi]!.swatch = hex), `opt:${o.id}:swatch`)} />
-                  </div>
-                ) : null}
-                {g.kind === "image" ? (
-                  <OptionImage
-                    value={o.image}
-                    onPick={async () => {
-                      const a = await media.pick({ title: `Photo for ${o.label}` });
-                      if (a) api.updateDoc((d) => void (d.product.variants[gi]!.options[oi]!.image = { id: a.id, alt: o.label }));
-                    }}
-                  />
-                ) : null}
-                <OptionLabel value={o.label} onCommit={(v) => api.updateDoc((d) => void (d.product.variants[gi]!.options[oi]!.label = v), `opt:${o.id}:label`)} />
-                <button
-                  type="button"
-                  onClick={() => api.updateDoc((d) => void (d.product.variants[gi]!.options[oi]!.soldOut = !o.soldOut))}
-                  aria-pressed={o.soldOut}
-                  title={o.soldOut ? "Sold out — click to make available" : "Mark as sold out"}
-                  className={cn("h-7 shrink-0 rounded-md px-1.5 text-[10.5px] font-semibold transition-colors", o.soldOut ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-muted")}
-                >
-                  {o.soldOut ? "Sold out" : "In stock"}
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={`Remove ${o.label}`}
-                  disabled={g.options.length <= 1}
-                  onClick={() => api.updateDoc((d) => void d.product.variants[gi]!.options.splice(oi, 1))}
-                  className="text-muted-foreground"
-                >
-                  <X />
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={g.options.length >= 24}
-              onClick={() =>
-                api.updateDoc((d) => {
-                  const grp = d.product.variants[gi]!;
-                  grp.options.push({ id: shortId("o", allIds()), label: String(grp.options.length + 1), soldOut: false });
-                })
-              }
-            >
-              <Plus />
-              Option
-            </Button>
-            <label className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-              Pick per unit
-              <Switch size="sm" checked={g.perUnit} onCheckedChange={(v) => api.updateDoc((d) => void (d.product.variants[gi]!.perUnit = v))} />
-            </label>
-          </div>
-        </div>
-      ))}
-      {groups.length < 3 ? (
-        <Button variant="secondary" className="w-full" onClick={addGroup}>
-          <Plus />
-          Add a variant group
-        </Button>
-      ) : null}
-    </div>
+  const photos = useMemo<VariantPhoto[]>(
+    () =>
+      images.flatMap((ref) => {
+        const row = assets[ref.id];
+        if (row?.kind === "video") return [];
+        return [{ ref, url: assetUrl(row, 160), palette: parseExtractedPalette(row?.palette) }];
+      }),
+    [images, assets],
   );
-}
-
-function GroupName({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
-  const f = useCommitted(value, (v) => v, (raw) => (raw.trim() ? { value: raw.slice(0, 40) } : { error: "Name the group" }), onCommit);
   return (
-    <FieldRow label="Group" error={f.error} className="flex-1">
-      <Input dir="auto" value={f.raw} maxLength={40} onChange={(e) => f.onChange(e.target.value)} onFocus={f.onFocus} onBlur={f.onBlur} className="h-8 text-[13px]" aria-label="Variant group name" />
-    </FieldRow>
-  );
-}
-
-function OptionLabel({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
-  const f = useCommitted(value, (v) => v, (raw) => (raw.trim() ? { value: raw.slice(0, 40) } : { error: "Required" }), onCommit);
-  return <Input dir="auto" value={f.raw} maxLength={40} aria-invalid={!!f.error || undefined} onChange={(e) => f.onChange(e.target.value)} onFocus={f.onFocus} onBlur={f.onBlur} className="h-7 min-w-0 flex-1 text-[12.5px]" aria-label="Option" />;
-}
-
-function OptionImage({ value, onPick }: { value: AssetRef | undefined; onPick: () => void }) {
-  const row = useEditor((s) => (value ? s.assets[value.id] : undefined));
-  const url = assetUrl(row, 360);
-  return (
-    <button type="button" onClick={onPick} aria-label="Choose option photo" className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-muted-foreground ring-1 ring-inset ring-foreground/10">
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- admin preview of a /media rendition
-        <img src={url} alt="" className="size-full object-cover" />
-      ) : (
-        <Plus className="size-3.5" />
-      )}
-    </button>
+    <VariantsEditor
+      value={groups}
+      locale={locale}
+      density="compact"
+      photos={photos}
+      photoUrl={(id) => assetUrl(assets[id], 160)}
+      onPickPhoto={async (title) => {
+        const a = await media.pick({ title });
+        return a ? { id: a.id, alt: a.alt, ...(a.focal ? { fx: a.focal.x, fy: a.focal.y } : {}) } : null;
+      }}
+      onChange={(next, coalesce) =>
+        api.updateDoc((d) => {
+          d.product.variants = next;
+        }, coalesce ?? null)
+      }
+    />
   );
 }
 

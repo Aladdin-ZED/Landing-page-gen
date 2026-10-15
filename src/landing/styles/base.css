@@ -763,34 +763,36 @@
   overflow-wrap: break-word;
 }
 
-/* display sizes never outgrow a phone column (the vw ceiling only bites below ~400px) */
+/* display sizes never outgrow a phone column (the vw ceiling only bites below ~400px). --lp-fs-cap
+   (unset = no cap) lets a block hold its longest word: SectionHeader titles set it from the word
+   (--sh-word, §6), so one oversized display word eases down instead of running out of its column */
 :where(.lp-display-1) {
-  font-size: min(calc(var(--lp-step-6) * var(--lp-script-scale-display)), 16vw);
+  font-size: min(calc(var(--lp-step-6) * var(--lp-script-scale-display)), 16vw, var(--lp-fs-cap, 100vw));
   line-height: calc(var(--lp-display-lh) * 0.96);
   letter-spacing: calc(var(--lp-display-tracking) * 1.25);
 }
 
 :where(.lp-display-2) {
-  font-size: min(calc(var(--lp-step-5) * var(--lp-script-scale-display)), 13.5vw);
+  font-size: min(calc(var(--lp-step-5) * var(--lp-script-scale-display)), 13.5vw, var(--lp-fs-cap, 100vw));
   line-height: calc(var(--lp-display-lh) * 0.98);
   letter-spacing: calc(var(--lp-display-tracking) * 1.15);
 }
 
 :where(.lp-display-3) {
-  font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 11.5vw);
+  font-size: min(calc(var(--lp-step-4) * var(--lp-script-scale-display)), 11.5vw, var(--lp-fs-cap, 100vw));
 }
 
 :where(.lp-display-4) {
-  font-size: min(calc(var(--lp-step-3) * 1.08 * var(--lp-script-scale-display)), 10vw);
+  font-size: min(calc(var(--lp-step-3) * 1.08 * var(--lp-script-scale-display)), 10vw, var(--lp-fs-cap, 100vw));
 }
 
 :where(.lp-h1) {
-  font-size: min(calc(var(--lp-step-4) * 0.88 * var(--lp-script-scale-display)), 11vw);
+  font-size: min(calc(var(--lp-step-4) * 0.88 * var(--lp-script-scale-display)), 11vw, var(--lp-fs-cap, 100vw));
   line-height: calc(var(--lp-display-lh) + 0.03);
 }
 
 :where(.lp-h2) {
-  font-size: calc(var(--lp-step-3) * 0.94 * var(--lp-script-scale-display));
+  font-size: min(calc(var(--lp-step-3) * 0.94 * var(--lp-script-scale-display)), var(--lp-fs-cap, 100vw));
   line-height: calc(var(--lp-display-lh) + 0.06);
 }
 
@@ -1369,7 +1371,12 @@
   background: var(--mx-line);
 }
 
+/* --sh-word (SectionHeader, on the header): the title's longest unbreakable word in em of the display
+   face. The title's size is capped so that word always fits its column (heading classes read
+   --lp-fs-cap, §3): a giant condensed-caps "RÉCUPÉRATION" eases down a step instead of running past
+   the gutter on a phone. Without --sh-word the cap is far out of reach. */
 :where(.lp-sh__title) {
+  --lp-fs-cap: calc((100vw - 2 * var(--lp-gutter, 1rem)) * 0.98 / var(--sh-word, 0.01));
   max-inline-size: 17ch;
 }
 
@@ -1419,12 +1426,25 @@
   max-inline-size: 20ch;
 }
 
+/* split: title | lead side by side. The header is a size container (its width always comes from its
+   block parent), so the title column's real width — 1.3 / 2.3 of the header after the gap — caps
+   the title size: one oversized display word (kinetic / garage caps, a long French word) never runs
+   into the lead column, in any section. */
 @media (min-width: 56rem) {
   :where(.lp-sh--split) {
+    --sh-gap: clamp(2rem, 6vw, 6rem);
+    container-type: inline-size;
     max-inline-size: none;
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    column-gap: clamp(2rem, 6vw, 6rem);
+    column-gap: var(--sh-gap);
     align-items: end;
+  }
+
+  /* (guarded: an engine without container units would make the cap — and the title size — invalid) */
+  @supports (inline-size: 1cqi) {
+    :where(.lp-sh--split .lp-sh__title) {
+      --lp-fs-cap: calc((100cqi - var(--sh-gap)) * 0.55 / var(--sh-word, 0.01));
+    }
   }
 
   :where(.lp-sh--split .lp-sh__meta) {
@@ -2423,16 +2443,31 @@
   overflow: visible;
 }
 
+/* the fitted crop (src/lib/media/focus.ts): object-position x% y%, and for a fitted zoom
+   scale(zoom) about the same x% y% — one pair of fractions places the window and anchors the zoom,
+   so the zoomed window is exactly the one the fitter chose (and an engine without `scale` shows the
+   un-zoomed window, which contains it). The zoom rides on the individual `scale` property: a
+   section's own `transform` (a hover lift) composes with it. --pic-org is written for every fitted
+   crop, so any scale a section adds (a hover zoom) also grows from the subject, never pushing a head
+   out through the top edge. No fallback on purpose: without a zoom the property stays `none` (a
+   `scale: 1` would make every photo a stacking context and lift it over overlapping cards). */
 :where(.lp-pic__img) {
   display: block;
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
   object-position: var(--pic-pos, 50% 50%);
+  transform-origin: var(--pic-org, 50% 50%);
+  scale: var(--pic-zoom);
 }
 
 :where(.lp-pic--contain .lp-pic__img) {
   object-fit: contain;
+}
+
+/* a zoomed cutout (alpha) still crops to its frame: the scaled pixels never spill past the box */
+:where(.lp-pic--zoom.lp-pic--alpha) {
+  overflow: hidden;
 }
 
 /* missing asset: a calm tinted block with a centered image glyph */
@@ -4262,9 +4297,10 @@ main[tabindex="-1"]:focus {
   }
 }
 
+/* settles onto the picture's own fitted zoom (--pic-zoom), never past it */
 @keyframes lp-rv-zoom {
   from {
-    scale: 1.08;
+    scale: calc(var(--pic-zoom, 1) * 1.08);
   }
 }
 

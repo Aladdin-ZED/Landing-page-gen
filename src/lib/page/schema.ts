@@ -6,6 +6,7 @@
  * Shared, framework-free (safe in browser, server and web workers).
  */
 import { z } from "zod";
+import { PIXEL_ID_RE, PIXEL_LIMIT, type PixelPlatform } from "../pixels/ids";
 
 /* ------------------------------------------------------------------ */
 /* Primitives                                                          */
@@ -304,12 +305,27 @@ export type SectionInstance = z.infer<typeof SectionInstance>;
 /* Tracking / SEO / thank-you                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The ad pixel ids of one platform: 1…PIXEL_LIMIT ids, deduplicated. A single id string — how pages
+ * and the store setting stored it before multi-pixel support — reads as [id]; an empty list is
+ * "not set" (undefined), so `!!tracking.metaPixelId` keeps meaning "this platform is on".
+ */
+const pixelIds = (platform: PixelPlatform) => {
+  const id = z.string().regex(PIXEL_ID_RE[platform]);
+  return z
+    .union([id.transform((s) => [s]), z.array(id).max(PIXEL_LIMIT[platform])])
+    .transform((ids) => (ids.length ? [...new Set(ids)] : undefined))
+    .optional();
+};
+
+/** Ad pixels of a page (and of the store "pixels" setting): see src/lib/pixels. */
 export const Tracking = z.object({
-  metaPixelId: z.string().regex(/^[0-9]{6,20}$/).optional(),
-  tiktokPixelId: z.string().regex(/^[A-Z0-9]{8,30}$/).optional(),
-  snapPixelId: z.string().regex(/^[a-f0-9-]{20,40}$/).optional(),
-  ga4Id: z.string().regex(/^G-[A-Z0-9]{4,16}$/).optional(),
+  metaPixelId: pixelIds("meta"),
+  tiktokPixelId: pixelIds("tiktok"),
+  snapPixelId: pixelIds("snap"),
+  ga4Id: pixelIds("ga4"),
 });
+export type Tracking = z.infer<typeof Tracking>;
 
 export const Seo = z.object({
   title: z.string().max(70).optional(),

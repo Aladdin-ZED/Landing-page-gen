@@ -59,7 +59,11 @@ export interface LandingRuntimeConfig {
   /** fields the form asks for, and whether required */
   fields: { city: "select" | "text" | "hidden"; address: "required" | "optional" | "hidden"; email: "required" | "optional" | "hidden" };
   money: { locale: string; symbol: string; position: "before" | "after"; decimals: number };
-  pixels: { meta?: string; tiktok?: string; snap?: string; ga4?: string };
+  /**
+   * Ad pixel ids per platform (empty in previews). Lists since multi-pixel support; documents
+   * published before carry single strings — the runtime reads both (pixelIdList).
+   */
+  pixels: { meta?: string[]; tiktok?: string[]; snap?: string[]; ga4?: string[] };
   strings: Record<string, string>;
   whatsapp?: { number: string; text: string };
   /** optional anti-bot (Cloudflare Turnstile) site key */

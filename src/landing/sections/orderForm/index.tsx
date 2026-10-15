@@ -29,7 +29,7 @@ import { LETTERBOX, fitsCover } from "./fit";
 import { PackPicker, PackVisual, allFree, bestSaving, packsOf, type CardStyle, type Pack } from "./packs";
 import { Bump, CodChip, Fields, Head, OrderLine, Privacy, StepTitle, Submit, Summary, Trust, WhatsAppAlt } from "./parts";
 import { Plain } from "./text";
-import { VariantPickers } from "./variants";
+import { OptionsSummary, VariantPickers, optionGroups } from "./variants";
 
 const VARIANT_IDS = ["card", "split", "minimal", "bold"] as const;
 type Variant = (typeof VARIANT_IDS)[number];
@@ -115,7 +115,7 @@ function render({ id, variant, bg, data, ctx }: { id: string; variant: string; b
   const submitLabel = data.submitLabel.trim() || ctx.form.submitLabel?.trim() || ctx.t("form.submit");
   const reassurance = data.reassurance.trim() || ctx.form.reassurance?.trim() || ctx.t("form.reassurance");
   const style = ctx.offers.cardStyle as CardStyle;
-  const hasVariants = ctx.product.variants.some((g) => g.options.length > 0);
+  const hasVariants = optionGroups(ctx).length > 0;
   // bold: cards, option rows, add-on and summary are light sheets laid on the color slab
   const surface: SectionBg | undefined = v === "bold" ? "surface" : undefined;
 
@@ -171,6 +171,8 @@ function render({ id, variant, bg, data, ctx }: { id: string; variant: string; b
         <Bump ctx={ctx} surface={surface} />
         {data.showSummary ? (
           <Summary ctx={ctx} bundleId={pack.id} surface={surface} subtotal={!orderLine} className={v === "split" ? "lp-sum--inline" : undefined} />
+        ) : hasVariants ? (
+          <OptionsSummary ctx={ctx} as="line" />
         ) : null}
         <Submit ctx={ctx} label={submitLabel} reassurance={reassurance} total={total} />
         {data.showTrust ? <Trust ctx={ctx} /> : null}

@@ -53,6 +53,20 @@ export const OrderPayload = z.object({
 });
 export type OrderPayload = z.infer<typeof OrderPayload>;
 
+/**
+ * Field error key of one product option group, named like its form control: "v.<unit>.<groupId>"
+ * (per-unit group, 0-based unit) or "v.<groupId>" (one choice shared by every unit).
+ */
+export type VariantFieldKey = `v.${string}`;
+export const VARIANT_FIELD_RE = /^v\.(?:(\d{1,2})\.)?([A-Za-z0-9_-]{1,40})$/;
+/** Option error codes: nothing chosen · an option the group does not have · a sold-out option. */
+export type VariantError = "required" | "invalid" | "unavailable";
+
+/** Server field errors: the delivery fields, the pack, and one entry per product option group in error. */
+export type OrderFieldErrors = Partial<Record<"name" | "phone" | "city" | "address" | "email" | "bundleId", string>> & {
+  [k: VariantFieldKey]: string | undefined;
+};
+
 export type OrderResponse =
   | {
       ok: true;
@@ -65,8 +79,28 @@ export type OrderResponse =
   | {
       ok: false;
       error: "invalid" | "duplicate" | "rate_limited" | "blocked" | "unavailable" | "server";
-      fields?: Partial<Record<"name" | "phone" | "city" | "address" | "email" | "bundleId", string>>;
+      fields?: OrderFieldErrors;
     };
+
+/**
+ * The chosen product options of an order as one line for people — Google Sheets "Variante", the
+ * admin, the CSV export, WhatsApp and e-mail messages. A unit's choices are joined by "/" in group
+ * order and identical units are counted: "Noir/M", "2 × Noir/M", "Noir/M + Beige/L",
+ * "2 × Noir/M + Beige/L". `units` is OrderItems.variants (per unit: group name → option label).
+ * Mirrored by order.php (cod_variant_text) and the WhatsApp bridge (export/whatsapp.ts); the
+ * landing runtime groups the live summary the same way (runtime/variants.ts unitGroups).
+ */
+export function variantText(units: readonly Record<string, string>[] | null | undefined): string {
+  const counts = new Map<string, number>();
+  for (const unit of units ?? []) {
+    const text = Object.values(unit ?? {})
+      .map((v) => String(v ?? "").trim())
+      .filter(Boolean)
+      .join("/");
+    if (text) counts.set(text, (counts.get(text) ?? 0) + 1);
+  }
+  return Array.from(counts, ([text, n]) => (n > 1 ? `${n} × ${text}` : text)).join(" + ");
+}
 
 /** Abandoned-lead capture (sent once the phone becomes valid, debounced). */
 export const LeadPayload = z.object({

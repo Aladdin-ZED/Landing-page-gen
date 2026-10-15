@@ -168,7 +168,8 @@ export function RichText(props: RichTextProps): ReactNode {
   );
 }
 
-function renderNodes(nodes: readonly InlineNode[], state: RenderState, key: string): ReactNode[] {
+function renderNodes(source: readonly InlineNode[], state: RenderState, key: string): ReactNode[] {
+  const nodes = peelRunPunct(source, pageDir(state));
   // typography first (French no-break spaces before ":" etc. are part of the glued fragment)
   const typed = nodes.map((n, i) => {
     if (typeof n !== "string") return n;
@@ -245,6 +246,46 @@ function glueAround(nodes: readonly InlineNode[]): { text: Record<number, string
   return { text, lead, tail };
 }
 
+/**
+ * Sentence punctuation closing an emphasis that ends on a word written against the page direction
+ * ("رقّة الإطلالة: *Abaya de prière avec Dentelle.*" on an Arabic page) belongs to the page's
+ * sentence, not to the Latin run: inside the run's left-to-right box it would sit on the run's right,
+ * in the middle of the Arabic line. It moves out of the emphasis, right after it, where it travels
+ * with it as a glued tail and lands at the sentence's logical end — exactly where plain text and
+ * split headings put it ("*X*." already reads that way).
+ */
+function peelRunPunct(nodes: readonly InlineNode[], page: Dir): readonly InlineNode[] {
+  const other: WordClass = page === "rtl" ? "L" : "R";
+  let out: InlineNode[] | null = null;
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]!;
+    let peeled: { em: InlineNode; mark: string } | null = null;
+    if (typeof n !== "string" && n.t === "em") {
+      const last = n.c[n.c.length - 1];
+      const tail = typeof last === "string" ? last.trimEnd() : "";
+      const mark = RUN_PUNCT.exec(tail)?.[0] ?? "";
+      if (mark && mark.length < tail.length) {
+        const body = tail.slice(0, -mark.length);
+        const words = splitWords(body).filter((p) => !p.ws);
+        const lastWord = words[words.length - 1]?.v;
+        if (lastWord && wordClass(lastWord) === other) peeled = { em: { ...n, c: [...n.c.slice(0, -1), body] }, mark };
+      }
+    }
+    if (!peeled) {
+      out?.push(n);
+      continue;
+    }
+    out ??= nodes.slice(0, i);
+    out.push(peeled.em);
+    const next = nodes[i + 1];
+    if (typeof next === "string") {
+      out.push(peeled.mark + next);
+      i++;
+    } else out.push(peeled.mark);
+  }
+  return out ?? nodes;
+}
+
 /* ------------------------------------------------------------------ */
 /* Numeric isolation & word splitting                                  */
 /* ------------------------------------------------------------------ */
@@ -268,7 +309,38 @@ const NEEDS_ISOLATION = /[+\-\u2212\u2010-\u2015/:\u00D7%]|\d[ \u00A0\u202F]\d/;
  */
 function glueNumbers(s: string): string {
   if (!/\d/.test(s) || !s.includes(" ")) return s;
-  return s.replace(NUMERIC, (m) => (NEEDS_ISOLATION.test(m) ? m.replace(/ (?=\S)/g, " ") : m));
+  return s
+    .replace(NUMERIC, (m) => (NEEDS_ISOLATION.test(m) ? m.replace(/ (?=\S)/g, "\u00A0") : m))
+    .replace(RANGE, (m) => (m.includes(" ") ? m.replace(/ /g, "\u00A0") : m));
+}
+
+/**
+ * A numeric range with its short units ("24–48h", "24 – 48 h", "24 h – 48 h", "24h–48h", "3–5 j"):
+ * glueNumbers turns its spaces into no-break spaces (one word: a split heading never separates
+ * "24" from "h – 48"), and on a left-to-right page protectRanges sets it unbreakable — a line may
+ * break right after an en dash, even before a no-break space (UAX #14 LB12a). A unit is a whole
+ * short word: "3–5 jours" may still wrap before "jours".
+ */
+const RANGE = /\d[\d.,]*(?:[ \u00A0\u202F]?\p{L}{1,3}(?!\p{L}))?[ \u00A0\u202F]?[\u2010-\u2015][ \u00A0\u202F]?\d[\d.,]*(?:[ \u00A0\u202F]?\p{L}{1,3}(?!\p{L}))?/gu;
+
+function protectRanges(s: string, key: string): ReactNode {
+  if (!/\d[^\d]{0,5}[‐-―]/u.test(s)) return s;
+  const out: ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  for (const m of s.matchAll(RANGE)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push(s.slice(last, at));
+    out.push(
+      <span key={`${key}.r${i++}`} className="lp-nobr">
+        {m[0]}
+      </span>,
+    );
+    last = at + m[0].length;
+  }
+  if (!out.length) return s;
+  if (last < s.length) out.push(s.slice(last));
+  return out;
 }
 
 function isolateNumbers(s: string, key: string): ReactNode {
@@ -334,7 +406,7 @@ function typeset(s: string, locale: string): string {
 /** A plain text run: typography, glued numbers, then (RTL) isolates, then (split) one .lp-word per word. */
 function renderText(raw: string, state: RenderState, key: string): ReactNode {
   const s = glueNumbers(typeset(raw, state.locale));
-  const piece = (v: string, k: string) => (state.rtl ? isolateNumbers(v, k) : v);
+  const piece = (v: string, k: string) => (state.rtl ? isolateNumbers(v, k) : protectRanges(v, k));
   if (!state.split) return piece(s, key);
   const parts = splitWords(s);
   const box = (v: string, k: string) => (

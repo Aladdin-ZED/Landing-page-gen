@@ -2,6 +2,7 @@
  * Thank-you page (config.page === "thanks"):
  *  - fills [data-ty="name|orderId|total|items"] from sessionStorage "lp-order" (only when it matches
  *    ?o=<orderId>); server-rendered fallback text stays when there is nothing to show,
+ *  - draws the chosen product options into [data-ty="options"] (like the form's live summary),
  *  - sets <html data-ty-state="filled|partial|empty"> for CSS,
  *  - emits the Purchase pixel event once per orderId,
  *  - runs the one-click upsell ([data-ty-upsell] with [data-ty-upsell-accept|decline], its
@@ -14,6 +15,7 @@ import { formatMoney } from "./money";
 import type { OrderRecord } from "./order-store";
 import { ORDER_ID_RE, readOrder, writeOrder } from "./order-store";
 import { str } from "./strings";
+import { drawSummary } from "./variants";
 
 const fired: Record<string, true> = {};
 
@@ -131,6 +133,7 @@ export function thankyou(c: Ctx): void {
     const v = values.get(el.getAttribute("data-ty") || "");
     if (v) setText(el, v);
   }
+  if (rec && rec.options) for (const el of $$(doc, '[data-ty="options"]')) drawSummary(doc, el, rec.options);
 
   if (rec && !c.preview) purchaseOnce(c, rec);
   upsell(c, rec);

@@ -126,6 +126,14 @@ breaks and `- ` bullets (`ul.lp-rt__list`). Never `dangerouslySetInnerHTML`.
   mixed emphasis the run is `<bdi class="lp-em__run" dir="ltr">` and the stroke keeps flowing with
   the page (its slices are dealt in visual order); in a `split` heading the run's `.lp-word` boxes sit
   in a `<bdi dir="ltr">`. Digits right after a Latin word stay with it ("Abaya 2 en 1").
+  Sentence punctuation closing such a run belongs to the page's sentence: it is set outside the run
+  (also when it was typed inside the emphasis, `*Abaya de prière.*`), glued to its last word, so on
+  an Arabic page it lands at the logical end of the line, exactly where plain text puts it.
+- **Numeric ranges never break**: on RTL pages they are isolated (`<bdi dir="ltr" class="lp-nobr">`);
+  on LTR pages a range (`24–48h`, `24 – 48 h`, `24h–48h`, `3–5 jours`) is a `span.lp-nobr` from its
+  first digit to the number after the dash and its short unit (`48 h`) — a line may otherwise break
+  right after an en dash. Its spaces become no-break spaces first, so a split heading keeps the whole
+  range in one word box.
 - `split` (inline mode) wraps each word in `.lp-word` (`--wi` index) and marks the element
   `.lp-split`: its reveal then cascades word by word (blur-to-sharp / rise / wipe, 55 ms apart).
 - `parseInline`, `parseBlocks`, `inlineText`, `plainText(src)` (markup stripped — alt text, aria, meta).
@@ -134,6 +142,10 @@ breaks and `- ` bullets (`ul.lp-rt__list`). Never `dangerouslySetInnerHTML`.
 Meta row (tabular `number` · slim divider · kicker), big balanced title (`lp-h2`/`lp-h1`/`lp-display-3`,
 `text-wrap: balance`, ~17ch measure), lead at ≤ 36rem in `--sec-ink-soft`, `children` under the lead.
 Edit paths `${editBase}.kicker|title|lead`. `TITLE_REVEAL[archetype]` is the default title entrance.
+**Long words**: the header writes `--sh-word` (the title's longest unbreakable word, in em of the
+display face — `longestWordEm(ctx, title)`), and base.css caps the title size through `--lp-fs-cap`
+so that word always fits: the phone column, and in `split` the title column itself (the split
+header is a size container), so an oversized display word never runs into the lead.
 **Hero / LCP heading: pass `animate={false}`** (never hidden).
 
 ### `Kicker({ ctx, text, ornament?, look?: "auto"|"pill"|"label", as?, className?, editPath?, reveal?, delay? })`
@@ -147,7 +159,7 @@ Auto glyphs carry `data-auto`. `ORNAMENT_BY_ARCHETYPE`, `ORNAMENTS`.
 
 ## Media
 
-### `Picture({ asset, sizes, priority?, className?, imgClassName?, alt?, fit?: "cover"|"contain", ratio?, position?, mask? })`
+### `Picture({ asset, sizes, priority?, className?, imgClassName?, alt?, fit?: "cover"|"contain", ratio?, position?, positionLg?, mask?, frame?, frameLg?, frameMin? })`
 AVIF/WebP `<picture>`, intrinsic size (no CLS), lazy unless `priority` (eager + `fetchpriority=high`),
 dominant-color placeholder; a missing asset renders a calm tinted block. `mask`:
 `"page"` (theme mask) · `"arch" | "circle" | "pill" | "rounded" | "blob"` (= classes `.lp-mask`,
@@ -168,9 +180,20 @@ resolved asset carries it (`asset.focal / subject / keep / subjectKind / aspect 
 - Thumbnails (`ratio` + `sizes` ≤ 8rem) frame tightly by default: a product fills the box, a person
   becomes a head-and-shoulders bust.
 - `frameLg` = art direction (e.g. `frame="portrait" frameLg="landscape"`): `--pic-pos` switches at
-  `frameMin` in pure CSS (a viewport `clamp()`), no extra stylesheet.
-- Zoom is written as `--pic-zoom` + `--pic-org` (scale and its origin, consumed by base.css); the
-  position alone is already safe where the zoom is ignored (the plain window contains the zoomed one).
+  `frameMin` in pure CSS (a viewport `clamp()`), no extra stylesheet. `positionLg="x% y%"` does the
+  same by hand (below `frameMin`: `position`, else the frame's crop).
+- **The fitted crop is drawn exactly as focus.ts models it**: `object-position: x% y%` (`--pic-pos`)
+  plus, for a fitted zoom, `scale: var(--pic-zoom)` about `transform-origin: x% y%` (`--pic-org`,
+  class `lp-pic--zoom`). The zoom rides on the individual `scale` property, so a section's
+  `transform` composes with it; the reveal zoom (`mask-arch` / `wipe-up`) settles onto it. A section
+  that scales the image itself must multiply: `scale: calc(var(--pic-zoom, 1) * 1.04)` — a plain
+  `scale: 1.04` replaces the fitted zoom. `--pic-org` is written for every fitted crop and every
+  plain position, so hover zooms grow from the subject. Engines without `scale` show the plain
+  window, which contains the zoomed one.
+- The zoom is exact only for the frame it was fitted to: `frame` / `ratio` must be the box the CSS
+  really draws at every width. A section that reshapes the box per breakpoint passes `frameLg` +
+  `frameMin` (positions only) or `maxZoom: 1` — a zoom fitted for 4:5 cuts the top of a product shown
+  in a square.
 - Overlays on a fitted photo: `pictureCrop(asset, props)` (the crop Picture applies),
   `frameRegions(asset, frameRatio, crop)` (heads / hands / subject in frame fractions) and
   `quietCorner(asset, frameRatio, { crop, chip, dir })` (the logical corner where a chip covers no face).
@@ -184,7 +207,7 @@ adds concentric rings with an orbiting bead (`rings` adds them to any stage); `s
 the archetype range; `blob` morphs slowly; `podium` stands on a lit cylinder (niche backdrop for soft
 archetypes); `frame` is a frosted glass panel. Regular photos become large masked media with a soft
 shadow (arch window, centered circle + rings, tilted slab, blob, glass mat), each fitted subject-first
-to its exact window (`PHOTO_WINDOW`: mask + aspect per stage, mirrored from base.css §12). A cutout's
+to its exact window. A cutout's
 contact shadow follows its measured footprint (`asset.foot`: a gun on its narrow handle, a jar on its
 full base).
 `children` → `.lp-stage__over` (give children absolute positions). The over layer is not a
@@ -192,6 +215,12 @@ stacking context: its children layer inside the stage's own — `z-index: 1` by 
 product), while a child at `z-index: -1` (a giant word) slides between the set (`-2`) and the
 product. `priority` = hero: eager image, product never hidden by a reveal.
 `resolveProductVisual(ctx, asset?)` → `{ asset, kind: "cutout"|"photo"|"empty" }`.
+**Stage geometry** (shared with sections — never mirror the numbers):
+`stagePhotoFrame(stage, R)` → `{ shape, ratio, box, inset }`: the window a regular photo is shown in
+on a stage of aspect `R` (mask shape for the fitter, the window's aspect, its box in stage fractions —
+the halo disc centred, the frame's glass mat included). Place callouts over a stage photo with
+`frameRegions(asset, f.ratio, pictureCrop(asset, { frame: { shape: f.shape, ratio: f.ratio } }))` mapped
+into `f.box`. `stageCutoutBox(stage)` → the box a cutout stands in (bottom-aligned, contained).
 
 ## Commerce
 

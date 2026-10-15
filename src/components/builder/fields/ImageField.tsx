@@ -27,10 +27,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { parseFocus } from "@/lib/media/focus";
+import { parseFocus, type AssetFocus } from "@/lib/media/focus";
 import type { AssetRef } from "@/lib/page/schema";
 import { cn } from "@/lib/utils";
-import { useEditor } from "../context";
+import { useEditor, useEditorApi } from "../context";
 import { assetUrl, useEnv } from "../env";
 import { useMedia } from "../media";
 import { FieldRow } from "../ui";
@@ -55,6 +55,23 @@ function useAssetRow(id: string | undefined) {
 }
 
 /**
+ * Canvas parity: the crop data the picker loads may be newer than the editor's row (an image
+ * uploaded before the subject analysis is analysed — and stored — on its first view). The row takes
+ * it over, so the canvas fits frames exactly like the next publish, which reads the stored row.
+ */
+function useRowFocusSync(row: ReturnType<typeof useAssetRow>, focus: AssetFocus | null | undefined) {
+  const { addAssets } = useEditorApi();
+  useEffect(() => {
+    // network JSON: validated like every other focus the renderer reads
+    const next = row && row.kind !== "video" ? parseFocus(focus) : null;
+    if (!row || !next) return;
+    const current = parseFocus((row as { focus?: unknown }).focus);
+    if (current && JSON.stringify(current) === JSON.stringify(next)) return;
+    addAssets([{ ...row, focus: next }]);
+  }, [addAssets, row, focus]);
+}
+
+/**
  * A square thumbnail cropped the way pages crop a square frame. Uses the analysis carried by the
  * asset row when the editor has it, else the crop data loaded for the picker (`fetch`).
  */
@@ -63,6 +80,7 @@ function useThumbCrop(ref: AssetRef | null, fetch: boolean) {
   const rowFocus = row ? parseFocus((row as { focus?: unknown }).focus) : null;
   const image = !!row && row.kind !== "video" && !row.alpha;
   const { info } = useFocalInfo(image && fetch && !rowFocus ? ref?.id : null);
+  useRowFocusSync(row, info?.focus);
   if (!ref || !row || !image) return undefined;
   const focus = rowFocus ?? info?.focus ?? null;
   return cropStyle(previewCrop("rounded", row.width / Math.max(1, row.height), focus, refFocal(ref), false));
@@ -120,6 +138,7 @@ export function ImageField({
   const isVideo = row?.kind === "video";
   const framable = !!ref && !!row && !isVideo && accept === "image";
   const { info, loading } = useFocalInfo(framable && !compact ? ref.id : null);
+  useRowFocusSync(row, info?.focus);
   const [framing, setFraming] = useState(false);
   const focal = refFocal(ref);
   const thumbCrop = useThumbCrop(compact ? ref : null, true);

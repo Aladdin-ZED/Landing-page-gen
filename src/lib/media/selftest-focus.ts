@@ -16,7 +16,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Picture } from "@/landing/primitives/Picture";
 import type { ResolvedAsset } from "@/landing/types";
-import { FOCUS_VERSION, fitFrame, framePointOf, parseFocus, robustCrop, type AssetFocus, type Box, type Crop, type CropSubject, type FrameShape } from "./focus";
+import { FOCUS_VERSION, cropCost, fitFrame, framePointOf, parseFocus, robustCrop, type AssetFocus, type Box, type Crop, type CropSubject, type FrameShape } from "./focus";
 import { analyzeRgba } from "./focus-analyze";
 
 let failures = 0;
@@ -151,6 +151,41 @@ async function main(): Promise<void> {
       }
   }
   check(`frame cases exercised (${tested})`, tested > 120, String(tested));
+
+  section("3a. fitFrame — never slice one face to save another");
+  {
+    // the face inside a head box (independent of the fitter's own faceCore): middle 60 % across,
+    // from ~0.28 of the box height (below the veil / hair) to ~0.95
+    const core = (b: Box): Box => ({ x: b.x + b.w * 0.2, y: b.y + b.h * 0.28, w: b.w * 0.6, h: b.h * 0.67 });
+    const n = subjectOf(NAVY, 1214 / 1295);
+    const heads = NAVY.keep!.filter((k) => k.k === "head").map((k) => k.b);
+    for (const shape of ["rect", "rounded", "pill"] as FrameShape[])
+      for (const F of [1.9, 2, 2.15, 2.4, 3])
+        for (const maxZoom of [1, 1.18]) {
+          const c = fitFrame(n, { shape, ratio: F, maxZoom });
+          const faces = heads.map((b) => headShown(n.aspect, shape, F, c, core(b)));
+          const sliced = faces.filter((f) => f > 0 && f < 1).length;
+          check(`navy ${shape} ${F.toFixed(2)} z≤${maxZoom}: every face whole or fully out`, sliced === 0, `faces ${faces.map((f) => f.toFixed(2)).join("/")} at ${JSON.stringify(c)}`);
+          check(`navy ${shape} ${F.toFixed(2)} z≤${maxZoom}: at least one face whole`, faces.some((f) => f === 1), `faces ${faces.map((f) => f.toFixed(2)).join("/")}`);
+          // a head left out is left out entirely: no crown, veil or chin peeking in at the edge
+          const peeks = heads.filter((b, i) => faces[i] === 0 && headShown(n.aspect, shape, F, c, b) > 0).length;
+          check(`navy ${shape} ${F.toFixed(2)} z≤${maxZoom}: no head peeks in with its face out`, peeks === 0, `heads ${heads.map((b) => headShown(n.aspect, shape, F, c, b).toFixed(2)).join("/")} faces ${faces.map((f) => f.toFixed(2)).join("/")}`);
+        }
+    // the objective itself: a 1:2 portrait frame crops the photo across only, the mother's head whole in
+    // every window below; the left edge moves right to left over the child's head:
+    // child fully out < the veil's side in, face out < face half cut
+    const o = { tight: false, zoomable: false };
+    const F = 0.5;
+    const vw = F / n.aspect;
+    const [mother, child] = [heads[0]!, heads[1]!];
+    const childFace = core(child);
+    const at = (left: number) => cropCost(n, "rect", F, (left / (1 - vw)), 0.5, 1, o);
+    const lefts = { out: child.x + child.w + 0.005, veil: childFace.x + childFace.w + (child.x + child.w - childFace.x - childFace.w) * 0.4, cut: childFace.x + childFace.w / 2 };
+    check("objective setup: the mother's head is whole in every window", Object.values(lefts).every((l) => l <= mother.x && l + vw >= mother.x + mother.w), JSON.stringify(lefts));
+    const [out, veil, cut] = [at(lefts.out), at(lefts.veil), at(lefts.cut)];
+    check("cropCost: a head peeking in (face out) costs more than the second head fully excluded", veil > out, `veil ${veil.toFixed(0)} vs out ${out.toFixed(0)}`);
+    check("cropCost: a half-cut second face costs more than a head peeking in", cut > veil, `cut ${cut.toFixed(0)} vs veil ${veil.toFixed(0)}`);
+  }
 
   section("3b. fitFrame — windows, products, thumbs, merchant, contain");
   {

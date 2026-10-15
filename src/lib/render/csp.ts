@@ -2,8 +2,10 @@
  * Hash-based strict Content-Security-Policy for rendered landing / thank-you documents.
  * Pure and isomorphic; the hashes come from the exact inline <script>/<style> texts of the document.
  *
- *  script-src      'sha256-<runtime>' 'strict-dynamic' https:   (CSP3: only the hashed runtime + what it
- *                                                                loads — the pixel loaders; CSP2: https:)
+ *  script-src      'sha256-<runtime>' 'strict-dynamic' + hosts  (CSP3: only the hashed runtime + what it
+ *                                                                loads — the pixel loaders; CSP2 browsers,
+ *                                                                which ignore 'strict-dynamic', get the
+ *                                                                configured platforms' script hosts only)
  *  style-src-elem  'sha256-<style>'                              (the single inlined stylesheet)
  *  style-src-attr  'unsafe-inline'                               (style attributes carry ONLY CSS custom
  *                                                                properties such as --rot / --pos; all text
@@ -53,26 +55,38 @@ export interface LandingCspInput {
 }
 
 interface PixelHosts {
+  /** where the loader and its own sub-scripts come from (CSP2 fallback; CSP3 uses 'strict-dynamic') */
+  script: readonly string[];
   img: readonly string[];
   connect: readonly string[];
 }
 
-/** Hosts each ad pixel talks to besides its script (scripts are trusted through 'strict-dynamic'). */
+/**
+ * Hosts of each ad pixel — its scripts, its image beacons and its fetch/sendBeacon endpoints. Only
+ * the platforms a document actually configures are added (PixelFlags).
+ */
 export const PIXEL_HOSTS: Record<keyof PixelFlags, PixelHosts> = {
+  // fbevents.js + signals/config/<id> scripts; events: www.facebook.com/tr (image, beacon or fetch)
   meta: {
+    script: ["https://connect.facebook.net"],
     img: ["https://www.facebook.com"],
     connect: ["https://www.facebook.com", "https://connect.facebook.net"],
   },
+  // events.js + its main/config chunks; events: analytics.tiktok.com/api/v2/pixel
   tiktok: {
+    script: ["https://analytics.tiktok.com"],
     img: ["https://analytics.tiktok.com"],
     connect: ["https://analytics.tiktok.com"],
   },
+  // scevent.min.js; events: tr.snapchat.com/p (tr-shadow mirrors it)
   snap: {
+    script: ["https://sc-static.net"],
     img: ["https://tr.snapchat.com", "https://tr-shadow.snapchat.com", "https://sc-static.net"],
     connect: ["https://tr.snapchat.com", "https://tr-shadow.snapchat.com", "https://sc-static.net"],
   },
   // Google's documented GA4 policy (+ *.g.doubleclick.net, used when Google Signals is on)
   ga4: {
+    script: ["https://*.googletagmanager.com"],
     img: ["https://*.googletagmanager.com", "https://*.google-analytics.com", "https://*.g.doubleclick.net"],
     connect: [
       "https://*.googletagmanager.com",
@@ -117,18 +131,25 @@ export function buildLandingCsp(input: LandingCspInput): string {
   const styles = quoteHashes(input.styleHashes);
   const img = new Set<string>(["'self'", "data:"]);
   const connect = new Set<string>(["'self'"]);
+  const scriptHosts = new Set<string>();
   for (const key of Object.keys(PIXEL_HOSTS) as (keyof PixelFlags)[]) {
     if (!input.pixels[key]) continue;
+    for (const h of PIXEL_HOSTS[key].script) scriptHosts.add(h);
     for (const h of PIXEL_HOSTS[key].img) img.add(h);
     for (const h of PIXEL_HOSTS[key].connect) connect.add(h);
   }
   const api = [...new Set((input.apiOrigins ?? []).filter((o) => ORIGIN.test(o)))].map(publicApiSource);
   for (const s of api) connect.add(s);
-  if (input.turnstile) connect.add(TURNSTILE_ORIGIN);
+  if (input.turnstile) {
+    connect.add(TURNSTILE_ORIGIN);
+    scriptHosts.add(TURNSTILE_ORIGIN);
+  }
 
   const directives: [string, readonly string[]][] = [
     ["default-src", ["'self'"]],
-    ["script-src", scripts.length ? [...scripts, "'strict-dynamic'", "https:"] : ["'none'"]],
+    // 'strict-dynamic' (CSP3) ignores the host list; CSP2 browsers fall back to it — only the
+    // configured vendors' script hosts, never a blanket https:
+    ["script-src", scripts.length ? [...scripts, "'strict-dynamic'", ...scriptHosts] : ["'none'"]],
     ["style-src", ["'self'", "'unsafe-inline'"]],
     ["style-src-elem", styles.length ? styles : ["'none'"]],
     ["style-src-attr", ["'unsafe-inline'"]],

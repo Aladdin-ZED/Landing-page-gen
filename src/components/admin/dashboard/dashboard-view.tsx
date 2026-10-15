@@ -5,6 +5,7 @@ import type { DashboardData } from "@/lib/admin-data/dashboard";
 import { EmptyState } from "../common/empty-state";
 import { PageHeader } from "../common/page-header";
 import { Screen } from "../common/screen";
+import { StorageNotice } from "../common/storage-notice";
 import { KpiCard } from "./kpi-card";
 import { Pipeline, RecentOrders, TopPages } from "./lists";
 import { OrdersChart } from "./orders-chart";
@@ -64,7 +65,10 @@ export function DashboardView({
             )}
           </>
         }
-      />
+      >
+        {/* from 70 % of the plan's database limit on: past it the host stops every write, orders included */}
+        {data.storage && data.storage.level !== "ok" ? <StorageNotice usage={data.storage} showLink /> : undefined}
+      </PageHeader>
 
       {firstRun ? (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">

@@ -9,9 +9,12 @@
  *     exclamation mark, one *emphasis* at most per headline;
  *   - without a WhatsApp number no line names WhatsApp; with one, the lines may;
  *   - no "your copy awaits" / "I want it" calls to action, and modest pages use the calm voice;
- *   - French typography: no-break space before ? ! : ; and typographic apostrophes.
+ *   - French typography: no-break space before ? ! : ; and typographic apostrophes;
+ *   - icons: no jewel icon on a lace / embroidery benefit; the announcement and guarantee lines get
+ *     distinct icons from the generator (copy-map iconsForLines).
  * Exits 1 on any failure.
  */
+import { iconsForLines, TEXTILE_ORNAMENT } from "@/lib/generator/copy-map";
 import { PRODUCT_CATEGORIES, type Locale, type ProductCategory } from "@/lib/page/schema";
 import { PageCopy } from "../copy-schema";
 import { copyFamily, fill, libraryCopy, libraryFor, typeset, FACETS, FAMILIES, WORD_FAMILIES, type Facet, type Family } from "./index";
@@ -128,6 +131,13 @@ const run = (label: string, category: ProductCategory, name: string, locale: Loc
   }
   if (label.includes("girls")) check(/fille|daughter|ابنتي/.test(JSON.stringify(c.faq.items)), `${where}: no girls' size question`);
   if (label.includes("lace")) check(c.benefits.items.some((b) => /dentelle|lace|دانتيل/i.test(b.title)), `${where}: no lace benefit`);
+  // lace and embroidery are a textile motif: never the jewel icon
+  for (const b of c.benefits.items) check(!(b.icon === "gem" && TEXTILE_ORNAMENT.test(`${b.title} ${b.text}`)), `${where}: gem icon on a textile benefit ("${b.title}")`);
+  // the reassurance lists show each icon once (the generator assigns them: two cash icons side by side read as a glitch)
+  for (const [list, lines] of [["announcement", c.announcement], ["guarantee", c.guarantee.lines]] as const) {
+    const icons = iconsForLines(lines);
+    if (lines.length <= 4) check(new Set(icons).size === icons.length, `${where}: repeated ${list} icon (${icons.join(", ")})`);
+  }
   check((c.hero.kicker.match(/prière|prayer|صلاة/giu) ?? []).length <= 1, `${where}: the kicker repeats the name ("${c.hero.kicker}")`);
   if (label.includes("prayer")) check(c.benefits.items.some((b) => /mouvement|movement|حركة/.test(b.title)), `${where}: no prayer-comfort benefit`);
 };

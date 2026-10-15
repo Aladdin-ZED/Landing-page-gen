@@ -1,0 +1,7 @@
+# Hostinger builds on Linux: keep LF line endings in the repository
+* text=auto eol=lf
+*.woff2 binary
+*.webp binary
+*.png binary
+*.jpg binary
+*.ico binary

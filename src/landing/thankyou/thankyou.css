@@ -431,6 +431,45 @@ html[data-ty-state="filled"] .lp-ty__row[data-need-order] {
   text-align: end;
 }
 
+/* the chosen options, drawn like the order form's summary: "● Noir / M + ● Beige / L" */
+html[data-ty-state="filled"] .lp-ty__row--opts:has(> dd:empty) {
+  display: none;
+}
+
+.lp-ty__row--opts dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem 0.45rem;
+  min-inline-size: 0;
+}
+
+.lp-ty__row--opts .lp-vsum__u {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.lp-ty__row--opts :is(.lp-vsum__sep, .lp-vsum__plus) {
+  font-weight: 400;
+  opacity: 0.55;
+}
+
+.lp-ty__row--opts .lp-vsum__n {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.lp-ty__row--opts .lp-vsum__dot {
+  flex: none;
+  inline-size: 0.72em;
+  block-size: 0.72em;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 24%, transparent);
+}
+
 .lp-ty__row--total dd {
   font-family: var(--lp-font-display);
   font-weight: var(--lp-display-weight);

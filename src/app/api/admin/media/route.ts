@@ -9,15 +9,18 @@
  *
  * This route is outside the proxy matcher, so the proxy never buffers a copy of the (≤ 25 MB) upload
  * body. Every handler therefore starts with the admin gate itself and answers exactly like the proxy
- * would for an un-gated request (the public 404). Uploads then need a Content-Length, take an
- * in-flight slot BEFORE reading the body (per user and per process), and read it into one buffer.
+ * would for an un-gated request (the public 404), including the methods Next would otherwise answer
+ * itself (OPTIONS with an Allow list, PUT/PATCH with 405). Uploads take an in-flight slot BEFORE
+ * reading the body (per user and per process) and read it into one buffer: sized by Content-Length,
+ * or streamed under MAX_BODY when a proxy forwards it chunked. They are refused while the database
+ * is close to the plan's size limit (lib/db/usage), so orders keep the remaining space.
  */
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { livePagesUsing } from "@/lib/admin-data/assets";
 import { audit } from "@/lib/audit";
 import { hasAdminAccess } from "@/lib/auth";
-import { UNKNOWN_PAGE_HEADERS, UNKNOWN_PAGE_HTML } from "@/lib/auth/unknown-page";
+import { unknownPageResponse } from "@/lib/auth/unknown-page";
 import {
   ASSET_ID_RE,
   assetToJson,
@@ -28,7 +31,8 @@ import {
   MediaError,
   processUpload,
 } from "@/lib/media";
-import { declaredLength, multipartBoundary, parseMultipart, readExactBody } from "@/lib/media/upload-body";
+import { getDbUsage, invalidateDbUsage } from "@/lib/db/usage";
+import { declaredLength, multipartBoundary, parseMultipart, readCappedBody, readExactBody } from "@/lib/media/upload-body";
 import { takeUploadSlot } from "@/lib/media/upload-slots";
 import { adminGuard, json, logError } from "@/lib/orders/http";
 import { rateLimit } from "@/lib/security/rate-limit";
@@ -40,8 +44,23 @@ const MAX_BODY = MAX_FILE + 256 * 1024;
 
 /** The proxy's answer to un-gated admin requests: the public not-found page (HTML for GET only). */
 async function hiddenUnlessGated(req: NextRequest): Promise<Response | null> {
-  if (await hasAdminAccess()) return null;
-  return new Response(req.method === "GET" ? UNKNOWN_PAGE_HTML : null, { status: 404, headers: UNKNOWN_PAGE_HEADERS });
+  return (await hasAdminAccess()) ? null : unknownPageResponse(req.method);
+}
+
+/*
+ * Methods this route doesn't serve. Left to Next, they would answer un-gated requests too (OPTIONS 204
+ * with an Allow list, PUT/PATCH 405) and so confirm the route exists: un-gated, they get the same 404
+ * as every other method.
+ */
+const ALLOW = { Allow: "DELETE, GET, HEAD, OPTIONS, POST" };
+export async function OPTIONS(req: NextRequest): Promise<Response> {
+  return (await hiddenUnlessGated(req)) ?? new Response(null, { status: 204, headers: ALLOW });
+}
+export async function PUT(req: NextRequest): Promise<Response> {
+  return (await hiddenUnlessGated(req)) ?? new Response(null, { status: 405, headers: ALLOW });
+}
+export async function PATCH(req: NextRequest): Promise<Response> {
+  return (await hiddenUnlessGated(req)) ?? new Response(null, { status: 405, headers: ALLOW });
 }
 
 const tooLarge = () => json({ ok: false, error: "too_large", message: new MediaError("too_large").message }, 413);
@@ -81,9 +100,21 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const boundary = multipartBoundary(req.headers.get("content-type"));
   if (!boundary) return json({ ok: false, error: "unsupported_media_type" }, 415);
+  // null: sent without Content-Length (chunked), read under the MAX_BODY cap instead
   const length = declaredLength(req.headers);
-  if (length === null) return json({ ok: false, error: "length_required", message: "Upload size missing. Please try again." }, 411);
-  if (length > MAX_BODY) return tooLarge();
+  if (length !== null && length > MAX_BODY) return tooLarge();
+  const storage = await getDbUsage();
+  if (storage?.level === "full") {
+    const used = Math.min(100, Math.round(storage.ratio * 100));
+    return json(
+      {
+        ok: false,
+        error: "storage_full",
+        message: `The database is ${used}% full. Delete videos or photos you no longer use, then upload again: the remaining space is kept for orders.`,
+      },
+      507,
+    );
+  }
 
   const slot = takeUploadSlot(g.user.id);
   if (!slot.ok) return slot.scope === "user" ? busy(429, 10) : busy(503, 10);
@@ -97,9 +128,12 @@ export async function POST(req: NextRequest): Promise<Response> {
 }
 
 /** Read, parse and process one upload (inside an upload slot). */
-async function receive(req: NextRequest, boundary: string, length: number, userId: string, ip: string): Promise<Response> {
-  const body = await readExactBody(req.body, length);
-  if (!body.ok) return json({ ok: false, error: "invalid", message: "The upload was interrupted. Please try again." }, body.status);
+async function receive(req: NextRequest, boundary: string, length: number | null, userId: string, ip: string): Promise<Response> {
+  const body = length === null ? await readCappedBody(req.body, MAX_BODY) : await readExactBody(req.body, length);
+  if (!body.ok) {
+    if (body.status === 413) return tooLarge();
+    return json({ ok: false, error: "invalid", message: "The upload was interrupted. Please try again." }, body.status);
+  }
   const form = parseMultipart(body.value, boundary);
   if (!form) return json({ ok: false, error: "invalid" }, 400);
   const file = form.file;
@@ -118,6 +152,7 @@ async function receive(req: NextRequest, boundary: string, length: number, userI
       createdBy: userId,
     });
     if (!deduped) {
+      invalidateDbUsage();
       await audit("media.uploaded", {
         userId,
         target: asset.id,
@@ -161,6 +196,7 @@ export async function DELETE(req: NextRequest): Promise<Response> {
     }
     const deleted = await deleteAsset(id);
     if (!deleted) return json({ ok: false, error: "not_found" }, 404);
+    invalidateDbUsage();
     await audit("media.deleted", {
       userId: g.user.id,
       target: id,

@@ -70,6 +70,61 @@ export function formCopy(locale: Locale, productName: string, rng: () => number)
   };
 }
 
+/** A group name inside a sentence: "Couleur" → "couleur" (acronyms such as "EU" or "XL" are kept). */
+function inSentence(locale: Locale, name: string): string {
+  const n = name.trim();
+  if (locale === "ar" || locale === "de") return n;
+  return /^\p{Lu}\p{Ll}/u.test(n) ? n.charAt(0).toLocaleLowerCase(locale) + n.slice(1) : n;
+}
+
+/**
+ * Microcopy of the product option pickers (variants.tsx). Messages are written into the markup
+ * (data-msg on each group), so the runtime shows them without any i18n of its own.
+ */
+export function optionLabels(locale: Locale) {
+  return {
+    /** unit row of a multi-unit pack: "Pièce 2" ({n} is filled by the runtime in its template row) */
+    unit: (n: number | string) =>
+      inLocale(locale, { ar: `القطعة ${n}`, fr: `Pièce ${n}`, en: `Item ${n}`, es: `Unidad ${n}`, de: `Stück ${n}`, it: `Pezzo ${n}`, nl: `Stuk ${n}`, pt: `Unidade ${n}` }),
+    sameForAll: inLocale(locale, {
+      ar: "نفس الاختيار للكل",
+      fr: "Même choix pour toutes",
+      en: "Same for all",
+      es: "Igual para todas",
+      de: "Für alle gleich",
+      it: "Uguale per tutti",
+      nl: "Hetzelfde voor alle",
+      pt: "Igual para todas",
+    }),
+    soldOut: inLocale(locale, { ar: "نفذ", fr: "épuisé", en: "sold out", es: "agotado", de: "ausverkauft", it: "esaurito", nl: "uitverkocht", pt: "esgotado" }),
+    /** inline error of a group left empty: "Choisissez votre taille" */
+    choose: (group: string) => {
+      const g = inSentence(locale, group);
+      return inLocale(locale, {
+        ar: `اختار ${g}`,
+        fr: `Choisissez votre ${g}`,
+        en: `Choose your ${g}`,
+        es: `Elige tu ${g}`,
+        de: `Bitte ${g} wählen`,
+        it: `Scegli: ${g}`,
+        nl: `Kies je ${g}`,
+        pt: `Escolha: ${g}`,
+      });
+    },
+    /** the chosen option was sold out after the page was opened */
+    gone: inLocale(locale, {
+      ar: "هاد الاختيار ما بقاش متوفر، اختار واحد آخر",
+      fr: "Cette option n'est plus disponible, choisissez-en une autre",
+      en: "This option is no longer available, please choose another",
+      es: "Esta opción ya no está disponible, elige otra",
+      de: "Diese Option ist nicht mehr verfügbar, bitte wähle eine andere",
+      it: "Questa opzione non è più disponibile, scegline un'altra",
+      nl: "Deze optie is niet meer beschikbaar, kies een andere",
+      pt: "Esta opção já não está disponível, escolha outra",
+    }),
+  };
+}
+
 /** "(optional)" suffix for fields that may stay empty. */
 export const optionalLabel = (locale: Locale) => inLocale(locale, { ar: "اختياري", fr: "facultatif", en: "optional" });
 

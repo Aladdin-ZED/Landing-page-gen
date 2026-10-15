@@ -2,7 +2,8 @@
  * Runtime pure-helper self-test:  npx tsx src/landing/runtime/selftest.ts
  * Covers phone normalization (MA + other markets), money formatting, totals parity with
  * src/lib/page/pricing.ts, id generation, locale-preserving number formatting, the countdown's
- * plural day label, LTR isolates in Arabic runtime strings and the sticky-header scroll offset.
+ * plural day label, LTR isolates in Arabic runtime strings, the sticky-header scroll offset and the
+ * sticky buy bar's show rule (only after the hero CTA has been scrolled past).
  */
 import { webcrypto } from "node:crypto";
 import { bundleMath, orderTotals } from "../../lib/page/pricing";
@@ -15,6 +16,7 @@ import { computeTotals, formatMoney } from "./money";
 import { NUM_RUN, formatNum, numStyle, toAsciiDigits } from "./numbers";
 import { normalizePhone } from "./phone";
 import { headerOffset } from "./scroll";
+import { stickyVisible } from "./sticky";
 import { RUNTIME_UI_KEYS } from "./strings";
 
 let pass = 0;
@@ -250,6 +252,33 @@ eq(
   ]),
   70,
 );
+
+/* ---------------- sticky bar: shows only after the hero CTA has been scrolled past ---------------- */
+{
+  type Fake = { getBoundingClientRect: () => DOMRect; getAttribute: (n: string) => string | null };
+  const el = (top: number, h: number, hidden = false, w = 300): Fake => ({
+    getBoundingClientRect: () => ({ top, bottom: top + h, width: w, height: h }) as DOMRect,
+    getAttribute: (n: string) => (n === "aria-hidden" && hidden ? "true" : null),
+  });
+  const vp = (scrollY: number, height = 800) => ({ height, scrollY });
+  const box = (top: number) => el(top, 52);
+  const end = (top: number) => el(top, 96, true);
+  const formAt = (top: number) => el(top, 900, false, 360);
+  const show = (zones: Fake[], form: Fake, v: { height: number; scrollY: number }) => stickyVisible([...zones, form], form, v.height, v.scrollY);
+  eq("sticky first paint, hero CTA below the fold (phone)", show([box(900), end(9000)], formAt(3000), vp(0)), false);
+  eq("sticky first paint, hero CTA on screen", show([box(500), end(9000)], formAt(3000), vp(0)), false);
+  eq("sticky hero CTA partly above the top (not yet passed)", show([box(-30), end(9000)], formAt(3000), vp(400)), false);
+  eq("sticky hero CTA scrolled past", show([box(-60), end(9000)], formAt(3000), vp(1000)), true);
+  eq("sticky hidden while the order form is on screen", show([box(-900), end(9000)], formAt(200), vp(1800)), false);
+  eq("sticky hidden at the page end marker", show([box(-8000), end(500)], formAt(-5000), vp(9000)), false);
+  eq("sticky jump straight to the footer (CTA skipped) still counts as passed", show([box(-7000), end(1200)], formAt(-4000), vp(8000)), true);
+  eq("sticky no hero CTA: hidden in the first viewport", show([end(9000)], formAt(3000), vp(300)), false);
+  eq("sticky no hero CTA: shows past the first viewport", show([end(9000)], formAt(3000), vp(900)), true);
+  const hidden = el(0, 0, false, 0);
+  eq("sticky hero CTA hidden at this breakpoint → fold rule", show([hidden, end(9000)], formAt(3000), vp(900)), true);
+  eq("sticky hero CTA hidden at this breakpoint, first viewport", show([hidden, end(9000)], formAt(3000), vp(100)), false);
+  eq("sticky scrolled back up above the hero CTA", show([box(900), end(9000)], formAt(3000), vp(0)), false);
+}
 
 /* ---------------- report ---------------- */
 if (failures.length) {

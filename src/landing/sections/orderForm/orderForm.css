@@ -203,16 +203,21 @@
   }
 }
 
-/* --- product options: unit rows on a soft sheet --------------------------- */
+/* --- product options -------------------------------------------------------
+   One sheet per unit in multi-unit packs ("Pièce 1 · Pièce 2", "same for all" on the first), the
+   groups straight on the step for a single unit. Three looks, one grammar: the chosen option carries
+   the accent — a ring around a color dot or a photo tile (+ a drawn tick), a filled chip for text — and
+   a sold-out option keeps its place, struck through on the diagonal and disabled. Every target is at
+   least 44px; logical properties mirror the whole block in RTL. */
 .lp-vars {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 .lp-vrow {
   display: grid;
-  gap: 0.75rem;
-  padding: 0.9rem 1rem 1rem;
+  gap: 0.8rem;
+  padding: 0.75rem 1rem 1.05rem;
   border-radius: calc(max(var(--lp-radius-m), 0.875rem) * var(--lp-corner-k));
   corner-shape: var(--lp-corner);
   background: var(--mx-field);
@@ -223,84 +228,185 @@
   display: none;
 }
 
-.lp-vrow__n {
-  display: inline-flex;
+.lp-vrow__head {
+  display: flex;
   align-items: center;
-  gap: 0.55rem;
-  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
-  font-weight: 600;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-block-size: 2.25rem;
+}
+
+.lp-vrow__n {
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--of-lab);
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
   color: var(--sec-ink-soft);
 }
 
-.lp-vrow__i {
-  display: inline-grid;
-  place-items: center;
-  inline-size: 1.45rem;
-  block-size: 1.45rem;
-  border-radius: 50%;
-  background: var(--mx-tint-2);
-  color: var(--sec-ink);
-  font-size: 0.72rem;
-  font-weight: var(--lp-strong-weight);
-  font-variant-numeric: tabular-nums;
-}
-
+/* a single unit: no sheet, no unit name — the groups sit on the step */
 .lp-vars[data-units="1"] .lp-vrow {
   padding: 0;
   background: none;
   box-shadow: none;
 }
 
-.lp-vars[data-units="1"] .lp-vrow__n {
+.lp-vars[data-units="1"] .lp-vrow__head {
   display: none;
 }
 
 .lp-vrow__groups {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
+/* "same for all": a quiet pill on the first unit; its copy glyph turns into a tick once applied */
+.lp-vsame {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.45em;
+  min-block-size: 2.25rem;
+  padding-inline: 0.8rem 0.95rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-card-ink);
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.15;
+  cursor: pointer;
+  transition:
+    background-color var(--lp-dur-s) var(--lp-ease),
+    box-shadow var(--lp-dur-m) var(--lp-smooth),
+    scale var(--lp-dur-m) var(--lp-spring);
+}
+
+/* a 44px touch target around the compact pill */
+.lp-vsame::after {
+  content: "";
+  position: absolute;
+  inset: -0.25rem -0.125rem;
+}
+
+@media (hover: hover) {
+  .lp-vsame:hover {
+    box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
+  }
+}
+
+.lp-vsame:active {
+  scale: 0.97;
+}
+
+.lp-vsame:focus-visible {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 2px;
+}
+
+.lp-vsame[data-done] {
+  background: color-mix(in oklab, var(--sec-accent) 12%, var(--sec-card));
+  box-shadow: inset 0 0 0 1px var(--sec-accent);
+}
+
+.lp-vsame__ico {
+  inline-size: 1.15em;
+  block-size: 1.15em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lp-vsame__copy,
+.lp-vsame__done {
+  transition: opacity var(--lp-dur-s) var(--lp-ease);
+}
+
+.lp-vsame__done {
+  opacity: 0;
+  stroke: var(--sec-accent);
+  stroke-width: 2.4;
+}
+
+.lp-vsame[data-done] .lp-vsame__copy {
+  opacity: 0;
+}
+
+.lp-vsame[data-done] .lp-vsame__done {
+  opacity: 1;
+}
+
+/* group: name (+ the chosen color / photo name), choices, its own error line. The tokens resolve
+   here, in the palette of the sheet the group sits on (bold: a light sheet on the color slab). */
 .lp-vg {
+  --vo-ring: var(--sec-accent);
+  --vo-x: var(--sec-ink-soft);
+  --vo-r: calc(max(var(--lp-radius-s), 0.65rem) * var(--lp-corner-k));
   min-inline-size: 0;
 }
 
-.lp-vg__name {
-  margin-block-end: 0.55rem;
+.lp-vg__head {
+  margin-block-end: 0.6rem;
   font-size: calc(var(--lp-step--1) * 1.04 * var(--lp-script-scale));
   font-weight: 600;
+  line-height: 1.3;
+}
+
+.lp-vg__val {
+  color: var(--sec-ink-soft);
+  font-weight: 500;
+}
+
+.lp-vg__val:not(:empty)::before {
+  content: "";
+  display: inline-block;
+  inline-size: 0.28em;
+  block-size: 0.28em;
+  margin-inline: 0.55em;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 0.24em;
+  opacity: 0.6;
 }
 
 .lp-vg__opts {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
-/* short labels (sizes, ages): even chips on a column grid — every row lines up, no ragged ends */
-.lp-vg__opts[data-even] {
+/* short labels (sizes, ages): an even grid sized to the longest label — rows line up, no ragged ends */
+.lp-vg__opts[data-layout="grid"] {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 4.9rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--vo-min, 3rem)), 1fr));
 }
 
-.lp-vg__opts[data-even] .lp-vo {
-  display: grid;
+.lp-vg__opts[data-layout="dot"] {
+  gap: 0.375rem;
 }
 
-.lp-vg__opts[data-even] .lp-vo__face {
-  justify-content: center;
-  padding-inline: 0.6em;
-  text-align: center;
-  white-space: nowrap;
+.lp-vg__opts[data-layout="tile"] {
+  gap: 0.625rem;
 }
 
 .lp-vo {
   position: relative;
+  display: grid;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .lp-vo__in {
   position: absolute;
   inset: 0;
+  z-index: 1;
   inline-size: 100%;
   block-size: 100%;
   margin: 0;
@@ -309,17 +415,21 @@
 }
 
 .lp-vo__face {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5em;
   min-block-size: 2.75rem;
-  padding: 0.4em 1.05em;
-  border-radius: var(--lp-radius-pill, 999px);
+  padding: 0.45em 1em;
+  border-radius: var(--vo-r);
+  corner-shape: var(--lp-corner);
   background: var(--sec-card);
   box-shadow: inset 0 0 0 1px var(--sec-line-strong);
   color: var(--sec-card-ink);
   font-weight: 600;
   line-height: 1.2;
+  text-align: center;
   transition:
     background-color var(--lp-dur-s) var(--lp-ease),
     color var(--lp-dur-s) var(--lp-ease),
@@ -327,55 +437,252 @@
     scale var(--lp-dur-m) var(--lp-spring);
 }
 
+.lp-vg__opts[data-layout="grid"] .lp-vo__face {
+  padding-inline: 0.4em;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
 @media (hover: hover) {
-  .lp-vo:hover .lp-vo__face {
+  .lp-vo:not([data-soldout]):hover .lp-vo__face {
     box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
   }
 }
 
-.lp-vo__sw {
-  inline-size: 1.3rem;
-  block-size: 1.3rem;
-  border-radius: 50%;
-  background: var(--sw);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 22%, transparent);
+.lp-vo:not([data-soldout]):active .lp-vo__face {
+  scale: 0.95;
 }
 
-.lp-vo__img {
-  inline-size: 1.9rem;
-  border-radius: 50%;
-  overflow: hidden;
-}
-
-.lp-vo__in:checked + .lp-vo__face {
+/* text: the chosen chip fills with the accent */
+.lp-vg[data-look="chip"] .lp-vo__in:checked + .lp-vo__face {
   background: var(--sec-accent);
   box-shadow: inset 0 1px 0 var(--mx-on-accent), 0 8px 18px -10px var(--mx-btn-2);
   color: var(--sec-accent-ink);
 }
 
-.lp-vo__in:checked + .lp-vo__face .lp-vo__sw {
-  box-shadow: 0 0 0 2px var(--sec-accent-ink);
+.lp-vo__mini {
+  flex: none;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  margin-inline-start: -0.4em;
+  border-radius: 50%;
+  overflow: hidden;
 }
 
-.lp-vo:active .lp-vo__face {
-  scale: 0.96;
+.lp-vo__mini--sw {
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 22%, transparent);
 }
 
+/* the tick of a chosen dot or tile, drawn in */
+.lp-vo__tick {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  inline-size: 1.05rem;
+  block-size: 1.05rem;
+  margin: auto;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 18;
+  stroke-dashoffset: 18;
+  opacity: 0;
+  transition:
+    opacity var(--lp-dur-s) var(--lp-ease),
+    stroke-dashoffset var(--lp-dur-m) var(--lp-smooth) 60ms;
+}
+
+.lp-vo__in:checked + .lp-vo__face .lp-vo__tick {
+  opacity: 1;
+  stroke-dashoffset: 0;
+}
+
+/* color: a 32px dot in a 44px target; the ring of the chosen one sits in the 6px of air around it */
+.lp-vg[data-look="dot"] .lp-vo__face {
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-block-size: 0;
+  padding: 0;
+  border-radius: 50%;
+  corner-shape: round;
+  background: none;
+  box-shadow: none;
+}
+
+.lp-vg[data-look="dot"] .lp-vo__face::before,
+.lp-vg[data-look="dot"] .lp-vo__pic {
+  content: "";
+  position: absolute;
+  inset: 0.375rem;
+  border-radius: 50%;
+  background: var(--sw, var(--mx-tint));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 18%, transparent);
+  transition: opacity var(--lp-dur-s) var(--lp-ease);
+}
+
+.lp-vg[data-look="dot"] .lp-vo__pic {
+  overflow: hidden;
+  background: var(--mx-tint);
+}
+
+@media (hover: hover) {
+  .lp-vg[data-look="dot"] .lp-vo:not([data-soldout]):hover .lp-vo__face {
+    box-shadow: inset 0 0 0 1px var(--mx-line);
+  }
+}
+
+.lp-vg[data-look="dot"] .lp-vo__in:checked + .lp-vo__face {
+  box-shadow: inset 0 0 0 2px var(--vo-ring);
+}
+
+.lp-vo__face[data-tone="light"] .lp-vo__tick {
+  stroke: rgb(0 0 0 / 0.78);
+}
+
+.lp-vo__face[data-tone="photo"] .lp-vo__tick {
+  filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.55));
+}
+
+/* photo: a tile; ring and tick badge drawn over the photo */
+.lp-vg[data-look="tile"] .lp-vo__face {
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  padding: 0;
+  background: var(--mx-tint);
+  box-shadow: none;
+}
+
+.lp-vg[data-look="tile"] .lp-vo__pic {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  overflow: hidden;
+}
+
+.lp-vg[data-look="tile"] .lp-vo__face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  pointer-events: none;
+  transition: box-shadow var(--lp-dur-m) var(--lp-smooth);
+}
+
+@media (hover: hover) {
+  .lp-vg[data-look="tile"] .lp-vo:not([data-soldout]):hover .lp-vo__face {
+    box-shadow: none;
+  }
+
+  .lp-vg[data-look="tile"] .lp-vo:not([data-soldout]):hover .lp-vo__face::after {
+    box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
+  }
+}
+
+.lp-vg[data-look="tile"] .lp-vo__in:checked + .lp-vo__face::after {
+  box-shadow:
+    inset 0 0 0 2px var(--vo-ring),
+    inset 0 0 0 3.5px var(--sec-card);
+}
+
+.lp-vg[data-look="tile"] .lp-vo__tick {
+  inset: -0.4rem -0.4rem auto auto;
+  inset-inline: auto -0.4rem;
+  inline-size: 1.3rem;
+  block-size: 1.3rem;
+  padding: 0.22rem;
+  border-radius: 50%;
+  background: var(--vo-ring);
+  box-shadow: 0 0 0 2px var(--sec-card);
+  stroke: var(--sec-accent-ink);
+  stroke-width: 3;
+  scale: 0.5;
+  transition:
+    opacity var(--lp-dur-s) var(--lp-ease),
+    scale var(--lp-dur-m) var(--lp-spring-pop),
+    stroke-dashoffset var(--lp-dur-m) var(--lp-smooth) 80ms;
+}
+
+.lp-vg[data-look="tile"] .lp-vo__in:checked + .lp-vo__face .lp-vo__tick {
+  scale: 1;
+}
+
+/* keyboard focus: an ink ring just outside the option, whatever its shape */
 .lp-vo__in:focus-visible + .lp-vo__face {
   outline: 2px solid var(--sec-ink);
   outline-offset: 2px;
 }
 
+/* sold out: in place, dimmed, struck on the diagonal (a hairline with a halo of the card), disabled */
 .lp-vo[data-soldout] {
   cursor: not-allowed;
 }
 
-.lp-vo[data-soldout] .lp-vo__face {
-  opacity: 0.45;
-  text-decoration: line-through;
+.lp-vg[data-look="chip"] .lp-vo[data-soldout] .lp-vo__face {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-ink-soft);
 }
 
-.lp-vg[data-invalid] .lp-vo__face {
+.lp-vo[data-soldout] .lp-vo__face::before,
+.lp-vo[data-soldout] .lp-vo__pic,
+.lp-vo[data-soldout] .lp-vo__mini {
+  opacity: 0.4;
+  filter: grayscale(0.5);
+}
+
+.lp-vo[data-soldout] .lp-vo__txt {
+  opacity: 0.85;
+}
+
+.lp-vo__x {
+  --vo-halo: var(--sec-card);
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  corner-shape: inherit;
+  background: linear-gradient(
+    to bottom right,
+    transparent calc(50% - 2.25px),
+    var(--vo-halo) calc(50% - 2.25px) calc(50% - 0.75px),
+    var(--vo-x) calc(50% - 0.75px) calc(50% + 0.75px),
+    var(--vo-halo) calc(50% + 0.75px) calc(50% + 2.25px),
+    transparent calc(50% + 2.25px)
+  );
+  pointer-events: none;
+}
+
+[dir="rtl"] .lp-vo__x {
+  scale: -1 1;
+}
+
+/* on a chip the strike stops short of its edge */
+.lp-vg[data-look="chip"] .lp-vo__x {
+  --vo-halo: transparent;
+  inset: 0.3rem 0.45rem;
+}
+
+.lp-vg[data-look="dot"] .lp-vo__x {
+  inset: 0.375rem;
+  border-radius: 50%;
+}
+
+/* a group the shopper still has to answer */
+.lp-vg[data-invalid] .lp-vo:not([data-soldout]) .lp-vo__face {
+  box-shadow: inset 0 0 0 1.5px var(--sec-danger);
+}
+
+.lp-vg[data-look="tile"][data-invalid] .lp-vo:not([data-soldout]) .lp-vo__face {
+  box-shadow: none;
+}
+
+.lp-vg[data-look="tile"][data-invalid] .lp-vo:not([data-soldout]) .lp-vo__face::after {
   box-shadow: inset 0 0 0 1.5px var(--sec-danger);
 }
 
@@ -384,7 +691,111 @@
 }
 
 .lp-vg__err:not(:empty) {
-  margin-block-start: 0.5rem;
+  margin-block-start: 0.6rem;
+}
+
+/* --- the chosen options in one line, under the total ("2 × ● Noir / M + ● Beige / L") --- */
+.lp-sum__row--opts {
+  margin-block-start: -0.3rem;
+}
+
+.lp-sum__row--opts:has(> .lp-vsum:empty),
+.lp-vsum--line:empty {
+  display: none;
+}
+
+.lp-sum__row--opts > .lp-vsum {
+  flex: 1;
+  min-inline-size: 0;
+  white-space: normal;
+}
+
+.lp-vsum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * 0.96 * var(--lp-script-scale));
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.lp-vsum--line {
+  justify-content: center;
+}
+
+.lp-vsum__u {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.lp-vsum__n {
+  color: var(--sec-ink);
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.lp-vsum__l {
+  color: var(--sec-ink);
+  font-weight: 600;
+}
+
+.lp-vsum__sep,
+.lp-vsum__plus {
+  opacity: 0.6;
+}
+
+.lp-vsum__dot {
+  flex: none;
+  inline-size: 0.72em;
+  block-size: 0.72em;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 24%, transparent);
+}
+
+/* --- option photo layers over the receipt thumbnail and the pack copies (runtime-filled) --- */
+.lp-vslot {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lp-vslot:empty {
+  display: none;
+}
+
+.lp-vslot > .lp-pic {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 0;
+  scale: 1.04;
+  transition:
+    opacity var(--lp-dur-m) var(--lp-ease),
+    scale var(--lp-dur-l) var(--lp-smooth);
+}
+
+.lp-vslot > .lp-pic[data-on] {
+  opacity: 1;
+  scale: 1;
+}
+
+/* a cutout laid over a cutout: the one underneath steps aside */
+:is(.lp-pv__item, .lp-of__line-media) > .lp-pic {
+  transition: opacity var(--lp-dur-m) var(--lp-ease);
+}
+
+:is(.lp-pv__item, .lp-of__line-media):has(> .lp-vslot[data-on][data-alpha]) > .lp-pic {
+  opacity: 0;
 }
 
 /* --- order bump: a soft add-on card that lights up once ticked ------------ */
@@ -1205,6 +1616,11 @@
   .lp-of__show-i,
   .lp-of__swap,
   .lp-vo__face,
+  .lp-vo__face::after,
+  .lp-vo__tick,
+  .lp-vsame,
+  .lp-vslot > .lp-pic,
+  :is(.lp-pv__item, .lp-of__line-media) > .lp-pic,
   .lp-bump,
   .lp-of__no,
   .lp-of__no-1,

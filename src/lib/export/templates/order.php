@@ -701,21 +701,35 @@ function cod_fold(string $s): string
     return (string)preg_replace('/[\s\'’`\-_.]+/u', '', $s);
 }
 
-/** Variant choices per unit → [groupName => optionLabel] per unit, or 'invalid' / 'unavailable'. */
-function cod_variants(array $spec, int $qty, array $chosen)
+/**
+ * Option choices (= resolveVariants() in the app): ['units' => [unit => [groupName => optionLabel]]],
+ * or ['errors' => [controlName => code]] keyed like the form controls — 'v.<unit>.<groupId>' for a
+ * per-unit group, 'v.<groupId>' for a shared one — with 'required' (nothing chosen; a group with a
+ * single available option is filled in), 'invalid' (unknown option) or 'unavailable' (sold out).
+ */
+function cod_variants(array $spec, int $qty, array $chosen): array
 {
     $groups = $spec['variants'];
     if (!$groups) {
-        return [];
+        return ['units' => []];
     }
     $units = array_fill(0, $qty, []);
+    $errors = [];
+    $seen = [];
     foreach ($groups as $g) {
+        if (empty($g['options'])) {
+            continue;
+        }
+        $seen[$g['name']] = ($seen[$g['name']] ?? 0) + 1;
+        $name = $seen[$g['name']] > 1 ? $g['name'] . ' (' . $seen[$g['name']] . ')' : $g['name'];
         $available = array_values(array_filter($g['options'], function ($o) {
             return empty($o['soldOut']);
         }));
-        for ($u = 0; $u < $qty; $u++) {
-            $source = !empty($g['perUnit']) ? ($chosen[$u] ?? null) : ($chosen[0] ?? null);
+        $perUnit = !empty($g['perUnit']);
+        for ($u = 0; $u < ($perUnit ? $qty : 1); $u++) {
+            $source = $chosen[$u] ?? null;
             $wanted = is_array($source) && isset($source[$g['id']]) && is_string($source[$g['id']]) ? $source[$g['id']] : '';
+            $key = $perUnit ? 'v.' . $u . '.' . $g['id'] : 'v.' . $g['id'];
             $opt = null;
             foreach ($g['options'] as $o) {
                 if ($wanted !== '' && $o['id'] === $wanted) {
@@ -723,41 +737,47 @@ function cod_variants(array $spec, int $qty, array $chosen)
                     break;
                 }
             }
-            if ($opt !== null && !empty($opt['soldOut'])) {
-                return 'unavailable';
-            }
             if ($opt === null && $wanted === '' && count($available) === 1) {
                 $opt = $available[0];
             }
             if ($opt === null) {
-                return 'invalid';
+                $errors[$key] = $wanted !== '' ? 'invalid' : 'required';
+            } elseif (!empty($opt['soldOut'])) {
+                $errors[$key] = 'unavailable';
+            } elseif ($perUnit) {
+                $units[$u][$name] = $opt['label'];
+            } else {
+                for ($k = 0; $k < $qty; $k++) {
+                    $units[$k][$name] = $opt['label'];
+                }
             }
-            $units[$u][$g['name']] = $opt['label'];
         }
     }
-    return $units;
+    return $errors ? ['errors' => $errors] : ['units' => $units];
 }
 
+/** "Noir/M", "2 × Noir/M", "Noir/M + Beige/L" (= variantText() in the app: identical units counted). */
 function cod_variant_text(array $units): string
 {
-    $list = [];
+    $counts = [];
     foreach ($units as $unit) {
-        $t = implode('/', array_filter(array_values($unit), 'strlen'));
+        $parts = [];
+        foreach ((array)$unit as $label) {
+            $label = trim((string)$label);
+            if ($label !== '') {
+                $parts[] = $label;
+            }
+        }
+        $t = implode('/', $parts);
         if ($t !== '') {
-            $list[] = $t;
+            $counts[$t] = ($counts[$t] ?? 0) + 1;
         }
     }
-    if (!$list) {
-        return '';
-    }
-    if (count(array_unique($list)) === 1) {
-        return count($list) > 1 ? $list[0] . ' ×' . count($list) : $list[0];
-    }
     $out = [];
-    foreach ($list as $i => $t) {
-        $out[] = ($i + 1) . ': ' . $t;
+    foreach ($counts as $t => $n) {
+        $out[] = $n > 1 ? $n . ' × ' . $t : (string)$t;
     }
-    return implode(' · ', $out);
+    return implode(' + ', $out);
 }
 
 /** Shape checks mirroring OrderPayload (zod). Returns [payload, fieldErrors] — payload null when unusable. */
@@ -879,10 +899,10 @@ function cod_validate(array $p, array $spec): array
     $units = [];
     if ($bundle !== null) {
         $v = cod_variants($spec, (int)$bundle['qty'], $p['variants']);
-        if (is_string($v)) {
-            $fields['bundleId'] = $v;
+        if (isset($v['errors'])) {
+            $fields = array_merge($fields, $v['errors']);
         } else {
-            $units = $v;
+            $units = $v['units'];
         }
     }
     $name = cod_valid_name($p['name']);

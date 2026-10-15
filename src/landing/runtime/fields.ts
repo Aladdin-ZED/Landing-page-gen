@@ -8,7 +8,7 @@ import { flag, setText } from "./core";
 import { normalizePhone } from "./phone";
 import type { RuntimeStringKey } from "./strings";
 import { str } from "./strings";
-import { missingVariants } from "./variants";
+import { missingVariants, variantMessage } from "./variants";
 
 export const FIELDS = ["name", "phone", "city", "address", "email", "note"] as const;
 export type FieldName = (typeof FIELDS)[number];
@@ -103,7 +103,8 @@ export function validateForm(c: Ctx, form: HTMLFormElement, show: boolean): Ctl[
   }
   for (const el of missingVariants(form)) {
     bad.push(el);
-    if (show) showError(el, str(c.cfg, "form.errRequired"));
+    // the group's own words: "Choisissez votre taille"
+    if (show) showError(el, variantMessage(el, "required", str(c.cfg, "form.errRequired")));
   }
   return bad.sort(byDomOrder);
 }

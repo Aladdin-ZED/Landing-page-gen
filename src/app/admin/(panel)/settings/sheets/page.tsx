@@ -26,7 +26,7 @@ export default async function SheetsSettingsPage() {
         serviceAccountEmail: email,
         sheet: sheet && { url: sheet.url, sheetTitle: sheet.sheetTitle, connectedAt: sheet.connectedAt, enabled: sheet.enabled },
         health,
-        cron: { configured: cronKeySecret() !== null, url: `${origin}/api/cron/tick?key=YOUR_CRON_KEY` },
+        cron: { configured: cronKeySecret() !== null, url: `${origin}/api/cron/tick?key=YOUR_CRON_KEY`, endpoint: `${origin}/api/cron/tick` },
       }}
     />
   );

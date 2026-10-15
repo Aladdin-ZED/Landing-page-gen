@@ -6,7 +6,7 @@ import "server-only";
  */
 import { and, eq, isNull } from "drizzle-orm";
 import { after } from "next/server";
-import { AuthError, requireUser, type Permission, type SessionUser } from "@/lib/auth";
+import { assertAdminAccess, AuthError, requireUser, type Permission, type SessionUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { exportsTable } from "@/lib/db/schema";
 import { checkSameOrigin } from "@/lib/security/csrf";
@@ -157,10 +157,12 @@ export async function exportOrigins(exportId: string | null): Promise<string[] |
 export type AdminGuard = { ok: true; user: SessionUser; ip: string } | { ok: false; response: Response };
 
 /**
- * Admin route guard: same-origin for state-changing methods, then requireUser(permission).
- * Gate failures (Next notFound) propagate untouched so the route answers 404 like an unknown URL.
+ * Admin route guard: the admin gate first, then same-origin for state-changing methods, then
+ * requireUser(permission). Gate failures (Next notFound) propagate untouched so the route answers
+ * 404 like an unknown URL, before any check whose answer (403) would show the route exists.
  */
 export async function adminGuard(req: Request, permission: Permission): Promise<AdminGuard> {
+  await assertAdminAccess();
   if (!checkSameOrigin(req)) return { ok: false, response: json({ ok: false, error: "forbidden" }, 403) };
   try {
     const user = await requireUser({ permission, throwOnFail: true });

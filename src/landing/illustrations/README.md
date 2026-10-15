@@ -77,10 +77,19 @@ All components accept `className`. Archetype tags show where a piece shines (DES
 
 ### Badge — `badge.tsx`
 
-`Badge({ uid, text, label?, sublabel?, glyph?, sep?, variant?, tone?, tone2?, spin?, upright?, reveal?, delay?, size? })`
+`Badge({ uid, text, label?, sublabel?, glyph?, sep?, variant?, tone?, tone2?, spin?, upright?, reveal?, delay?, size?, minPx? })`
 — clean circular badge with text running around it (vector, no ink). `text` is one phrase or 2–4
-(each gets its own arc, separated by `sep`); Latin is fitted exactly with `textLength`, Arabic is
-never letter-spaced (sized from a safe estimate, up to 16 of 200 units; short phrases repeat).
+(each gets its own arc, separated by `sep`); Latin caps are tracked out along their arc with
+`textLength` (a short phrase only so far, then centred), Arabic is never letter-spaced (sized from a
+safe estimate). **Readable minimum**: ring text never renders under ~9px (Latin) / 10.5px (Arabic)
+on screen — up to 18 / 20.5 of 200 units, one size for every phrase of a ring. A short phrase repeats
+onto more arcs only while it stays that large (a long phrase goes round once, never twice small).
+When all the phrases only read on a large badge, a compact ring (the first phrase alone, larger) is
+drawn too and the badge switches by its own width (`data-ring-at`, an `@container lp-ring` query in
+illustrations.css; engines without container queries keep all phrases). `minPx` (smallest diameter
+in CSS px) skips the compact ring when the badge is known to stay large enough; below 7rem it lifts the
+ring text (within its band, up to 21 / 23.5 of 200 units) so a small badge still reads at ~9px — a
+section showing a badge under 7rem on phones should pass its smallest size.
 `variant` solid (filled disc, knocked-out text, accent highlight + tinted shadow), outline (hairline)
 or glass (frosted disc, text in the glass ink). The ring spins slowly with `spin`; the center
 (`label`, `sublabel`, `glyph`) stays upright.

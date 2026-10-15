@@ -1,17 +1,31 @@
 /**
- * Ad pixels — Meta (fbq), TikTok (ttq), Snap (snaptr), GA4 (gtag) — only for configured ids,
- * never in preview. The official loader stubs are re-implemented here (no inline script → works under
- * the strict hash-based CSP via 'strict-dynamic') and inject the vendors' official scripts.
+ * Ad pixels — Meta (fbq), TikTok (ttq), Snap (snaptr), GA4 (gtag) — loaded only for the page's
+ * configured ids (up to 3 Meta / TikTok pixels: backup ad accounts), never in previews. The vendors'
+ * official loader stubs are re-implemented here (no inline script: the strict hash-based CSP trusts
+ * what the hashed runtime inserts through 'strict-dynamic') and inject the official scripts.
  *
- * Events: PageView (+ GA4 config page_view) and ViewContent / view_item on the landing page,
- * InitiateCheckout / begin_checkout on the first form interaction, Purchase / purchase on the
- * thank-you page (emitted by thankyou.ts once per order) with the order's eventId for
- * browser ↔ server deduplication (Meta eventID, TikTok event_id, Snap client_dedup_id) and
- * GA4 transaction_id = orderId. TikTok's purchase event is "CompletePayment".
+ * Funnel — event names in src/lib/pixels/ids.ts (PIXEL_EVENTS, shared with the server):
+ *   landing    PageView (+ TikTok page, Snap PAGE_VIEW, GA4 config) and ViewContent of the default pack
+ *              AddToCart         first pack choice, or first form interaction (once)
+ *              InitiateCheckout  first form interaction (once)
+ *              Lead              phone number valid for 1.2 s, or at submit (once per session and page,
+ *                                only when lead capture is on)
+ *   thank-you  PageView + Purchase, once per order (thankyou.ts): value = the server's total,
+ *              event id = order id — the id the server-side events (Meta Conversions API, TikTok
+ *              Events API) carry, so each platform counts the order once. GA4: transaction_id.
+ *
+ * Advanced matching: once the phone number is valid, its SHA-256 hashes (+ name, e-mail, country;
+ * never the clear values) are kept in sessionStorage "lp-px-u" → TikTok identify() right away; on the
+ * thank-you page Meta init user data, TikTok identify() and Snap init get them before the Purchase,
+ * then they are deleted.
  */
 import { round2 } from "../../lib/page/pricing";
-import type { Ctx } from "./core";
+import { PIXEL_EVENTS, pixelIdList, purchaseEventId, type PixelPlatform, type PixelStep } from "../../lib/pixels/ids";
+import type { Ctx, W } from "./core";
+import { getForm, report, sget, sset } from "./core";
+import { control } from "./fields";
 import { computeTotals } from "./money";
+import { normalizePhone } from "./phone";
 
 type Fn = (...a: unknown[]) => void;
 interface Queue {
@@ -34,6 +48,7 @@ interface Ttq extends Array<unknown> {
   _o: Record<string, Record<string, unknown>>;
   page: Fn;
   track: Fn;
+  identify: Fn;
 }
 interface PxWin {
   fbq?: Queue;
@@ -52,20 +67,41 @@ const TTQ_METHODS =
     " ",
   );
 
-const valid = (re: RegExp, v: string | undefined) => (v && re.test(v) ? v : "");
+/** sessionStorage key of the hashed customer data (advanced matching) */
+export const PX_USER_KEY = "lp-px-u";
+const LEAD_DELAY_MS = 1200;
+const HEX64 = /^[a-f0-9]{64}$/;
 
 interface PixelEvent {
+  /** event value (pack total, order total…) */
   value: number;
   qty: number;
   currency: string;
+  /** unit price of the item (defaults to value / qty) */
   unit?: number;
   orderId?: string;
-  eventId?: string;
 }
 
+/** SHA-256 hashes of the shopper's contact data (lowercase hex). */
+export interface UserHashes {
+  /** phone digits with country code, no "+" (Meta ph, Snap) */
+  ph: string;
+  /** E.164 with "+" (TikTok phone_number) */
+  phE: string;
+  fn?: string;
+  ln?: string;
+  em?: string;
+  /** ISO country, lowercase */
+  co?: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* official loader stubs                                               */
+/* ------------------------------------------------------------------ */
+
 /** Meta fbq stub (official snippet semantics: queue `arguments` until fbevents.js takes over). */
-function metaStub(w: PxWin, load: (src: string) => void): void {
-  if (w.fbq) return;
+function metaStub(w: PxWin, load: (src: string) => void): Queue {
+  if (w.fbq) return w.fbq;
   const n = function () {
     // eslint-disable-next-line prefer-rest-params
     if (n.callMethod) n.callMethod(...(arguments as unknown as unknown[]));
@@ -79,6 +115,7 @@ function metaStub(w: PxWin, load: (src: string) => void): void {
   n.version = "2.0";
   n.queue = [];
   load("https://connect.facebook.net/en_US/fbevents.js");
+  return n;
 }
 
 /** TikTok ttq stub (official snippet: deferred method queue + per-pixel _i/_t/_o registries). */
@@ -114,8 +151,8 @@ function tiktokStub(w: PxWin, load: (src: string) => void): Ttq {
 }
 
 /** Snap snaptr stub (official snippet: queue until scevent.min.js installs handleRequest). */
-function snapStub(w: PxWin, load: (src: string) => void): void {
-  if (w.snaptr) return;
+function snapStub(w: PxWin, load: (src: string) => void): Queue {
+  if (w.snaptr) return w.snaptr;
   const a = function () {
     // eslint-disable-next-line prefer-rest-params
     if (a.handleRequest) a.handleRequest(...(arguments as unknown as unknown[]));
@@ -125,10 +162,11 @@ function snapStub(w: PxWin, load: (src: string) => void): void {
   a.queue = [];
   w.snaptr = a;
   load("https://sc-static.net/scevent.min.js");
+  return a;
 }
 
 /** GA4 gtag (official snippet: dataLayer must receive the Arguments object itself). */
-function gaStub(w: PxWin, id: string, load: (src: string) => void): void {
+function gaStub(w: PxWin, id: string, load: (src: string) => void): Fn {
   load("https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id));
   const dl = (w.dataLayer = w.dataLayer || []);
   w.gtag =
@@ -137,18 +175,76 @@ function gaStub(w: PxWin, id: string, load: (src: string) => void): void {
       // eslint-disable-next-line prefer-rest-params
       dl.push(arguments);
     };
+  return w.gtag;
 }
+
+/* ------------------------------------------------------------------ */
+/* hashing (advanced matching)                                         */
+/* ------------------------------------------------------------------ */
+
+async function sha256(win: W, s: string): Promise<string> {
+  const buf = await win.crypto.subtle.digest("SHA-256", new win.TextEncoder().encode(s));
+  const b = new Uint8Array(buf);
+  let out = "";
+  for (let i = 0; i < b.length; i++) out += (b[i]! < 16 ? "0" : "") + b[i]!.toString(16);
+  return out;
+}
+
+/** Lowercase letters only (same rule as the server's Meta fn/ln; Arabic letters kept). */
+const letters = (s: string) => s.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}]/gu, "");
+
+/** Hashes of the contact data, in the formats each platform expects. Rejects without WebCrypto (http). */
+export async function hashUser(win: W, e164: string, name: string, email: string, country: string): Promise<UserHashes> {
+  const digits = e164.replace(/[^0-9]/g, "");
+  const parts = name.trim().split(/\s+/);
+  const fn = letters(parts[0] || "");
+  const ln = letters(parts.slice(1).join(" "));
+  const em = email.trim().toLowerCase();
+  const co = /^[A-Za-z]{2}$/.test(country) ? country.toLowerCase() : "";
+  const h = (s: string) => (s ? sha256(win, s) : Promise.resolve(""));
+  const [ph, phE, fnH, lnH, emH, coH] = await Promise.all([h(digits), h("+" + digits), h(fn), h(ln), h(/^[^\s@]+@[^\s@]+$/.test(em) ? em : ""), h(co)]);
+  const u: UserHashes = { ph, phE };
+  if (fnH) u.fn = fnH;
+  if (lnH) u.ln = lnH;
+  if (emH) u.em = emH;
+  if (coH) u.co = coH;
+  return u;
+}
+
+export function readUser(win: W): UserHashes | null {
+  try {
+    const o = JSON.parse(sget(win, "sessionStorage", PX_USER_KEY) || "null") as Record<string, unknown> | null;
+    if (!o || typeof o !== "object" || typeof o.ph !== "string" || !HEX64.test(o.ph) || typeof o.phE !== "string" || !HEX64.test(o.phE)) return null;
+    const u: UserHashes = { ph: o.ph, phE: o.phE };
+    for (const k of ["fn", "ln", "em", "co"] as const) {
+      const v = o[k];
+      if (typeof v === "string" && HEX64.test(v)) u[k] = v;
+    }
+    return u;
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* module                                                              */
+/* ------------------------------------------------------------------ */
 
 export function pixels(c: Ctx): void {
   if (c.preview) return;
-  const { cfg, doc } = c;
-  const px = cfg.pixels || {};
-  const meta = valid(/^[0-9]{6,20}$/, px.meta);
-  const tiktok = valid(/^[A-Z0-9]{8,30}$/, px.tiktok);
-  const snap = valid(/^[a-f0-9-]{20,40}$/, px.snap);
-  const ga = valid(/^G-[A-Z0-9]{4,16}$/, px.ga4);
-  if (!meta && !tiktok && !snap && !ga) return;
-  const w = c.win as unknown as PxWin;
+  const { cfg, doc, st } = c;
+  const win = c.win;
+  const w = win as unknown as PxWin;
+  const px = (cfg.pixels || {}) as Record<string, unknown>;
+  const ids: Record<PixelPlatform, string[]> = {
+    meta: pixelIdList("meta", px.meta),
+    tiktok: pixelIdList("tiktok", px.tiktok),
+    snap: pixelIdList("snap", px.snap),
+    ga4: pixelIdList("ga4", px.ga4),
+  };
+  const on = (p: PixelPlatform) => ids[p].length > 0;
+  if (!on("meta") && !on("tiktok") && !on("snap") && !on("ga4")) return;
+  const landing = cfg.page === "landing";
   const p = cfg.product;
 
   const load = (src: string) => {
@@ -159,86 +255,134 @@ export function pixels(c: Ctx): void {
     if (first && first.parentNode) first.parentNode.insertBefore(s, first);
     else (doc.head || doc.documentElement).appendChild(s);
   };
-
-  const fire = (kind: 0 | 1 | 2, e: PixelEvent) => {
-    const value = round2(e.value);
-    const cur = e.currency;
-    const id = p.contentId;
-    if (meta && w.fbq) {
-      const args: unknown[] = [
-        "track",
-        ["ViewContent", "InitiateCheckout", "Purchase"][kind],
-        { content_ids: [id], content_type: "product", content_name: p.name, value, currency: cur, num_items: e.qty },
-      ];
-      if (e.eventId) args.push({ eventID: e.eventId });
-      w.fbq(...args);
+  /** one vendor failing never stops the others (nor the page) */
+  const guard = (fn: () => void) => {
+    try {
+      fn();
+    } catch (e) {
+      report(win, e);
     }
-    if (tiktok && w.ttq)
-      w.ttq.track(
-        ["ViewContent", "InitiateCheckout", "CompletePayment"][kind],
-        {
-          contents: [{ content_id: id, content_type: "product", content_name: p.name, quantity: e.qty }],
-          content_type: "product",
-          value,
-          currency: cur,
-        },
-        e.eventId ? { event_id: e.eventId } : {},
-      );
-    if (snap && w.snaptr)
-      w.snaptr("track", ["VIEW_CONTENT", "START_CHECKOUT", "PURCHASE"][kind], {
-        item_ids: [id],
-        price: value,
-        currency: cur,
-        number_items: e.qty,
-        ...(e.orderId ? { transaction_id: e.orderId } : {}),
-        ...(e.eventId ? { client_dedup_id: e.eventId } : {}),
-      });
-    if (ga && w.gtag)
-      w.gtag("event", ["view_item", "begin_checkout", "purchase"][kind], {
-        currency: cur,
-        value,
-        items: [
-          {
-            item_id: p.sku || id,
-            item_name: p.name,
-            quantity: e.qty,
-            ...(e.unit !== undefined ? { price: e.unit } : {}),
-          },
-        ],
-        ...(e.orderId ? { transaction_id: e.orderId } : {}),
-      });
   };
 
-  const perUnit = (id: string) => {
-    const b = cfg.bundles.find((x) => x.id === id);
+  const send = (step: PixelStep, e: PixelEvent) => {
+    const value = round2(e.value);
+    const cur = e.currency;
+    const qty = Math.max(1, Math.round(e.qty) || 1);
+    const unit = round2(e.unit !== undefined ? e.unit : value / qty);
+    const id = p.contentId;
+    const eventId = step === "purchase" && e.orderId ? purchaseEventId(e.orderId) : "";
+    const lead = step === "lead";
+    if (on("meta") && w.fbq)
+      guard(() => {
+        const data: Record<string, unknown> = lead
+          ? { content_name: p.name, content_ids: [id], value, currency: cur }
+          : {
+              content_ids: [id],
+              content_type: "product",
+              content_name: p.name,
+              contents: [{ id, quantity: qty, item_price: unit }],
+              value,
+              currency: cur,
+              num_items: qty,
+              ...(e.orderId ? { order_id: e.orderId } : {}),
+            };
+        if (eventId) w.fbq!("track", PIXEL_EVENTS.meta[step], data, { eventID: eventId });
+        else w.fbq!("track", PIXEL_EVENTS.meta[step], data);
+      });
+    if (on("tiktok") && w.ttq)
+      guard(() =>
+        w.ttq!.track(
+          PIXEL_EVENTS.tiktok[step],
+          {
+            contents: [{ content_id: id, content_type: "product", content_name: p.name, quantity: qty, price: unit }],
+            content_type: "product",
+            content_ids: [id],
+            value,
+            currency: cur,
+            ...(e.orderId ? { order_id: e.orderId } : {}),
+          },
+          eventId ? { event_id: eventId } : {},
+        ),
+      );
+    if (on("snap") && w.snaptr)
+      guard(() =>
+        w.snaptr!(
+          "track",
+          PIXEL_EVENTS.snap[step],
+          lead
+            ? { price: value, currency: cur }
+            : {
+                item_ids: [id],
+                price: value,
+                currency: cur,
+                number_items: qty,
+                ...(e.orderId ? { transaction_id: e.orderId } : {}),
+                ...(eventId ? { client_dedup_id: eventId } : {}),
+              },
+        ),
+      );
+    if (on("ga4") && w.gtag)
+      guard(() =>
+        w.gtag!(
+          "event",
+          PIXEL_EVENTS.ga4[step],
+          lead
+            ? { currency: cur, value }
+            : {
+                currency: cur,
+                value,
+                items: [{ item_id: p.sku || id, item_name: p.name, quantity: qty, price: unit }],
+                ...(e.orderId ? { transaction_id: e.orderId } : {}),
+              },
+        ),
+      );
+  };
+
+  const perUnit = (bundleId: string) => {
+    const b = cfg.bundles.find((x) => x.id === bundleId);
     return b ? round2(b.perUnit) : undefined;
   };
 
+  /* ---------------- loaders + page view (once per window) ---------------- */
   if (!w.__lpPx) {
     w.__lpPx = true;
-    if (meta) {
-      metaStub(w, load);
-      w.fbq!("init", meta);
-      w.fbq!("track", "PageView");
-    }
-    if (tiktok) {
-      const q = tiktokStub(w, load);
-      q.load(tiktok);
-      q.page();
-    }
-    if (snap) {
-      snapStub(w, load);
-      w.snaptr!("init", snap, {});
-      w.snaptr!("track", "PAGE_VIEW");
-    }
-    if (ga) {
-      gaStub(w, ga, load);
-      w.gtag!("js", new Date());
-      w.gtag!("config", ga);
-    }
-    if (cfg.page === "landing") {
+    // thank-you page: the hashed contact data from the order form (advanced matching)
+    const user = landing ? null : readUser(win);
+    if (on("meta"))
+      guard(() => {
+        const fbq = metaStub(w, load);
+        const am: Record<string, string> | null = user
+          ? { ph: user.ph, ...(user.fn ? { fn: user.fn } : {}), ...(user.ln ? { ln: user.ln } : {}), ...(user.em ? { em: user.em } : {}), ...(user.co ? { country: user.co } : {}) }
+          : null;
+        for (const id of ids.meta) {
+          if (am) fbq("init", id, am);
+          else fbq("init", id);
+        }
+        fbq("track", "PageView");
+      });
+    if (on("tiktok"))
+      guard(() => {
+        const q = tiktokStub(w, load);
+        for (const id of ids.tiktok) q.load(id);
+        if (user) q.identify({ phone_number: user.phE, ...(user.em ? { email: user.em } : {}) });
+        q.page();
+      });
+    if (on("snap"))
+      guard(() => {
+        const snaptr = snapStub(w, load);
+        const am = user ? { user_hashed_phone_number: user.ph, ...(user.em ? { user_hashed_email: user.em } : {}) } : {};
+        for (const id of ids.snap) snaptr("init", id, am);
+        snaptr("track", "PAGE_VIEW");
+      });
+    if (on("ga4"))
+      guard(() => {
+        const gtag = gaStub(w, ids.ga4[0]!, load);
+        gtag("js", new Date());
+        for (const id of ids.ga4) gtag("config", id);
+      });
+    if (landing) {
       const t = computeTotals(cfg, cfg.defaultBundleId, false);
-      fire(0, {
+      send("view", {
         value: t ? t.bundle : p.price,
         qty: t ? t.qty : 1,
         currency: cfg.currency,
@@ -247,12 +391,96 @@ export function pixels(c: Ctx): void {
     }
   }
 
-  if (cfg.page === "landing")
-    c.sub("start", () => {
-      const now = computeTotals(cfg, c.st.bundleId, c.st.bump);
-      if (now) fire(1, { value: now.total, qty: now.qty, currency: cfg.currency, unit: perUnit(c.st.bundleId) });
-    });
-  c.sub("purchase", (o) =>
-    fire(2, { value: o.value, qty: o.qty, currency: o.currency, orderId: o.orderId, eventId: o.eventId || undefined }),
+  /* ---------------- thank-you: Purchase (emitted once per order by thankyou.ts) ---------------- */
+  c.sub("purchase", (o) => {
+    send("purchase", { value: o.value, qty: o.qty, currency: o.currency, orderId: o.orderId });
+    try {
+      win.sessionStorage.removeItem(PX_USER_KEY);
+    } catch {
+      /* storage blocked */
+    }
+  });
+  if (!landing) return;
+
+  /* ---------------- landing: AddToCart / InitiateCheckout ---------------- */
+  let carted = false;
+  let checkout = false;
+  const cart = () => {
+    if (carted) return;
+    const t = computeTotals(cfg, st.bundleId || cfg.defaultBundleId, st.bump);
+    if (!t) return;
+    carted = true;
+    send("cart", { value: t.subtotal, qty: t.qty, currency: cfg.currency, unit: perUnit(st.bundleId) });
+  };
+  // after the current event: the bundle module may apply the shopper's pick in the same tick
+  c.sub("bundle", (e) => {
+    if (e.user) win.setTimeout(cart, 0);
+  });
+  c.sub("start", () =>
+    win.setTimeout(() => {
+      cart();
+      if (checkout) return;
+      const t = computeTotals(cfg, st.bundleId || cfg.defaultBundleId, st.bump);
+      if (!t) return;
+      checkout = true;
+      send("checkout", { value: t.total, qty: t.qty, currency: cfg.currency, unit: perUnit(st.bundleId) });
+    }, 0),
   );
+
+  /* ---------------- landing: hashed contact (advanced matching) + Lead ---------------- */
+  const leadKey = "lp-px-lead:" + cfg.pageKey;
+  let leadDone = !cfg.endpoints.lead || !!sget(win, "sessionStorage", leadKey);
+  let leadTimer = 0;
+  let lastContact = "";
+  const fireLead = () => {
+    win.clearTimeout(leadTimer);
+    if (leadDone || st.done) return;
+    leadDone = true;
+    sset(win, "sessionStorage", leadKey, "1");
+    const t = computeTotals(cfg, st.bundleId || cfg.defaultBundleId, st.bump);
+    send("lead", { value: t ? t.total : p.price, qty: t ? t.qty : 1, currency: cfg.currency });
+  };
+  const contact = (now: boolean) => {
+    const f = getForm(c);
+    const phoneEl = f ? control(f, "phone") : null;
+    const phone = phoneEl ? normalizePhone(phoneEl.value, cfg.phone) : null;
+    if (!f || !phone) {
+      win.clearTimeout(leadTimer);
+      return;
+    }
+    const nameEl = control(f, "name");
+    const emailEl = control(f, "email");
+    const name = nameEl ? nameEl.value.slice(0, 80) : "";
+    const email = emailEl && !emailEl.disabled ? emailEl.value.slice(0, 120) : "";
+    const key = phone.e164 + "\n" + name + "\n" + email;
+    if (key !== lastContact) {
+      lastContact = key;
+      hashUser(win, phone.e164, name, email, cfg.phone.country)
+        .then((u) => {
+          if (key !== lastContact) return;
+          sset(win, "sessionStorage", PX_USER_KEY, JSON.stringify(u));
+          if (on("tiktok") && w.ttq) guard(() => w.ttq!.identify({ phone_number: u.phE, ...(u.em ? { email: u.em } : {}) }));
+        })
+        .catch(() => undefined); // no WebCrypto (http): no advanced matching
+    }
+    if (leadDone) return;
+    win.clearTimeout(leadTimer);
+    if (now) fireLead();
+    else leadTimer = win.setTimeout(fireLead, LEAD_DELAY_MS);
+  };
+  const inForm = (e: Event) => {
+    const t = e.target as Element | null;
+    return !!t && typeof t.closest === "function" && !!t.closest("form[data-lp-form]");
+  };
+  c.on(doc, "input", (e) => {
+    if (inForm(e)) contact(false);
+  });
+  c.on(doc, "change", (e) => {
+    if (inForm(e)) contact(false);
+  });
+  // capture: runs before the form's own submit handler starts the order request
+  c.on(doc, "submit", (e) => {
+    if (inForm(e)) contact(true);
+  }, { capture: true });
+  c.add(() => win.clearTimeout(leadTimer));
 }

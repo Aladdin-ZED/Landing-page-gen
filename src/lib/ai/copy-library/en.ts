@@ -947,7 +947,7 @@ const modest: FamilyCopy = {
     lace: {
       headline: ["The finesse of *lace*, the ease of a loose cut."],
       bigWord: ["Lace"],
-      benefits: [{ topic: "lace", icon: "gem", title: "Delicate lace", text: "A touch of lace that dresses the piece with finesse, never heavy." }],
+      benefits: [{ topic: "lace", icon: "asterisk", title: "Delicate lace", text: "A touch of lace that dresses the piece with finesse, never heavy." }],
       faq: [
         {
           topic: "care",

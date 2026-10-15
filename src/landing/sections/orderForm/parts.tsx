@@ -22,13 +22,13 @@ import {
   editAttr,
   pictureCrop,
   quietCorner,
-  resolveProductVisual,
 } from "../../primitives";
 import type { RenderContext, ResolvedAsset, SectionBg } from "../../types";
 import { orderMessage, whatsappHref, whatsappNumber } from "../whatsappFloat/wa";
 import { optionalLabel, uiLabels } from "./copy";
 import type { Pack } from "./packs";
 import { Plain } from "./text";
+import { OptionsSummary, VariantSlot, formVisual } from "./variants";
 
 export interface HeadData {
   kicker: string;
@@ -84,9 +84,10 @@ export function StepTitle({ ctx, n, text, path }: { ctx: RenderContext; n: numbe
  * The receipt line of the order: thumbnail with a live quantity bubble, "your order", the product,
  * the chosen pack and its live total. Pack-dependent bits are rendered once per pack and tagged
  * [data-bundle-card] — the runtime marks the chosen one ([data-selected]) and CSS cross-fades to it.
+ * The thumbnail shows the option the shopper is choosing (the runtime cross-fades its photo in).
  */
 export function OrderLine({ ctx, packs, total, className }: { ctx: RenderContext; packs: Pack[]; total: number; className?: string }): ReactElement {
-  const visual = resolveProductVisual(ctx);
+  const visual = formVisual(ctx);
   return (
     <div className={cx("lp-of__line", className)}>
       <span
@@ -104,6 +105,7 @@ export function OrderLine({ ctx, packs, total, className }: { ctx: RenderContext
             imgClassName={visual.kind === "cutout" ? "lp-of__line-cut" : undefined}
           />
         ) : null}
+        {visual.asset ? <VariantSlot ctx={ctx} kind="thumb" /> : null}
         <span className="lp-of__line-qty" aria-hidden="true">
           {packs.map((p) => (
             <bdi key={p.id} dir="ltr" className="lp-of__swap" data-bundle-card={p.id} data-selected={p.selected ? "" : undefined}>
@@ -240,7 +242,8 @@ export function Bump({ ctx, surface }: { ctx: RenderContext; surface?: SectionBg
 
 /**
  * Live order summary (server-rendered values from orderTotals(); the runtime keeps them current).
- * `subtotal={false}` when a receipt line above already carries the pack total.
+ * `subtotal={false}` when a receipt line above already carries the pack total. Products with
+ * options end it with the live one-line summary of the choices, right under the total.
  */
 export function Summary({
   ctx,
@@ -295,6 +298,7 @@ export function Summary({
           <bdi data-lp-sum="total">{ctx.money(totals.total)}</bdi>
         </dd>
       </div>
+      <OptionsSummary ctx={ctx} as="row" />
     </dl>
   );
 }

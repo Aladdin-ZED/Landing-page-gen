@@ -74,19 +74,78 @@ const CUTOUT: Record<StageKind, { shape: Box | null; product: Box }> = {
 const PHOTO_ARCH: Box = [0.06, 0, 0];
 
 /**
- * The window a regular photo is shown in per stage — mirrored from base.css §12 (photo insets and
- * radii): mask shape and the window's aspect as a factor of the stage aspect R. The photo is
- * fitted to it subject-first (heads, hands and a product's top never cut by the arch or circle).
+ * The glass mat of the `frame` stage as a fraction of the stage width: base.css --stage-mat is a
+ * length (clamp(0.625rem, 0.3rem + 1.6vw, 1.125rem)), ≈ 3.3–3.5% of the stage on phones (≈ 340px
+ * stage) and desktops (≈ 540px stage) alike.
  */
-const PHOTO_WINDOW: Record<StageKind, { shape: FrameShape; ratio: (R: number) => number }> = {
-  arch: { shape: "arch", ratio: (R) => R * (1 - 2 * PHOTO_ARCH[0]) },
-  halo: { shape: "circle", ratio: () => 1 },
-  slab: { shape: "rounded", ratio: (R) => (R * 0.9) / 0.94 },
-  blob: { shape: "blob", ratio: (R) => R },
-  podium: { shape: "rounded", ratio: (R) => R * 0.92 },
-  frame: { shape: "rounded", ratio: (R) => R },
-  none: { shape: "rounded", ratio: (R) => R },
-};
+const FRAME_MAT = 0.034;
+
+/** A rectangle as fractions of the stage box: x and w of its width, y and h of its height. */
+export interface StageRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** The window a regular photo is shown in on a stage (see stagePhotoFrame). */
+export interface StagePhotoFrame {
+  /** the window's mask, as the crop fitter models it */
+  shape: FrameShape;
+  /** the window's aspect (width / height) */
+  ratio: number;
+  /** the window inside the stage box (fractions; the halo disc is centred vertically) */
+  box: StageRect;
+  /** the same window as insets: inline (each side) and block-start, fractions of width / height */
+  inset: { x: number; y: number };
+}
+
+/**
+ * The window a regular photo is shown in per stage, exactly as base.css §12 draws it (photo insets
+ * and radii) for a stage of aspect R (width / height): mask shape, aspect and the window's box. The
+ * photo is fitted to it subject-first (heads, hands and a product's top never cut by the arch or
+ * circle); sections placing callouts or chips over the photo use the same numbers
+ * (frameRegions(asset, frame.ratio, pictureCrop(asset, { frame: { shape, ratio } }))).
+ */
+export function stagePhotoFrame(stage: StageKind | string, R: number): StagePhotoFrame {
+  const r = Number.isFinite(R) && R > 0.2 && R < 5 ? R : 0.8;
+  const rect = (x: number, y: number, w: number, h: number, shape: FrameShape, ratio?: number): StagePhotoFrame => ({
+    shape,
+    ratio: round(ratio ?? (r * w) / h, 4),
+    box: { x: round(x, 4), y: round(y, 4), w: round(w, 4), h: round(h, 4) },
+    inset: { x: round(x, 4), y: round(y, 4) },
+  });
+  switch (stage) {
+    case "arch":
+      return rect(PHOTO_ARCH[0], 0, 1 - 2 * PHOTO_ARCH[0], 1, "arch");
+    case "halo": {
+      // a disc 84% of the stage width, centred on the stage
+      const h = 0.84 * r;
+      return rect(0.08, 0.5 - h / 2, 0.84, h, "circle", 1);
+    }
+    case "slab":
+      return rect(0.05, 0.03, 0.9, 0.94, "rounded");
+    case "blob":
+      return rect(0.03, 0.03, 0.94, 0.94, "blob");
+    case "podium":
+      return rect(0.04, 0, 0.92, 1, "rounded");
+    case "none":
+      return rect(0, 0, 1, 1, "rounded");
+    case "frame":
+    default:
+      return rect(FRAME_MAT, FRAME_MAT * r, 1 - 2 * FRAME_MAT, 1 - 2 * FRAME_MAT * r, "rounded");
+  }
+}
+
+/**
+ * The box a transparent cutout is contained in per stage (standing on its floor at the box's bottom
+ * edge; object-fit: contain, bottom-aligned), as fractions of the stage box — mirrors CUTOUT and
+ * the --pr-* insets of base.css §12.
+ */
+export function stageCutoutBox(stage: StageKind | string): StageRect {
+  const [i, t, b] = (CUTOUT[stage as StageKind] ?? CUTOUT.frame).product;
+  return { x: i, y: t, w: round(1 - 2 * i, 4), h: round(1 - t - b, 4) };
+}
 
 /** Podium backdrop: an arched niche for the soft languages, a rounded panel for the precise ones. */
 const NICHE: ReadonlySet<Archetype> = new Set<Archetype>(["maison", "souk", "bloom", "field", "hearth", "apothecary", "playground"]);
@@ -174,8 +233,8 @@ export function ProductStage({
     shadowW = round(clamp(fill * footW, 0.2, 0.9), 3);
   }
   // regular photos: fitted to the stage's window (mask + aspect)
-  const photoFrame: PictureFrame | undefined =
-    kind === "photo" ? { shape: PHOTO_WINDOW[stage].shape, ratio: round(PHOTO_WINDOW[stage].ratio(R), 4) } : undefined;
+  const win = kind === "photo" ? stagePhotoFrame(stage, R) : null;
+  const photoFrame: PictureFrame | undefined = win ? { shape: win.shape, ratio: win.ratio } : undefined;
   const rng = ctx.rng(`stage:${seedKey}`);
   const blob = stage === "blob" ? blobRadius(rng) : undefined;
   const blob2 = stage === "blob" ? blobRadius(rng) : undefined;

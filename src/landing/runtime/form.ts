@@ -1,7 +1,8 @@
 /**
  * The order form (form#order-form[data-lp-form]): first-interaction bookkeeping (idempotency key,
  * event id, timer), inline validation, optional Cloudflare Turnstile token (./turnstile), JSON
- * submit with timeout + one retry, server error mapping, hand-off to the thank-you page.
+ * submit with timeout + one retry, server error mapping (delivery fields, and each product option
+ * group by its control name "v.<unit>.<groupId>"), hand-off to the thank-you page.
  * Preview mode validates but never sends.
  */
 import type { OrderPayload, OrderResponse } from "../../lib/orders/contract";
@@ -16,12 +17,12 @@ import type { Totals } from "./money";
 import { computeTotals } from "./money";
 import { ORDER_ID_RE, writeOrder } from "./order-store";
 import { normalizePhone } from "./phone";
-import { focusInView } from "./scroll";
+import { focusInView, focusQuiet, headerOffset, scrollToEl } from "./scroll";
 import { CAPTCHA_STRING, captcha } from "./turnstile";
 import type { RuntimeStringKey } from "./strings";
 import { str } from "./strings";
 import { adIds } from "./tracking";
-import { readVariants } from "./variants";
+import { currentSummary, readVariants, variantMessage } from "./variants";
 
 /** Server field errors → localized messages (server text is never shown). */
 const SERVER_FIELD: Record<string, RuntimeStringKey> = {
@@ -33,6 +34,8 @@ const SERVER_FIELD: Record<string, RuntimeStringKey> = {
 };
 
 const isField = (n: string): n is FieldName => (FIELDS as readonly string[]).indexOf(n) >= 0;
+/** Server error key of a product option group (= its control name). */
+const OPTION_KEY = /^v\.(?:\d{1,2}\.)?[A-Za-z0-9_-]{1,40}$/;
 
 /** Longest wait for a Turnstile token once the shopper submits (non-interactive checks take 1–5 s). */
 const CAPTCHA_WAIT_MS = 12_000;
@@ -84,7 +87,9 @@ export function form(c: Ctx): void {
         showError(el, k ? str(cfg, k) : "");
       }
     } else if (el.type === "radio") {
-      for (const r of $$<Ctl>(f, "input[type=radio][aria-invalid]")) if (r.name === el.name) showError(r, "");
+      // an option group's error stays until one of its options is actually chosen (not on blur)
+      if ((el as HTMLInputElement).checked)
+        for (const r of $$<Ctl>(f, "input[type=radio][aria-invalid]")) if (r.name === el.name) showError(r, "");
     } else if (el.getAttribute("aria-invalid") === "true" && el.value) showError(el, "");
   };
 
@@ -109,6 +114,47 @@ export function form(c: Ctx): void {
     lock(false);
     sendingLabel(false);
     setStatus(statusEl, msg, msg ? "error" : "");
+  };
+
+  /**
+   * Bring a control to the shopper: an option picker scrolls its whole group (name and choices) below
+   * any sticky header before its first choice takes the focus; other fields scroll themselves.
+   */
+  const reveal = (el: Ctl) => {
+    const group = el.type === "radio" ? el.closest("fieldset") : null;
+    if (!group) {
+      focusInView(c, el);
+      return;
+    }
+    const r = group.getBoundingClientRect();
+    if (r.top >= headerOffset(c) && r.bottom <= win.innerHeight) focusQuiet(el);
+    else scrollToEl(c, group, () => focusQuiet(el));
+  };
+
+  /**
+   * A product option refused by the server: "unavailable" = sold out since the page was opened (the
+   * choice is cleared and struck out, so it cannot be sent again); "invalid" = unknown (cleared).
+   */
+  const markOption = (name: string, code: string): Ctl | null => {
+    const group = $$<Ctl>(f, "input[name^='v.'],select[name^='v.']").filter((x) => x.name === name);
+    if (!group.length) return null;
+    if (code !== "required")
+      for (const el of group) {
+        if (el.type !== "radio" || !(el as HTMLInputElement).checked) continue;
+        (el as HTMLInputElement).checked = false;
+        if (code === "unavailable") {
+          el.disabled = true;
+          const opt = el.closest("label");
+          const face = opt && opt.querySelector(".lp-vo__face");
+          if (opt) opt.setAttribute("data-soldout", "");
+          if (face && !face.querySelector(".lp-vo__x")) face.appendChild(c.doc.createElement("span")).className = "lp-vo__x";
+        }
+      }
+    const first = group.find((x) => !x.disabled) || group[0]!;
+    showError(first, variantMessage(first, code, str(cfg, "form.errRequired")));
+    // the pickers redraw (chosen name, summary, photo) without the cleared choice
+    f.dispatchEvent(new (win as Window & typeof globalThis).Event("lp-options"));
+    return first;
   };
 
   const value = (n: FieldName) => {
@@ -152,6 +198,7 @@ export function form(c: Ctx): void {
       currency: typeof r.currency === "string" && /^[A-Z]{3}$/.test(r.currency) ? r.currency : cfg.currency,
       bundleLabel: t.label,
       items: t.label + (p.bump && cfg.bump ? " + " + cfg.bump.title : ""),
+      options: currentSummary(c, f, t.qty),
       qty: t.qty,
       upsellToken: r.upsellToken,
       eventId: p.eventId,
@@ -171,7 +218,7 @@ export function form(c: Ctx): void {
     const bad = validateForm(c, f, true);
     if (bad.length) {
       setStatus(statusEl, "", "");
-      focusInView(c, bad[0]!);
+      reveal(bad[0]!);
       return;
     }
     if (c.preview) {
@@ -236,6 +283,11 @@ export function form(c: Ctx): void {
         const marked: Ctl[] = [];
         for (const k of Object.keys(r.fields)) {
           // known field names only: a response key like "constructor" must never reach the selector
+          if (OPTION_KEY.test(k)) {
+            const el = markOption(k, String(r.fields[k as keyof typeof r.fields] || ""));
+            if (el) marked.push(el);
+            continue;
+          }
           const key = isField(k) ? SERVER_FIELD[k] : undefined;
           const el = key ? control(f, k) : null;
           if (!el || !key) continue;
@@ -244,7 +296,7 @@ export function form(c: Ctx): void {
         }
         if (marked.length) {
           fail("");
-          focusInView(c, marked.sort(byDomOrder)[0]!);
+          reveal(marked.sort(byDomOrder)[0]!);
           return;
         }
       }

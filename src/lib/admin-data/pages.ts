@@ -324,7 +324,7 @@ export async function setHomePage(id: string | null, actor: Actor): Promise<bool
 }
 
 export const PIXEL_KEYS = ["metaPixelId", "tiktokPixelId", "snapPixelId", "ga4Id"] as const;
-export type StorePixels = Partial<Record<(typeof PIXEL_KEYS)[number], string>>;
+export type StorePixels = Pick<PageDoc["tracking"], (typeof PIXEL_KEYS)[number]>;
 
 /**
  * Copy the store's pixel IDs into every non-archived page draft. Only platforms with a store ID are
@@ -351,7 +351,7 @@ export async function applyPixelsToDrafts(pixels: StorePixels, actor: Actor): Pr
     }
     const tracking = (draft as { tracking?: unknown }).tracking;
     const current = tracking && typeof tracking === "object" ? (tracking as Record<string, unknown>) : {};
-    if (Object.entries(set).every(([k, v]) => current[k] === v)) continue;
+    if (Object.entries(set).every(([k, v]) => JSON.stringify(current[k]) === JSON.stringify(v))) continue;
     const next = { ...(draft as PageDoc), tracking: { ...current, ...set } };
     const res = await db
       .update(pages)

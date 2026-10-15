@@ -22,7 +22,9 @@ import "server-only";
  * failure falls back to identity, never to an error page.
  */
 import { createHash } from "node:crypto";
-import { UNKNOWN_PAGE_HEADERS, UNKNOWN_PAGE_HTML } from "@/lib/auth/unknown-page";
+import { IS_PROD, isInternalHost, normalizeHost, publicSiteOrigin } from "@/lib/auth/config";
+import { requestHost } from "@/lib/auth/gate";
+import { unknownPageResponse } from "@/lib/auth/unknown-page";
 import { baseSecurityHeaders } from "@/lib/security/headers";
 import { encodeCached, encodeOnce, MIN_COMPRESS_BYTES, negotiateEncoding, type Coding } from "./compress";
 import { originOf, scopeToPublicApi } from "./csp";
@@ -61,32 +63,79 @@ export const DOCUMENT_COOP = "same-origin-allow-popups";
 const HOST_RE = /^[a-z0-9.-]+(?::\d{1,5})?$/;
 const firstValue = (v: string | null) => v?.split(",")[0]?.trim().toLowerCase() || null;
 
+/** "www.mystore.ma" ↔ "mystore.ma": the same site under its other usual name. */
+const isWwwTwin = (a: string, b: string) => a === `www.${b}` || b === `www.${a}`;
+
+declare global {
+  var __codForeignHosts: Set<string> | undefined;
+}
+
+/** Runtime-log line (once per host and process) for a document served under a host PUBLIC_URL doesn't name. */
+function reportForeignHost(host: string | null, publicOrigin: string): void {
+  // an internal Host (the proxy's own name for the app) says nothing about what the visitor opened
+  if (!host || !HOST_RE.test(host) || isInternalHost(host)) return;
+  const seen = (globalThis.__codForeignHosts ??= new Set());
+  if (seen.has(host) || seen.size >= 20) return;
+  seen.add(host);
+  console.warn(
+    `[landing] a page was opened on ${host}, which is not PUBLIC_URL (${publicOrigin}): orders sent from there are blocked by the page's security policy. Update PUBLIC_URL if the site moved to this domain.`,
+  );
+}
+
 /**
- * The origins a browser may be showing this document under: PUBLIC_URL's, plus the request's own
- * host (Host, and X-Forwarded-Host behind a proxy), so a page reached on an alias (www.…) still
- * reaches its API. Hosts are validated (no CSP syntax can get through) and only ever widen the
- * public-API sources; the scheme comes from X-Forwarded-Proto, else the request URL — an "http"
- * source also matches https (CSP3), so a TLS-terminating proxy that sends no proto still works.
+ * The origins a browser may be showing this document under: its runtime posts to the public API with
+ * relative URLs, so the document's own origin must be allowed by the CSP (./csp scopeToPublicApi).
+ *
+ * The CSP goes out on responses shared caches keep (s-maxage), so in production nothing a client can
+ * set without changing the cache key is reflected into it (X-Forwarded-Host, X-Forwarded-Proto):
+ * PUBLIC_URL's origin, plus the request's host only when it is PUBLIC_URL's host or its www./bare twin
+ * (with PUBLIC_URL's scheme). Any other host gets PUBLIC_URL's origin alone, and a runtime-log line.
+ * Without PUBLIC_URL (a misconfiguration the boot log reports), the host the browser addressed
+ * (security: Host first, see auth/gate requestHost).
+ *
+ * In development the request's own Host and X-Forwarded-Host are accepted (LAN devices, tunnels).
+ * Hosts are validated (no CSP syntax can get through) and only ever widen the public-API sources; an
+ * "http" source also matches https (CSP3), so a TLS-terminating proxy that sends no proto still works.
  */
 export function documentOrigins(req: Request): string[] {
   const out = new Set<string>();
-  const pub = originOf(process.env.PUBLIC_URL ?? "");
-  if (pub) out.add(pub);
-  let scheme = firstValue(req.headers.get("x-forwarded-proto"));
-  if (scheme !== "https" && scheme !== "http") {
-    try {
-      scheme = new URL(req.url).protocol.replace(/:$/, "");
-    } catch {
-      scheme = null;
+  const pub = publicSiteOrigin();
+  if (IS_PROD) {
+    const host = requestHost(req.headers);
+    if (pub) {
+      out.add(pub);
+      const { protocol, host: pubHost } = new URL(pub);
+      const publicHost = normalizeHost(pubHost);
+      if (host && publicHost && host !== publicHost) {
+        if (isWwwTwin(host, publicHost) && HOST_RE.test(host)) out.add(`${protocol}//${host}`);
+        else reportForeignHost(host, pub);
+      }
+      return [...out];
     }
+    const o = host && HOST_RE.test(host) ? originOf(`${requestScheme(req) ?? "https"}://${host}`) : null;
+    return o ? [o] : [];
   }
-  if (scheme !== "https" && scheme !== "http") return [...out];
+  if (pub) out.add(pub);
+  const scheme = requestScheme(req);
+  if (!scheme) return [...out];
   for (const host of [firstValue(req.headers.get("host")), firstValue(req.headers.get("x-forwarded-host"))]) {
     if (!host || !HOST_RE.test(host)) continue;
     const o = originOf(`${scheme}://${host}`);
     if (o) out.add(o);
   }
   return [...out];
+}
+
+/** "https" / "http" from X-Forwarded-Proto, else from the request URL; null for anything else. */
+function requestScheme(req: Request): "https" | "http" | null {
+  const forwarded = firstValue(req.headers.get("x-forwarded-proto"));
+  if (forwarded === "https" || forwarded === "http") return forwarded;
+  try {
+    const scheme = new URL(req.url).protocol.replace(/:$/, "");
+    return scheme === "https" || scheme === "http" ? scheme : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The ETag of one representation of a document whose identity bytes hash to `sha`. */
@@ -173,9 +222,9 @@ export function canonicalRedirect(location: URL): Response {
   return new Response(null, { status: 308, headers });
 }
 
-/** The neutral public 404 (identical to the proxy's answer for unknown URLs). */
+/** The neutral public 404, byte for byte the proxy's answer for un-gated admin URLs. */
 export function notFoundResponse(req: Request): Response {
-  return new Response(req.method === "HEAD" ? null : UNKNOWN_PAGE_HTML, { status: 404, headers: UNKNOWN_PAGE_HEADERS });
+  return unknownPageResponse(req.method);
 }
 
 /** 503 when the store backend (database) is unreachable — never cached, never indexed. */

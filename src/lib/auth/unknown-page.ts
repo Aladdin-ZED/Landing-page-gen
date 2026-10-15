@@ -41,9 +41,24 @@ h1,h2{font-size:1.25rem;font-weight:600;margin:0;text-wrap:balance}p{margin:.5re
 a{display:inline-flex;align-items:center;min-height:44px;margin-top:1.5rem;color:var(--ink);font-size:.9rem;text-underline-offset:4px;text-decoration-color:var(--soft)}a:hover{text-decoration-color:currentColor}a:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:2px}
 </style></head><body><main><p class="code" aria-hidden="true">${c.code}</p><h1>${c.titleFr}</h1><p>${c.bodyFr}</p><hr><div lang="ar" dir="rtl"><h2>${c.titleAr}</h2><p>${c.bodyAr}</p></div><a href="/">${c.homeFr}</a></main></body></html>`;
 
-/** Headers matching what Next.js sends with its own not-found page. */
+/**
+ * Headers of every "unknown URL" answer: the proxy's (un-gated admin), the route handlers' (unknown
+ * slug, legal page, un-gated media API, cron without its key) and, through the fallback rewrite in
+ * next.config.ts, every path no route matches. The Vary list is the one Next.js adds to its own
+ * responses. `no-transform` keeps Next's response compression (and any CDN) from re-encoding one of
+ * them and not the others: proxy answers would otherwise go out gzip-encoded and route answers not,
+ * which told an admin path apart from any other unknown URL.
+ */
 export const UNKNOWN_PAGE_HEADERS: Record<string, string> = {
   "Content-Type": "text/html; charset=utf-8",
-  "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+  "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate, no-transform",
   Vary: "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
 };
+
+/**
+ * The public 404 for a request with this method: the HTML document for GET, an empty body for every
+ * other method (HEAD, POST, OPTIONS…), exactly as the proxy answers un-gated admin requests.
+ */
+export function unknownPageResponse(method: string): Response {
+  return new Response(method === "GET" ? UNKNOWN_PAGE_HTML : null, { status: 404, headers: UNKNOWN_PAGE_HEADERS });
+}

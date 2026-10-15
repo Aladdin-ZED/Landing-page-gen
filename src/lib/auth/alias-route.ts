@@ -10,14 +10,12 @@ import "server-only";
  * with the right "back" path.
  */
 import { hasAdminAccess } from "./request";
-import { UNKNOWN_PAGE_HEADERS, UNKNOWN_PAGE_HTML } from "./unknown-page";
+import { unknownPageResponse } from "./unknown-page";
 
 /** `target` must be an absolute admin path ("/admin/…"); the Location stays relative to this host. */
 export async function adminAliasRedirect(target: string, method = "GET"): Promise<Response> {
   if (!target.startsWith("/admin/") || target.startsWith("//")) throw new Error(`invalid admin alias target: ${target}`);
   // the proxy already refused un-gated requests; this is the same in-process re-check pages do
-  if (!(await hasAdminAccess())) {
-    return new Response(method === "HEAD" ? null : UNKNOWN_PAGE_HTML, { status: 404, headers: UNKNOWN_PAGE_HEADERS });
-  }
+  if (!(await hasAdminAccess())) return unknownPageResponse(method);
   return new Response(null, { status: 307, headers: { Location: target, "Cache-Control": "private, no-store" } });
 }

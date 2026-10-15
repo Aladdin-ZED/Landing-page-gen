@@ -34,6 +34,40 @@ import { dateTime, money, phone as fmtPhone } from "../lib/format";
 import { orderStatusMeta, riskFlagLabel, riskLevel, SHEET_STATUS_META } from "../lib/status";
 import { StatusMenu } from "./status-menu";
 
+/**
+ * The chosen product options: the one-line summary the call center and the sheet read
+ * ("2 × Noir/M + Beige/L"), then each unit's choices as labelled chips when the order has several.
+ */
+function OptionsBlock({ options, units }: { options: string; units: Record<string, string>[] }) {
+  const chips = (v: Record<string, string>) =>
+    Object.entries(v).map(([group, label]) => (
+      <span key={group} className="inline-flex items-baseline gap-1 rounded-full bg-background px-2 py-0.5 ring-1 ring-border/70 ring-inset">
+        <span className="text-muted-foreground">{group}</span>
+        <bdi className="font-medium text-foreground">{label}</bdi>
+      </span>
+    ));
+  return (
+    <div className="grid gap-2.5 rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/60 ring-inset">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-xs font-medium text-muted-foreground">Options</span>
+        <bdi className="text-end text-sm font-medium">{options}</bdi>
+      </div>
+      {units.length > 1 ? (
+        <ul className="grid gap-1.5 border-t border-border/60 pt-2.5">
+          {units.map((v, i) => (
+            <li key={i} className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="w-12 shrink-0 font-medium text-muted-foreground tabular-nums">Unit {i + 1}</span>
+              {chips(v)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-wrap gap-1.5 text-xs">{chips(units[0] ?? {})}</div>
+      )}
+    </div>
+  );
+}
+
 export interface OrderDrawerActions {
   get: (id: string) => Promise<ActionResult<OrderDetailJson>>;
   setStatus: (id: string, status: string) => Promise<ActionResult<{ sheet: "updated" | "not_found" | "skipped" | "queued" }>>;
@@ -205,20 +239,7 @@ export function OrderDrawer({
                       </span>
                     </div>
                   </div>
-                  {order.items.variants.length > 0 && (
-                    <ul className="grid gap-1.5">
-                      {order.items.variants.map((v, i) => (
-                        <li key={i} className="flex flex-wrap items-center gap-1.5 text-xs">
-                          <span className="font-medium text-muted-foreground">Unit {i + 1}</span>
-                          {Object.entries(v).map(([k, val]) => (
-                            <span key={k} className="rounded-full bg-foreground/[0.05] px-2 py-0.5">
-                              {k}: <strong className="font-medium">{val}</strong>
-                            </span>
-                          ))}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  {order.items.variants.length > 0 && <OptionsBlock options={order.options} units={order.items.variants} />}
                   <dl className="grid gap-1.5 border-t border-border/60 pt-3 text-sm">
                     <Line label="Subtotal" value={money(order.subtotal, order.currency)} />
                     {order.items.bump && <Line label={`+ ${order.items.bump.title}`} value={money(order.items.bump.price, order.currency)} />}

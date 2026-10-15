@@ -1,10 +1,11 @@
 /**
  * Upload request body for POST /api/admin/media, read with ONE copy of the bytes.
  *
- * The declared Content-Length (required, capped by the caller) sizes a single buffer the stream is
- * copied into; the multipart parser then hands out the file as a view into that buffer. No
- * concatenated duplicate, no FormData/File/ArrayBuffer copies: one 25 MB upload costs ~25 MB, not
- * 4–5 copies of it.
+ * The declared Content-Length (capped by the caller) sizes a single buffer the stream is copied
+ * into; the multipart parser then hands out the file as a view into that buffer. No concatenated
+ * duplicate, no FormData/File/ArrayBuffer copies: one 25 MB upload costs ~25 MB, not 4–5 copies of
+ * it. A body sent without Content-Length (chunked: a proxy or CDN in front of the app may forward an
+ * upload that way) is streamed under a hard cap instead and joined once at the end.
  *
  * The parser follows RFC 7578 / the WHATWG multipart encoder (what browsers and undici send) and
  * stays deliberately small: bounded part count and header size, first `file` part wins, text
@@ -37,7 +38,16 @@ export function declaredLength(headers: Headers): number | null {
   return Number.isSafeInteger(n) ? n : null;
 }
 
-export type ExactBody = { ok: true; value: Buffer } | { ok: false; status: 400 | 408 };
+export type ExactBody = { ok: true; value: Buffer } | { ok: false; status: 400 | 408 | 413 };
+
+/** Next chunk of the stream, or "idle" when the client sent nothing for IDLE_TIMEOUT_MS. */
+async function nextChunk(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<ReadableStreamReadResult<Uint8Array> | "idle"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const idle = new Promise<"idle">((resolve) => {
+    timer = setTimeout(() => resolve("idle"), IDLE_TIMEOUT_MS);
+  });
+  return Promise.race([reader.read(), idle]).finally(() => clearTimeout(timer));
+}
 
 /** Read exactly `length` bytes (the validated Content-Length) into one buffer. */
 export async function readExactBody(body: ReadableStream<Uint8Array> | null, length: number): Promise<ExactBody> {
@@ -47,11 +57,7 @@ export async function readExactBody(body: ReadableStream<Uint8Array> | null, len
   let filled = 0;
   try {
     for (;;) {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const idle = new Promise<"idle">((resolve) => {
-        timer = setTimeout(() => resolve("idle"), IDLE_TIMEOUT_MS);
-      });
-      const next = await Promise.race([reader.read(), idle]).finally(() => clearTimeout(timer));
+      const next = await nextChunk(reader);
       if (next === "idle") return { ok: false, status: 408 };
       if (next.done) break;
       const chunk = next.value;
@@ -66,6 +72,32 @@ export async function readExactBody(body: ReadableStream<Uint8Array> | null, len
     reader.cancel().catch(() => undefined);
   }
   return filled === length ? { ok: true, value: out } : { ok: false, status: 400 };
+}
+
+/**
+ * Read a body of unknown length (no Content-Length): refused with 413 as soon as it passes `max`
+ * bytes, so an endless stream never holds more than the cap.
+ */
+export async function readCappedBody(body: ReadableStream<Uint8Array> | null, max: number): Promise<ExactBody> {
+  if (!body) return { ok: false, status: 400 };
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const next = await nextChunk(reader);
+      if (next === "idle") return { ok: false, status: 408 };
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > max) return { ok: false, status: 413 };
+      chunks.push(next.value);
+    }
+  } catch {
+    return { ok: false, status: 400 };
+  } finally {
+    reader.cancel().catch(() => undefined);
+  }
+  return size > 0 ? { ok: true, value: Buffer.concat(chunks, size) } : { ok: false, status: 400 };
 }
 
 export interface MultipartFile {

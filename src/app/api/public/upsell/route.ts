@@ -1,6 +1,7 @@
 /**
  * POST /api/public/upsell — one-click upsell from the thank-you page: { orderId, token }.
  * Answers { ok: true, orderId, total, currency } | { ok: false, error: "invalid"|"expired"|"rate_limited"|"server" }.
+ * A per-process burst guard runs before any database work (a flood never reaches MariaDB).
  */
 import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
@@ -19,6 +20,7 @@ import {
   syncSheetAfterResponse,
 } from "@/lib/orders/http";
 import { acceptUpsell, type UpsellResponse } from "@/lib/orders/upsell";
+import { burstLimit } from "@/lib/security/burst-limit";
 
 const STATUS: Record<Extract<UpsellResponse, { ok: false }>["error"], number> = {
   invalid: 422,
@@ -32,6 +34,10 @@ export function OPTIONS(req: NextRequest): Promise<Response> {
 
 export async function POST(req: NextRequest): Promise<Response> {
   const client = clientContext(req);
+  const burst = burstLimit("upsell", client.ip);
+  if (!burst.ok) {
+    return json({ ok: false, error: "rate_limited" } satisfies UpsellResponse, 429, { Vary: "Origin", "Retry-After": String(burst.retryAfter) });
+  }
   try {
     const body = await readJson(req, 4 * 1024);
     if (!body.ok) return json({ ok: false, error: "invalid" }, body.status, { Vary: "Origin" });

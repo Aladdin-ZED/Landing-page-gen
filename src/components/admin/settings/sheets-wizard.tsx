@@ -39,7 +39,8 @@ export interface SheetsState {
   serviceAccountEmail: string | null;
   sheet: { url: string; sheetTitle: string; connectedAt: string | null; enabled: boolean } | null;
   health: SheetHealth;
-  cron: { configured: boolean; url: string };
+  /** url: browser test with ?key=; endpoint: what the cron job calls with the X-Cron-Key header */
+  cron: { configured: boolean; url: string; endpoint: string };
 }
 
 async function call(path: string, method: string, body?: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
@@ -350,16 +351,20 @@ export function SheetsWizard({ state, canWrite, canSync }: { state: SheetsState;
       >
         <div className="grid grid-cols-1 gap-3 text-sm">
           <p className="text-muted-foreground">
-            In Hostinger hPanel → <span className="font-medium text-foreground">Advanced → Cron Jobs</span>, add a job running every 5 minutes that opens this
-            address (replace the end with your <code className="rounded-md bg-foreground/[0.06] px-1.5 py-0.5 text-xs text-foreground">CRON_KEY</code> value):
+            First open this address in your browser, with your <code className="rounded-md bg-foreground/[0.06] px-1.5 py-0.5 text-xs text-foreground">CRON_KEY</code>{" "}
+            value at the end. It should answer <code className="font-mono text-xs">{'{"ok":true,…}'}</code>:
           </p>
           <div className="flex items-center gap-2 rounded-xl bg-foreground/[0.04] py-1.5 ps-3.5 pe-1.5 ring-1 ring-foreground/[0.06] ring-inset">
             <KeyRoundIcon className="size-3.5 shrink-0 text-muted-foreground" />
             <code className="min-w-0 flex-1 truncate font-mono text-[0.78rem]">{state.cron.url}</code>
             <CopyButton value={state.cron.url} label="Copy cron URL" toastMessage="Cron URL copied — paste your key at the end" />
           </div>
-          <p className="text-xs text-muted-foreground">
-            Command example: <code className="font-mono break-all">curl -fsS &quot;{state.cron.url}&quot; &gt; /dev/null</code>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Then in Hostinger hPanel → your site → <span className="font-medium text-foreground">Advanced → Cron Jobs → Create Cron Job</span>, type Custom, every
+            5 minutes, with this one-line command (your key goes in the header, and never put a % in it):{" "}
+            <code className="font-mono break-all">
+              curl -fsS --max-time 110 -o /dev/null -H &quot;X-Cron-Key: YOUR_CRON_KEY&quot; &quot;{state.cron.endpoint}&quot; || date &gt;&gt; &quot;$HOME/cron-tick-failures.log&quot;
+            </code>
           </p>
         </div>
       </SettingsSection>

@@ -951,7 +951,7 @@ const modest: FamilyCopy = {
     lace: {
       headline: ["رقّة *الدانتيل* وراحة القصّة الواسعة."],
       bigWord: ["دانتيل"],
-      benefits: [{ topic: "lace", icon: "gem", title: "دانتيل رقيق", text: "لمسة من الدانتيل تزيّن القطعة برقّة، بدون مبالغة." }],
+      benefits: [{ topic: "lace", icon: "asterisk", title: "دانتيل رقيق", text: "لمسة من الدانتيل تزيّن القطعة برقّة، بدون مبالغة." }],
       faq: [
         {
           topic: "care",

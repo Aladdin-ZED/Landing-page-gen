@@ -17,7 +17,8 @@ import { isGatePath } from "@/lib/auth/gate";
 import { db } from "@/lib/db/client";
 import { newId } from "@/lib/db/ids";
 import { pages, pageVersions, users } from "@/lib/db/schema";
-import { getAssetsByIds, parseFocus, type AssetRecord } from "@/lib/media";
+import { ensureFocusMany, getAssetsByIds, type AssetRecord } from "@/lib/media";
+import { assetRowOf } from "@/lib/media/asset-row";
 import { PageDoc, type PageDoc as PageDocT } from "@/lib/page/schema";
 import { sanitizeDeep, validateDoc } from "@/lib/page/validate";
 import { invalidatePublished, isServableSlug, storeInfo } from "@/lib/render/publish.server";
@@ -68,24 +69,18 @@ function metaOf(row: { id: string; name: string; slug: string; status: PageStatu
   };
 }
 
+/** The builder's row of an asset: the renderer row every path shares (focus included) + the palette. */
 export function toEditorAsset(a: AssetRecord): EditorAsset {
-  return {
-    id: a.id,
-    kind: a.kind,
-    mime: a.mime,
-    width: a.width,
-    height: a.height,
-    alpha: a.alpha,
-    dominant: a.dominant,
-    variants: a.variants.map((v) => ({ key: v.key, w: v.w, h: v.h, fmt: v.fmt })),
-    palette: a.palette ?? null,
-    // subject analysis: the canvas fits frames exactly like the published page (validated, never trusted)
-    focus: parseFocus(a.focus),
-  };
+  return { ...assetRowOf(a), palette: a.palette ?? null };
 }
 
+/**
+ * Asset rows for a document. Images uploaded before the subject analysis existed are analysed here
+ * (and stored) within a small time budget, so the canvas and the next publish fit them alike — both
+ * read the same stored row; the rest are analysed on a later open.
+ */
 export async function assetsFor(doc: PageDocT, extra: Parameters<typeof collectAssetIds>[1] = []): Promise<Record<string, EditorAsset>> {
-  const rows = await getAssetsByIds(collectAssetIds(doc, extra));
+  const rows = await ensureFocusMany(await getAssetsByIds(collectAssetIds(doc, extra)), { budgetMs: 2000 });
   return Object.fromEntries(rows.map((r) => [r.id, toEditorAsset(r)]));
 }
 

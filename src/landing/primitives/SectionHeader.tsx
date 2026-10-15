@@ -1,9 +1,12 @@
 import type { ReactElement, ReactNode } from "react";
 import type { Archetype } from "@/lib/page/schema";
+import { ARCHETYPE_DEFS } from "@/lib/theme/archetypes";
+import { fontData } from "@/lib/theme/fonts";
 import type { RenderContext } from "../types";
 import { Kicker, type KickerProps } from "./Kicker";
+import { inlineText, parseInline } from "./markup";
 import { RichText } from "./RichText";
-import { cx, joinPath, reveal, type RevealKind } from "./util";
+import { cssVars, cx, joinPath, reveal, type RevealKind } from "./util";
 
 /** Title entrance per archetype (DESIGN.md §3 motion column) — sections may override. */
 export const TITLE_REVEAL: Record<Archetype, RevealKind> = {
@@ -55,6 +58,36 @@ export interface SectionHeaderProps {
 
 const TITLE_CLASS = { m: "lp-h2", l: "lp-h1", xl: "lp-display-3" } as const;
 
+const ARABIC_LETTER = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFC]/;
+/** breakable whitespace (no-break spaces keep their words together) */
+const BREAK = /[^\S\u00A0\u2007\u202F]+/;
+
+/**
+ * Width (em of the display face) of the title's longest unbreakable word — base.css caps the title
+ * size so it always fits its column (--sh-word → --lp-fs-cap). From the face's measured lowercase
+ * advance (font manifest), wider at display weight and wider again in capitals; Arabic letter
+ * shapes vary too much for a metric (0.35–0.57 em measured), so a middle-high value. Null for
+ * words too short to ever overflow.
+ */
+export function longestWordEm(ctx: RenderContext, title: string): number | null {
+  const words = inlineText(parseInline(title))
+    .split(BREAK)
+    // a line may break after a hyphen ("anti-chute")
+    .flatMap((w) => w.split(/(?<=[-\u2010])/));
+  const id = ctx.locale === "ar" ? ctx.doc.theme.fonts.displayAr : ctx.doc.theme.fonts.display;
+  const m = fontData(id)?.metrics;
+  const base = m && m.unitsPerEm > 0 ? m.xWidthAvg / m.unitsPerEm : 0.48;
+  const upper = ctx.locale !== "ar" && ARCHETYPE_DEFS[ctx.archetype]?.display.case === "uppercase";
+  let best = 0;
+  for (const w of words) {
+    const n = [...w].length;
+    if (!n) continue;
+    const em = ARABIC_LETTER.test(w) ? n * 0.52 : n * Math.min(0.78, Math.max(0.36, base * (upper ? 1.55 : 1.12)));
+    best = Math.max(best, em);
+  }
+  return best >= 3.5 ? Math.round(best * 100) / 100 : null;
+}
+
 /**
  * Modern editorial heading block: a meta row (optional tabular section number · kicker pill with
  * the archetype glyph), a big balanced title on the archetype's fluid scale that reveals word by
@@ -86,8 +119,12 @@ export function SectionHeader({
   const hasMeta = !!num || (!!kicker && !!kicker.trim());
   if (!hasTitle && !hasLead && !hasMeta && !children) return null;
   const tKind = titleReveal === undefined ? TITLE_REVEAL[ctx.archetype] : titleReveal;
+  const word = hasTitle ? longestWordEm(ctx, title!) : null;
   return (
-    <header className={cx("lp-sh", `lp-sh--${align}`, `lp-sh--${size}`, rule && "lp-sh--rule", className)}>
+    <header
+      className={cx("lp-sh", `lp-sh--${align}`, `lp-sh--${size}`, rule && "lp-sh--rule", className)}
+      style={word ? cssVars({ "--sh-word": word }) : undefined}
+    >
       {hasMeta ? (
         <div className="lp-sh__meta" {...reveal(animate && "fade")}>
           {num ? (

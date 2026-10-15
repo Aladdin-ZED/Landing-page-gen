@@ -2,8 +2,18 @@
  * Client IP for rate limiting & abuse signals (always hashed before storage).
  *
  * Left-most X-Forwarded-For entries and CF-Connecting-IP are client-controlled unless a trusted proxy
- * overwrites them, so we read the hop appended by OUR proxy: the entry at position
- * (length - TRUSTED_PROXY_HOPS) — default 1 = the right-most entry (Hostinger's front proxy).
+ * overwrites them, so we read what the proxies in front of the app appended, walking the list from
+ * the right (nearest proxy first):
+ *  - internal hops (loopback, private, link-local, shared CGNAT and unique-local addresses) are
+ *    skipped: no visitor reaches a public site from one, so they are the host's own proxies talking
+ *    over its internal network (e.g. its CDN → web server → app);
+ *  - the TRUSTED_PROXY_HOPS-th public entry from the right is the visitor (default 1: the address the
+ *    host's outermost proxy saw connecting). Each further public appending proxy in front (a CDN that
+ *    connects from public addresses) needs one more hop.
+ * A visitor can only add entries to the LEFT of the ones the proxies append, so they never move this
+ * pick, unless TRUSTED_PROXY_HOPS is set higher than the real chain or the request itself comes from
+ * inside the host's network. The owner checks the result on the live site in Settings → Security
+ * (clientIpReport): a value too low puts every visitor in one rate-limit bucket.
  *
  * CF-Connecting-IP is honoured only when BEHIND_CLOUDFLARE=1 AND that proxy hop is a Cloudflare edge
  * address: the origin of a managed Node.js app stays reachable directly (shared IP + Host header,
@@ -15,7 +25,11 @@
 import { BlockList, isIP } from "node:net";
 import { CLOUDFLARE_IPV4, CLOUDFLARE_IPV6 } from "./cloudflare-ips";
 
-function trustedHops(): number {
+/**
+ * TRUSTED_PROXY_HOPS (1–5, default 1): how many proxies in front of the app append a PUBLIC address
+ * to X-Forwarded-For (internal hops are not counted, see the header comment).
+ */
+export function trustedProxyHops(): number {
   const n = Number.parseInt(process.env.TRUSTED_PROXY_HOPS ?? "1", 10);
   return Number.isFinite(n) && n >= 1 && n <= 5 ? n : 1;
 }
@@ -107,26 +121,155 @@ export function isCloudflareIp(ip: string): boolean {
   return cloudflareRanges.check(c, kind === 4 ? "ipv4" : "ipv6");
 }
 
-/** The address our own front proxy saw connecting (canonical when it is a valid IP). */
-function proxyHop(headers: Headers): string | null {
-  const xff = headers.get("x-forwarded-for");
-  if (xff) {
-    const hops = xff
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const pick = hops[Math.max(0, hops.length - trustedHops())];
-    if (pick) return canonicalIp(pick) ?? pick;
+let internalRanges: BlockList | null = null;
+
+/**
+ * Addresses no visitor reaches a public website from: loopback, RFC 1918 private, link-local, the
+ * shared CGNAT space (100.64/10, used inside carrier and provider networks), "this network" 0/8,
+ * IPv6 loopback / unspecified, unique-local fc00::/7 and link-local fe80::/10. IPv4-mapped IPv6 is
+ * unwrapped first (canonicalIp).
+ */
+export function isInternalIp(ip: string): boolean {
+  const c = canonicalIp(ip);
+  const kind = c ? isIP(c) : 0;
+  if (!c || !kind) return false;
+  if (!internalRanges) {
+    const list = new BlockList();
+    for (const [net, prefix] of [
+      ["0.0.0.0", 8],
+      ["10.0.0.0", 8],
+      ["100.64.0.0", 10],
+      ["127.0.0.0", 8],
+      ["169.254.0.0", 16],
+      ["172.16.0.0", 12],
+      ["192.168.0.0", 16],
+    ] as const) {
+      list.addSubnet(net, prefix, "ipv4");
+    }
+    for (const [net, prefix] of [
+      ["::", 127], // :: and ::1
+      ["fc00::", 7],
+      ["fe80::", 10],
+    ] as const) {
+      list.addSubnet(net, prefix, "ipv6");
+    }
+    internalRanges = list;
   }
+  return internalRanges.check(c, kind === 4 ? "ipv4" : "ipv6");
+}
+
+/** One X-Forwarded-For entry as the client-IP walk sees it. */
+interface Hop {
+  /** the entry as received (trimmed) */
+  raw: string;
+  /** canonical address, null when the entry is not an IP */
+  ip: string | null;
+  /** loopback / private / link-local / CGNAT / unique-local: skipped by the walk */
+  internal: boolean;
+}
+
+/**
+ * X-Forwarded-For entries, left (farthest from the app) to right (appended by the nearest proxy).
+ * Only the right-most MAX_HOPS are looked at: the proxies' entries are a handful, anything further
+ * left is client-sent padding.
+ */
+const MAX_HOPS = 32;
+function forwardedHops(headers: Headers): Hop[] {
+  return (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(-MAX_HOPS)
+    .map((raw) => {
+      const ip = canonicalIp(raw);
+      return { raw, ip, internal: ip !== null && isInternalIp(ip) };
+    });
+}
+
+/**
+ * Index of the entry read as the visitor: the `trusted`-th public entry counted from the right,
+ * internal entries skipped. Fewer public entries than that: the left-most public one. None public
+ * (a request from inside the network, local development): the right-most entry. null: no entries.
+ */
+function pickHop(hops: readonly Hop[], trusted: number): number | null {
+  let seen = 0;
+  let leftmostPublic: number | null = null;
+  for (let i = hops.length - 1; i >= 0; i--) {
+    if (hops[i]!.internal) continue;
+    leftmostPublic = i;
+    if (++seen === trusted) return i;
+  }
+  if (leftmostPublic !== null) return leftmostPublic;
+  return hops.length ? hops.length - 1 : null;
+}
+
+/** The address the proxies in front of the app saw connecting (canonical when it is a valid IP). */
+function proxyHop(headers: Headers): string | null {
+  const hops = forwardedHops(headers);
+  const at = pickHop(hops, trustedProxyHops());
+  if (at !== null) return hops[at]!.ip ?? hops[at]!.raw;
   const real = headers.get("x-real-ip")?.trim();
   return real ? (canonicalIp(real) ?? real) : null;
 }
 
+/** The visitor's address as the app reads it (see the header comment); "0.0.0.0" when nothing is sent. */
 export function clientIp(headers: Headers): string {
+  return resolveClientIp(headers).ip;
+}
+
+function resolveClientIp(headers: Headers): { ip: string; viaCloudflare: boolean } {
   const hop = proxyHop(headers);
   if (process.env.BEHIND_CLOUDFLARE === "1" && hop && isCloudflareIp(hop)) {
     const cf = canonicalIp(headers.get("cf-connecting-ip"));
-    if (cf) return cf;
+    if (cf) return { ip: cf, viaCloudflare: true };
   }
-  return hop ?? "0.0.0.0";
+  return { ip: hop ?? "0.0.0.0", viaCloudflare: false };
+}
+
+/**
+ * How clientIp() reads this request, for the owner's check in Settings → Security: the address it
+ * picks must be the owner's own public IP. One more public appending proxy in front of the host's
+ * (a CDN) would make it that proxy's address, shared by every visitor (one rate-limit bucket for all).
+ * The viewer's own request only; nothing here is logged or stored.
+ */
+export interface ClientIpReport {
+  /** X-Forwarded-For entries, left to right; at most the 12 right-most */
+  hops: {
+    /** the entry, ≤ 64 characters */
+    value: string;
+    /** 1 = the right-most public entry, 2 = the next one to its left…; null for internal entries */
+    publicHop: number | null;
+    internal: boolean;
+    /** the entry clientIp() reads */
+    used: boolean;
+  }[];
+  /** X-Real-IP (used only when X-Forwarded-For is absent) */
+  realIp: string | null;
+  trustedHops: number;
+  /** what clientIp() returns for this request */
+  clientIp: string;
+  /** BEHIND_CLOUDFLARE=1 and the used hop is a Cloudflare edge: clientIp is CF-Connecting-IP */
+  viaCloudflare: boolean;
+}
+
+export function clientIpReport(headers: Headers): ClientIpReport {
+  const all = forwardedHops(headers);
+  const at = pickHop(all, trustedProxyHops());
+  // the right-most entries are the ones that matter (TRUSTED_PROXY_HOPS ≤ 5); the rest is client-sent
+  const offset = Math.max(0, all.length - 12);
+  const numbers = new Array<number | null>(all.length).fill(null);
+  for (let i = all.length - 1, n = 0; i >= 0; i--) if (!all[i]!.internal) numbers[i] = ++n;
+  const resolved = resolveClientIp(headers);
+  return {
+    hops: all.slice(offset).map((h, i) => ({
+      value: h.raw.slice(0, 64),
+      publicHop: numbers[offset + i] ?? null,
+      internal: h.internal,
+      used: offset + i === at,
+    })),
+    realIp: headers.get("x-real-ip")?.trim().slice(0, 64) || null,
+    trustedHops: trustedProxyHops(),
+    clientIp: resolved.ip.slice(0, 64),
+    viaCloudflare: resolved.viaCloudflare,
+  };
 }

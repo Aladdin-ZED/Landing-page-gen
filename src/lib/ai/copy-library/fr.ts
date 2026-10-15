@@ -959,7 +959,7 @@ const modest: FamilyCopy = {
     lace: {
       headline: ["La finesse de la *dentelle*, l'aisance d'une coupe ample."],
       bigWord: ["Dentelle"],
-      benefits: [{ topic: "lace", icon: "gem", title: "Une dentelle délicate", text: "Une touche de dentelle qui habille la pièce avec finesse, sans la charger." }],
+      benefits: [{ topic: "lace", icon: "asterisk", title: "Une dentelle délicate", text: "Une touche de dentelle qui habille la pièce avec finesse, sans la charger." }],
       faq: [
         {
           topic: "care",

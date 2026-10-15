@@ -7,8 +7,10 @@ import { findCity, getMarket } from "@/lib/markets";
 import { normalizePhone } from "@/lib/markets/phone";
 import type { NormalizedPhone } from "@/lib/markets/types";
 import { orderTotals, type OrderTotals } from "@/lib/page/pricing";
-import { LOCALES, type Bundle, type PageDoc } from "@/lib/page/schema";
-import type { OrderPayload } from "./contract";
+import { LOCALES, type Bundle, type PageDoc, type Product } from "@/lib/page/schema";
+import type { OrderPayload, VariantError, VariantFieldKey } from "./contract";
+
+type VariantGroup = Product["variants"][number];
 
 export type OrderField = "name" | "phone" | "city" | "address" | "email" | "bundleId";
 /** Field error codes (the runtime shows its own localized message per field). */
@@ -28,7 +30,10 @@ export interface ValidOrder {
   locale: string;
 }
 
-export type ValidationResult = { ok: true; value: ValidOrder } | { ok: false; fields: Partial<Record<OrderField, FieldError>> };
+/** Field errors: the delivery fields and pack, plus one entry per product option group in error. */
+export type ValidationFields = Partial<Record<OrderField, FieldError>> & { [k: VariantFieldKey]: VariantError | undefined };
+
+export type ValidationResult = { ok: true; value: ValidOrder } | { ok: false; fields: ValidationFields };
 
 /** Trim, NFC, drop control & bidi-override characters, collapse whitespace. */
 export function cleanInput(v: string | null | undefined, max: number): string {
@@ -51,32 +56,47 @@ export function validName(raw: string): string | null {
   return name;
 }
 
+export type VariantResolution = { ok: true; units: Record<string, string>[] } | { ok: false; errors: Record<VariantFieldKey, VariantError> };
+
 /**
- * Variant choices per unit → { groupName: optionLabel }[] (one record per unit).
- * Per-unit groups need a choice for every unit; other groups are read from the first unit.
- * A group with a single available option is filled automatically.
+ * Product option choices → one record per unit, { group name: option label } in group order (what
+ * the order stores, the sheet's "Variante" column reads and the admin shows).
+ * `chosen` is the payload's per-unit { groupId: optionId }: per-unit groups read unit u's record,
+ * shared groups (perUnit: false) the first one. Each group in error is reported under the name of
+ * its form control ("v.<unit>.<groupId>" / "v.<groupId>") so the page marks exactly that picker:
+ *  - required: nothing chosen — except a group with a single available option, which is filled in;
+ *  - invalid: an option the group does not have;
+ *  - unavailable: a sold-out option (the shopper's tab may predate the stock change).
+ * Unknown group ids in the payload are ignored. Prices never depend on options.
  */
-function resolveVariants(doc: PageDoc, qty: number, chosen: Record<string, string>[]): Record<string, string>[] | "invalid" | "unavailable" {
-  const groups = doc.product.variants;
-  if (!groups.length) return [];
+export function resolveVariants(groups: readonly VariantGroup[], qty: number, chosen: readonly Record<string, string>[]): VariantResolution {
   const units: Record<string, string>[] = Array.from({ length: qty }, () => ({}));
+  const errors: Record<VariantFieldKey, VariantError> = {};
+  // two groups with the same display name must not overwrite each other in the stored record
+  const seen = new Map<string, number>();
   for (const g of groups) {
+    if (!g.options.length) continue;
+    const n = (seen.get(g.name) ?? 0) + 1;
+    seen.set(g.name, n);
+    const name = n > 1 ? `${g.name} (${n})` : g.name;
     const available = g.options.filter((o) => !o.soldOut);
-    for (let u = 0; u < qty; u++) {
-      const source = g.perUnit ? chosen[u] : chosen[0];
-      const wanted = source?.[g.id];
+    for (let u = 0; u < (g.perUnit ? qty : 1); u++) {
+      const raw = chosen[u]?.[g.id];
+      const wanted = typeof raw === "string" ? raw : "";
+      const key: VariantFieldKey = g.perUnit ? `v.${u}.${g.id}` : `v.${g.id}`;
       let opt = wanted ? g.options.find((o) => o.id === wanted) : undefined;
-      if (opt?.soldOut) return "unavailable";
-      if (!opt && available.length === 1 && !wanted) opt = available[0];
-      if (!opt) return "invalid";
-      units[u]![g.name] = opt.label;
+      if (!wanted && available.length === 1) opt = available[0];
+      if (!opt) errors[key] = wanted ? "invalid" : "required";
+      else if (opt.soldOut) errors[key] = "unavailable";
+      else if (g.perUnit) units[u]![name] = opt.label;
+      else for (const unit of units) unit[name] = opt.label;
     }
   }
-  return units;
+  return Object.keys(errors).length ? { ok: false, errors } : { ok: true, units: groups.length ? units : [] };
 }
 
 export function validateOrder(p: OrderPayload, doc: PageDoc): ValidationResult {
-  const fields: Partial<Record<OrderField, FieldError>> = {};
+  const fields: ValidationFields = {};
   const form = doc.form;
 
   const bundle = doc.offers.bundles.find((b) => b.id === p.bundleId);
@@ -85,9 +105,9 @@ export function validateOrder(p: OrderPayload, doc: PageDoc): ValidationResult {
 
   let variants: Record<string, string>[] = [];
   if (bundle) {
-    const v = resolveVariants(doc, bundle.qty, p.variants);
-    if (v === "invalid" || v === "unavailable") fields.bundleId = v;
-    else variants = v;
+    const v = resolveVariants(doc.product.variants, bundle.qty, p.variants);
+    if (v.ok) variants = v.units;
+    else Object.assign(fields, v.errors);
   }
 
   const name = validName(p.name);

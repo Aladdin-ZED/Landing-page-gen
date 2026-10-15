@@ -23,6 +23,7 @@ import { LandingDocument, LegalDocument, ThankYouDocument, variantChunksIn, type
 import { renderPageBody } from "@/landing/page";
 import type { PageLinks, RenderMode } from "@/landing/types";
 import type { PageDoc } from "@/lib/page/schema";
+import { trackingFlags } from "@/lib/pixels/tracking";
 import { turnstileKeyFor } from "./config";
 import { buildLandingCsp, originOf } from "./csp";
 
@@ -239,12 +240,12 @@ function finish(html: string, input: FinishInput, issues: RenderIssue[]): Render
         .map((u) => (typeof u === "string" ? originOf(u) : null))
         .filter((o): o is string => !!o && o !== selfOrigin)
     : [];
-  const t = input.doc.tracking;
   const csp = buildLandingCsp({
     mode: input.mode,
     scriptHashes: scripts,
     styleHashes: styles,
-    pixels: input.online ? { meta: !!t.metaPixelId, tiktok: !!t.tiktokPixelId, snap: !!t.snapPixelId, ga4: !!t.ga4Id } : {},
+    // exactly the platforms the document loads (none offline / in previews)
+    pixels: input.online ? trackingFlags(input.doc.tracking) : {},
     apiOrigins: [...new Set(apiOrigins)],
     turnstile: input.page === "landing" && input.online && !!turnstileKeyFor("landing", input.mode, input.turnstileSiteKey),
     // only when the site is really served over https (Hostinger) — never for `npm run start` on http://localhost

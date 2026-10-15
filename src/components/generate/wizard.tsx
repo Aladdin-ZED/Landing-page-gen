@@ -13,13 +13,16 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { createFromDirectionsAction } from "@/app/admin/(panel)/generate/actions";
+import { storePixelSummaryAction } from "@/app/admin/(panel)/settings/pixels/actions";
 import { ConfirmDialog } from "@/components/admin/common/confirm-dialog";
 import { PageHeader } from "@/components/admin/common/page-header";
 import { runAction } from "@/components/admin/lib/action-result";
 import { useOpenedOnce, usePrefetchOnIdle } from "@/components/admin/lib/lazy";
+import { loadFocal } from "@/components/admin/media/focal/focal-client";
 import { uploadMedia } from "@/components/admin/media/media-client";
 import type { PickedAsset } from "@/components/admin/media/MediaPicker";
 import { loadMediaPicker, MediaPicker } from "@/components/admin/on-demand";
+import type { VariantPhoto } from "@/components/admin/variants";
 import { preloadLandingPreview } from "@/components/preview";
 import { Button } from "@/components/ui/button";
 import { AiCopy, vibeHint, type Analysis } from "@/lib/ai/copy-schema";
@@ -27,18 +30,21 @@ import { AiError, getAi, useAi, type ClassifyResult } from "@/lib/ai/client";
 import type { CopyRequest } from "@/lib/ai/prompts";
 import type { GenerateInput } from "@/lib/generator";
 import { getMarket } from "@/lib/markets/info";
+import { parseFocus } from "@/lib/media/focus";
 import type { Archetype, Market } from "@/lib/page/schema";
+import { cleanVariants, leadPhotoId, relocalizeVariants, suggestPresets } from "@/lib/page/variant-presets";
 import { whatsappDigits } from "@/lib/render/config";
 import type { AssetRowLike, StoreInfo } from "@/landing/context";
 import { loadGeneratorKit, useGeneratorKit } from "./kit-loader";
 import { PAGE_LOCALES, type PageLocale } from "./labels";
 import { AiChip, StepFooter, StepRail, stepMotion } from "./parts";
 import { bestCutoutCandidate, fetchImage, MAX_INPUT_MB, paletteOfBlob, preparePhoto } from "./photos";
-import { initialState, loadState, newSeed, photoAssetFrom, photosKey, reducer, saveState, clearState, toAssetRow, type Photo, type Step } from "./state";
+import { focalPoint, initialState, loadState, newSeed, photoAssetFrom, photosKey, reducer, saveState, clearState, toAssetRef, toAssetRow, toPhotoInfo, type Photo, type Step } from "./state";
 import { StepAnalysis, type JobState } from "./step-analysis";
 import { MAX_FACTS, parsePrice, StepDetails } from "./step-details";
 import { StepDirections, type CopyState } from "./step-directions";
 import { StepPhotos } from "./step-photos";
+import { pixelTracking, type PixelStore } from "./tracking";
 import { WIZARD_LEAD, WIZARD_TITLE, WizardSkeleton } from "./skeleton";
 
 export interface GenerateWizardProps {
@@ -203,6 +209,21 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   const [creating, setCreating] = useState<number | null>(null);
   const [styleOffset, setStyleOffset] = useState(0);
   const [copyJob, setCopyJob] = useState<CopyJob | null>(loadCopy);
+  /** the store's ad pixels (ids and flags, never a token), read once for the Details step */
+  const [pixelStore, setPixelStore] = useState<PixelStore>({ summary: null, failed: false });
+  useEffect(() => {
+    let alive = true;
+    storePixelSummaryAction()
+      .then((res) => {
+        if (alive) setPixelStore(res.ok ? { summary: res.data, failed: false } : { summary: null, failed: true });
+      })
+      .catch(() => {
+        if (alive) setPixelStore({ summary: null, failed: true });
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   /* ---- persistence & cleanup ---- */
 
@@ -255,6 +276,37 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   const cutoutAsset = state.cutout?.use ? state.cutout.asset : mainIsCutout && main ? main.asset : null;
   const palette = (state.cutout?.use ? state.cutout.palette : null) ?? main?.palette ?? null;
 
+  // every photo's crop data, once per tab (the photo tiles read the same shared cache): rows uploaded
+  // before the subject analysis existed are analysed (and stored) on that read, so the previews and
+  // the generator see every photo's subject; a team default framing point reaches the new page
+  const focusAsked = useRef(new Set<string>());
+  useEffect(() => {
+    for (const a of [...ready.map((p) => p.asset), ...(state.cutout ? [state.cutout.asset] : [])]) {
+      if (focusAsked.current.has(a.id)) continue;
+      focusAsked.current.add(a.id);
+      void loadFocal(a.id)
+        .then((info) => {
+          const focus = parseFocus(info.focus);
+          const focal = focalPoint(info.saved);
+          if ((focus && !a.focus) || focal?.x !== a.focal?.x || focal?.y !== a.focal?.y) dispatch({ type: "photoFocus", id: a.id, focus, focal });
+        })
+        .catch(() => undefined);
+    }
+  }, [ready, state.cutout]);
+
+  /** the uploaded photos the options can link to (main first), with their palettes for color suggestions */
+  const variantPhotos = useMemo<VariantPhoto[]>(
+    () => ordered.map((p) => ({ ref: toAssetRef(p.asset, p.name.slice(0, 200)), url: p.asset.thumbUrl ?? p.asset.url ?? p.preview, palette: p.palette })),
+    [ordered],
+  );
+  const lead = useMemo(() => {
+    const id = leadPhotoId(details.variants);
+    if (!id) return null;
+    const option = details.variants.flatMap((g) => g.options).find((o) => o.image?.id === id);
+    const photo = ready.find((p) => p.asset.id === id);
+    return option && photo ? { label: option.label, url: photo.asset.thumbUrl ?? photo.asset.url ?? photo.preview } : null;
+  }, [details.variants, ready]);
+
   const tier = ai.capabilities?.tier ?? null;
   const aiOn = aiSettings.enabled && ai.status !== "off";
   const llm = aiOn && tier !== null && tier !== "off";
@@ -266,6 +318,11 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   const name = details.name.replace(/\s+/g, " ").trim();
   const facts = useMemo(() => details.facts.map((f) => f.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, MAX_FACTS), [details.facts]);
   const deliveryText = sameMarket ? defaults.deliveryText : null;
+  /** presets the product probably needs (category + its words) and colors the photo reading saw: hints only */
+  const variantSuggest = useMemo(
+    () => ({ presets: suggestPresets(details.category, `${name} ${facts.join(" ")}`), colors: analysis?.colorsDescribed ?? [] }),
+    [details.category, name, facts, analysis],
+  );
 
   /* ---- photos ---- */
 
@@ -517,14 +574,25 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   }, []);
 
   const kit = generator.kit;
+  /** wa.me digits of the store number ("06…" completed with the store country) */
+  const storeWhatsapp = useMemo(() => whatsappDigits(store.whatsapp, store.country ?? "MA"), [store.whatsapp, store.country]);
   const merged = useMemo(() => {
     if (!kit || !wantCopy || copyJob?.key !== copyKey || !copyJob.copy) return null;
-    // the library base speaks about the same kind of product as the generator's own copy: a garment
-    // filed under kids or traditional gets garment lines (cut, fabric, size), never toy or terroir ones
-    const category = kit.copyCategory(details.category, kit.productKeywords({ name: name.slice(0, 120) }, facts));
-    const library = kit.libraryCopy({ category, locale: details.locale, market: details.market, seed: state.seedBase, productName: name, deliveryText });
+    // the library base is read exactly like the generator's own copy: the catalog category plus the
+    // product's words pick the family and its facets (a girl's prayer abaya filed under kids gets
+    // modest-wear lines for prayer and for girls), and no line sends a store without a number to WhatsApp
+    const library = kit.libraryCopy({
+      category: details.category,
+      keywords: kit.productKeywords({ name: name.slice(0, 120) }, facts),
+      locale: details.locale,
+      market: details.market,
+      seed: state.seedBase,
+      productName: name,
+      deliveryText,
+      hasWhatsapp: !!storeWhatsapp,
+    });
     return kit.mergeAiCopy(library, copyJob.copy, { locale: details.locale, productName: name, facts, price, deliveryText });
-  }, [kit, wantCopy, copyJob, copyKey, details.category, details.locale, details.market, state.seedBase, name, facts, price, deliveryText]);
+  }, [kit, wantCopy, copyJob, copyKey, details.category, details.locale, details.market, state.seedBase, name, facts, price, deliveryText, storeWhatsapp]);
 
   const usable = !!merged && !merged.rejected.includes("*");
   const job = copyJob?.key === copyKey ? copyJob : null;
@@ -542,16 +610,22 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
 
   /* ---- directions ---- */
 
-  /** the product as the generator reads it (validated there with the Product schema) */
+  /**
+   * The product as the generator reads it (validated there with the Product schema). Its options
+   * reach every direction as typed; when they are linked to photos, the first linked option's photo
+   * is the main one (see onDetails), so it leads `images` and the hero.
+   */
+  const variants = useMemo(() => cleanVariants(details.variants), [details.variants]);
   const product = useMemo(
     () => ({
       name: name.slice(0, 120),
       price,
       category: details.category,
-      images: ordered.map((p) => ({ id: p.asset.id, alt: name.slice(0, 200) })),
-      ...(cutoutAsset ? { cutout: { id: cutoutAsset.id, alt: name.slice(0, 200) } } : {}),
+      images: ordered.map((p) => toAssetRef(p.asset, name.slice(0, 200))),
+      ...(cutoutAsset ? { cutout: toAssetRef(cutoutAsset, name.slice(0, 200)) } : {}),
+      variants,
     }),
-    [name, price, details.category, ordered, cutoutAsset],
+    [name, price, details.category, ordered, cutoutAsset, variants],
   );
   /**
    * Styles for "Other styles", best first: the generator's mood-aware ranking (photo, category, AI
@@ -577,8 +651,18 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   }, [styleOffset, ranked]);
 
   const pageCopy = usable ? merged.copy : null;
-  /** wa.me digits of the store number ("06…" completed with the store country) */
-  const storeWhatsapp = useMemo(() => whatsappDigits(store.whatsapp, store.country ?? "MA"), [store.whatsapp, store.country]);
+  /**
+   * What the library knows about each photo (size, transparency, the upload's subject analysis), by
+   * asset id: the generator picks the hero photo and places frames and garment pins by subject (a
+   * group shot is not the one details are pinned on; pins never land on a face).
+   */
+  const photoInfos = useMemo(() => {
+    const list = ordered.map((p) => toPhotoInfo(p.asset));
+    if (cutoutAsset && !list.some((x) => x.id === cutoutAsset.id)) list.push(toPhotoInfo(cutoutAsset));
+    return list;
+  }, [ordered, cutoutAsset]);
+  /** the page's ad pixels: every store pixel the owner left ticked */
+  const tracking = useMemo(() => pixelTracking(pixelStore.summary, details.pixelsOff), [pixelStore.summary, details.pixelsOff]);
   const input = useMemo<GenerateInput | null>(() => {
     if (state.step !== 3 || !ordered.length || !detailsValid) return null;
     return {
@@ -598,9 +682,12 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
       // the store identity is known here ("" = no name yet): a store without a real name gets no
       // giant footer wordmark and no signed founder note; a named store keeps them
       store: { name: store.name },
+      photos: photoInfos,
+      // the store pixels the owner kept (unread store → none here; the save adds the store's)
+      ...(tracking ? { tracking } : {}),
       ...(styles ? { archetypes: styles } : {}),
     };
-  }, [state.step, state.seedBase, ordered.length, detailsValid, product, details.locale, details.market, palette, aiVibe, pageCopy, facts, sameMarket, defaults.shippingFee, deliveryText, currency, storeWhatsapp, store.name, styles]);
+  }, [state.step, state.seedBase, ordered.length, detailsValid, product, details.locale, details.market, palette, aiVibe, pageCopy, facts, sameMarket, defaults.shippingFee, deliveryText, currency, storeWhatsapp, store.name, photoInfos, tracking, styles]);
 
   const built = useMemo(() => {
     if (!input) return { directions: null, error: null };
@@ -730,7 +817,11 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
       case 1:
         return ai.status === "busy" || ai.status === "loading" ? "The AI keeps working while you continue" : "Every reading here is a suggestion — you decide next";
       case 2:
-        return `${facts.length} fact${facts.length === 1 ? "" : "s"} · ${PAGE_LOCALES.find((l) => l.value === details.locale)?.hint ?? ""}`;
+        return [
+          `${facts.length} fact${facts.length === 1 ? "" : "s"}`,
+          ...(variants.length ? [`${variants.length} option group${variants.length === 1 ? "" : "s"}`] : []),
+          PAGE_LOCALES.find((l) => l.value === details.locale)?.hint ?? "",
+        ].join(" · ");
       default:
         return "Pick the closest to your brand — everything stays editable";
     }
@@ -799,7 +890,16 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
           {state.step === 2 && (
             <StepDetails
               details={details}
-              onChange={(patch) => {
+              onChange={(change) => {
+                // another page language: the options' preset names, color names and volumes follow it
+                const patch = change.locale && change.locale !== details.locale && !change.variants ? { ...change, variants: relocalizeVariants(details.variants, details.locale, change.locale) } : change;
+                // linking a photo to the first option makes it the main photo: the hero shows the
+                // first color (only when that link changes; picking another main photo stays possible)
+                if (patch.variants) {
+                  const next = leadPhotoId(patch.variants);
+                  const photo = next && next !== leadPhotoId(details.variants) ? ready.find((p) => p.asset.id === next) : null;
+                  if (photo && photo.key !== main?.key) dispatch({ type: "setMain", key: photo.key });
+                }
                 dispatch({ type: "details", patch });
                 if (patch.name !== undefined || patch.price !== undefined) setErrors((e) => ({ ...e, ...(patch.name !== undefined ? { name: undefined } : {}), ...(patch.price !== undefined ? { price: undefined } : {}) }));
               }}
@@ -808,6 +908,10 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
               cutoutUrl={cutoutAsset ? (cutoutAsset.thumbUrl ?? cutoutAsset.url) : null}
               suggested={analysis?.category ?? classify?.category ?? null}
               errors={errors}
+              variantPhotos={variantPhotos}
+              variantSuggest={variantSuggest}
+              lead={lead}
+              pixels={pixelStore}
               copywriter={{
                 available: llm,
                 note: !aiOn

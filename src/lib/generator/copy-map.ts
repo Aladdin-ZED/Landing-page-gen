@@ -32,23 +32,65 @@ const LEAD = ["lead", "subtitle", "intro", "description"] as const;
 const CTA_LABEL = ["ctaLabel", "buttonLabel", "button"] as const;
 
 /**
- * Icon for a reassurance line, from its meaning (lines come from AI or the library in any locale).
- * The inspection promise is read first: "check before you pay" / "عاين طلبك قبل الدفع" is about
- * looking, not paying; then payment, then delivery ("open it in front of the courier" is no truck).
+ * Meanings a reassurance line can carry, most specific first, each with its icon and the related
+ * icons that still say the same thing when the first one is already taken in the list. The
+ * inspection promise is read first: "check before you pay" / "عاين طلبك قبل الدفع" is about looking,
+ * not paying; then payment, then delivery ("open it in front of the courier" is no truck).
  */
-export function iconForLine(text: string): IconName {
+const LINE_MEANINGS: readonly { re: RegExp; icons: readonly IconName[] }[] = [
+  { re: /(vérif|verif|check|inspect|ouvrez|عاين|معاينة|تعاين|تفتح)/, icons: ["eye", "box", "check-hand"] },
+  { re: /(paiement|payment|pay\b|pay |payez|payer|cash|espèces|الدفع|تدفع|نقدا|نقداً)/, icons: ["cash-hand", "cash", "lock"] },
+  // after payment: "Paiement sécurisé" next to "Paiement à la livraison" takes the lock, not the cash
+  { re: /(sécuris|securis|secure|آمن)/, icons: ["lock", "shield-check"] },
+  { re: /(livraison|delivery|deliver|livr|توصيل|التوصيل)/, icons: ["truck", "map-pin", "clock"] },
+  { re: /(whatsapp|واتساب)/, icons: ["whatsapp", "chat"] },
+  { re: /(échange|exchange|retour|return|تبديل|استبدال)/, icons: ["return", "shield-check"] },
+  { re: /(appel|call|اتصال|نتصل|يتصل)/, icons: ["phone", "headset"] },
+  { re: /(garanti|guarantee|warranty|ضمان|مضمون)/, icons: ["shield-check", "check"] },
+];
+/** Neutral marks for a line no meaning matched (or whose icons the list already uses). */
+const NEUTRAL_ICONS: readonly IconName[] = ["check", "shield-check", "star", "heart"];
+
+/** Icons that fit a line, best first (its matched meanings' icons, then the neutral marks). */
+function lineIconCandidates(text: string): IconName[] {
   const t = text.toLowerCase();
-  if (/(vérif|verif|check|inspect|ouvrez|عاين|معاينة|تعاين|تفتح)/.test(t)) return "eye";
-  if (/(paiement|payment|pay\b|pay |payez|payer|cash|espèces|الدفع|تدفع|نقدا|نقداً)/.test(t)) return "cash-hand";
-  if (/(livraison|delivery|deliver|livr|توصيل|التوصيل)/.test(t)) return "truck";
-  if (/(whatsapp|واتساب)/.test(t)) return "whatsapp";
-  if (/(échange|exchange|retour|return|تبديل|استبدال)/.test(t)) return "return";
-  if (/(appel|call|اتصال|نتصل|يتصل)/.test(t)) return "phone";
-  return "check";
+  const matched = LINE_MEANINGS.filter((m) => m.re.test(t));
+  // every matched meaning's own icon before any alternate: "Paiement à la livraison" is cash, then truck
+  const out: IconName[] = [...matched.map((m) => m.icons[0]!), ...matched.flatMap((m) => m.icons.slice(1)), ...NEUTRAL_ICONS];
+  return [...new Set(out)];
 }
 
-/** Textile ornament words: lace and embroidery are a motif, not a jewel. */
-const TEXTILE_ORNAMENT = /(dentelle|lace|دانتيل|دانتيلا|broderie|brodé|embroider|طرز|مطرز)/i;
+/** Icon for one reassurance line, from its meaning (lines come from AI or the library in any locale). */
+export function iconForLine(text: string): IconName {
+  return lineIconCandidates(text)[0]!;
+}
+
+/**
+ * Icons for the lines of one list (announcement, guarantee): each line its best icon that no earlier
+ * line uses — "الدفع عند الاستلام" and "عاين طلبك قبل الدفع" never show two cash icons side by side.
+ * A list longer than the icons that fit repeats the line's own best icon rather than a random one.
+ */
+export function iconsForLines(texts: readonly string[]): IconName[] {
+  const used = new Set<IconName>();
+  return texts.map((text) => {
+    const candidates = lineIconCandidates(text);
+    const icon = candidates.find((c) => !used.has(c)) ?? candidates[0]!;
+    used.add(icon);
+    return icon;
+  });
+}
+
+/** Lines with their icons, distinct within the list. */
+const iconLines = (texts: readonly string[]) => {
+  const icons = iconsForLines(texts);
+  return texts.map((text, i) => ({ text, icon: icons[i]! }));
+};
+
+/**
+ * Textile ornament words: lace and embroidery are a motif, not a jewel. Latin words start a word
+ * ("a sa place", "necklace" and "lacet" are no lace).
+ */
+export const TEXTILE_ORNAMENT = /(?<!\p{L})(?:dentelle|lace(?:s|d)?(?!\p{L})|broderie|brod[ée]|embroider)|دانتيل|تطريز|مطرز|طرز/iu;
 
 /**
  * A benefit's icon checked against its own words: a gem on a lace or embroidery line reads as
@@ -73,7 +115,7 @@ export function copyPatch(type: string, c: PageCopy, extras: CopyExtras): PatchE
   };
   switch (type) {
     case "announcement":
-      return [{ keys: ["items", "lines", "messages"], value: items(reachable(c.announcement, (t) => t, 1).map((text) => ({ text, icon: iconForLine(text) }))) }];
+      return [{ keys: ["items", "lines", "messages"], value: items(iconLines(reachable(c.announcement, (t) => t, 1))) }];
     case "header":
       return [{ keys: CTA_LABEL, value: c.sticky.label }];
     case "hero":
@@ -173,7 +215,7 @@ export function copyPatch(type: string, c: PageCopy, extras: CopyExtras): PatchE
       return [
         { keys: KICKER, value: c.guarantee.kicker },
         { keys: TITLE, value: c.guarantee.title },
-        { keys: ["lines", "items", "points", "promises"], value: items(reachable(c.guarantee.lines, (t) => t, 2).map((text) => ({ text, icon: iconForLine(text) }))) },
+        { keys: ["lines", "items", "points", "promises"], value: items(iconLines(reachable(c.guarantee.lines, (t) => t, 2))) },
       ];
     case "orderForm":
       return [

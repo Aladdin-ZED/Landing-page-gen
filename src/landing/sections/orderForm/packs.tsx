@@ -12,12 +12,13 @@
  */
 import type { ReactElement } from "react";
 import { bundleMath, defaultBundleId, type BundleMath } from "@/lib/page/pricing";
-import { Icon, Money, Picture, cssVars, cx, resolveProductVisual } from "../../primitives";
+import { Icon, Money, Picture, cssVars, cx } from "../../primitives";
 import type { RenderContext, ResolvedAsset, SectionBg } from "../../types";
 import { uiLabels } from "./copy";
 import { photoPlan } from "./fit";
 import { PlannedPhoto } from "./photo";
 import { Plain } from "./text";
+import { VariantSlot, formVisual } from "./variants";
 
 export type BadgeKind = "popular" | "best" | "custom";
 export type CardStyle = "stack" | "tiers" | "ticket" | "pills" | "visual";
@@ -138,7 +139,9 @@ export interface PackVisualProps {
  * shade, along one clean diagonal — straight, never a tilted pile), cutouts stand shoulder to
  * shoulder on one contact shadow. A merchant pack photo (bundle.image) replaces the composition;
  * without any photo the quantity itself is the visual. Decorative (alt="") — the card's text
- * carries the meaning. Selection opens the stack (CSS, --pv-spread).
+ * carries the meaning. Selection opens the stack (CSS, --pv-spread). The product is the one the
+ * shopper is choosing: the preselected option's photo when options carry photos, and each copy has
+ * a layer where the runtime cross-fades its unit's chosen photo in (the front copy = unit 1).
  */
 export function PackVisual({ ctx, pack, sizes, max = 3, className }: PackVisualProps): ReactElement {
   if (pack.image) {
@@ -148,7 +151,7 @@ export function PackVisual({ ctx, pack, sizes, max = 3, className }: PackVisualP
       </span>
     );
   }
-  const visual = resolveProductVisual(ctx);
+  const visual = formVisual(ctx);
   if (!visual.asset) {
     return (
       <span className={cx("lp-pv", className)} data-kind="empty" aria-hidden="true">
@@ -189,6 +192,7 @@ export function PackVisual({ ctx, pack, sizes, max = 3, className }: PackVisualP
           ) : (
             <PlannedPhoto asset={asset} sizes={sizes} plan={plan} />
           )}
+          <VariantSlot ctx={ctx} kind="pv" unit={copies - 1 - k} />
         </span>
       ))}
       {extra > 0 ? (

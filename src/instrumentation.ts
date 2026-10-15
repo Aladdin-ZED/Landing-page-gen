@@ -1,6 +1,7 @@
 /**
  * Runs once per server start, before the first request is handled (Node.js runtime only):
- *  - warns about missing/weak security configuration (never prints secret values)
+ *  - warns about missing/weak security configuration (never prints secret values); an unusable
+ *    APP_SECRET is logged as an error, since every order fails with it
  *  - applies pending database migrations (serialised across processes with a DB lock)
  *  - purges expired sessions
  * Failures are logged and never crash the process: the app keeps serving what it can and
@@ -13,8 +14,14 @@ export async function register(): Promise<void> {
   if (g.__codBooted) return;
   g.__codBooted = true;
 
-  const { authConfigWarnings } = await import("./lib/auth/config");
-  for (const warning of authConfigWarnings()) console.warn(`[boot] ${warning}`);
+  const { authConfigWarnings, isAppSecretConfigured } = await import("./lib/auth/config");
+  // visitor IPs are hashed with APP_SECRET: without a usable one every order fails too, not only the
+  // admin, so its line goes out at error level (hosts' log views filter and colour by level)
+  const secretBroken = !isAppSecretConfigured();
+  for (const warning of authConfigWarnings()) {
+    if (secretBroken && warning.startsWith("APP_SECRET")) console.error(`[boot] ERROR: ${warning}`);
+    else console.warn(`[boot] ${warning}`);
+  }
 
   if (!process.env.DATABASE_URL) {
     console.error("[boot] DATABASE_URL is not set — skipping migrations.");

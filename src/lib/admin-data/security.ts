@@ -1,14 +1,19 @@
 import "server-only";
 /**
  * Account security helpers for Settings → Security / Team: the signed-in devices of a user,
- * revoking one of them, temporary passwords for invited users, and the audit log with user names.
+ * revoking one of them, temporary passwords for invited users, the audit log with user names, and
+ * the owner's view of the proxy headers the client IP is read from.
  */
 import { randomInt } from "node:crypto";
 import { and, desc, eq, gt, inArray, like, lt, type SQL } from "drizzle-orm";
+import { headers } from "next/headers";
 import { audit } from "@/lib/audit";
+import { adminIpAllowlist } from "@/lib/auth/config";
+import { allowlistAddress } from "@/lib/auth/gate";
 import { db } from "@/lib/db/client";
 import { auditLog, pages, sessions, users } from "@/lib/db/schema";
 import { deleteSession } from "@/lib/auth/session";
+import { clientIpReport, type ClientIpReport } from "@/lib/security/ip";
 
 export interface DeviceSession {
   id: string;
@@ -142,4 +147,28 @@ async function targetLabels(rows: { action: string; target: string | null }[]): 
     userIds.size ? db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, [...userIds])) : Promise.resolve([]),
   ]);
   return new Map([...pageRows, ...userRows].map((r) => [r.id, r.name]));
+}
+
+/**
+ * The current request as the app sees it behind the host's proxies (Settings → Security, owners
+ * only): the address rate limits and the order blocklist use must be the viewer's own public IP,
+ * or TRUSTED_PROXY_HOPS does not match the proxies in front of the app. The viewer's own request
+ * only; nothing here is logged or stored.
+ */
+export interface NetworkView extends ClientIpReport {
+  /** ADMIN_IP_ALLOWLIST is set */
+  allowlistSet: boolean;
+  /** the address ADMIN_IP_ALLOWLIST is matched against (always the right-most valid entry) */
+  allowlistIp: string | null;
+  behindCloudflare: boolean;
+}
+
+export async function requestNetworkView(): Promise<NetworkView> {
+  const h = await headers();
+  return {
+    ...clientIpReport(h),
+    allowlistSet: adminIpAllowlist().length > 0,
+    allowlistIp: allowlistAddress(h)?.slice(0, 64) ?? null,
+    behindCloudflare: process.env.BEHIND_CLOUDFLARE === "1",
+  };
 }

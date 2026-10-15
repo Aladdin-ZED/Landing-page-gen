@@ -9,6 +9,7 @@ import type { RenderContext, RenderMode } from "@/landing/types";
 import { moneyFormat, phoneSpec } from "@/lib/markets/info";
 import { bundleMath, defaultBundleId } from "@/lib/page/pricing";
 import type { Locale, PageDoc } from "@/lib/page/schema";
+import { runtimePixels } from "@/lib/pixels/tracking";
 
 /** The page money format (shared with ctx.money — see moneyFormat() in @/lib/markets/info). */
 export { moneyFormat };
@@ -105,14 +106,8 @@ export function buildRuntimeConfig(doc: PageDoc, ctx: RenderContext, opts: Runti
   // the widget only exists on product pages that can send orders (never in previews)
   const turnstile = turnstileKeyFor(opts.page, opts.mode, opts.turnstileSiteKey);
   if (turnstile) strings[CAPTCHA_STRING] = CAPTCHA_MESSAGE[doc.locale];
-  const pixels: LandingRuntimeConfig["pixels"] = preview
-    ? {}
-    : {
-        ...(doc.tracking.metaPixelId ? { meta: doc.tracking.metaPixelId } : {}),
-        ...(doc.tracking.tiktokPixelId ? { tiktok: doc.tracking.tiktokPixelId } : {}),
-        ...(doc.tracking.snapPixelId ? { snap: doc.tracking.snapPixelId } : {}),
-        ...(doc.tracking.ga4Id ? { ga4: doc.tracking.ga4Id } : {}),
-      };
+  // never in previews (the runtime also refuses to load pixels in preview mode)
+  const pixels: LandingRuntimeConfig["pixels"] = preview ? {} : runtimePixels(doc.tracking);
 
   return {
     v: 1,

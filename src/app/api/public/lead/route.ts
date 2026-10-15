@@ -1,12 +1,14 @@
 /**
  * POST /api/public/lead — abandoned-lead capture (sent once the phone becomes valid).
  * Fire-and-forget for the runtime: answers 204 whether or not the lead was stored (no oracle).
+ * A per-process burst guard runs before any database work (a flood never reaches MariaDB).
  */
 import type { NextRequest } from "next/server";
 import { LeadPayload } from "@/lib/orders/contract";
 import { checkOrigin, clientContext, corsHeaders, json, logError, noContent, preflight, readJson } from "@/lib/orders/http";
 import { upsertLead } from "@/lib/orders/leads";
 import { resolvePageKey } from "@/lib/orders/resolve";
+import { burstLimit } from "@/lib/security/burst-limit";
 
 export function OPTIONS(req: NextRequest): Promise<Response> {
   return preflight(req);
@@ -14,6 +16,7 @@ export function OPTIONS(req: NextRequest): Promise<Response> {
 
 export async function POST(req: NextRequest): Promise<Response> {
   const client = clientContext(req);
+  if (!burstLimit("lead", client.ip).ok) return noContent({ Vary: "Origin" });
   try {
     const body = await readJson(req, 8 * 1024);
     if (!body.ok) return json({ ok: false, error: "invalid" }, body.status, { Vary: "Origin" });

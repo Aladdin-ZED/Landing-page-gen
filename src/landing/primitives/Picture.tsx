@@ -47,6 +47,11 @@ export interface PictureProps {
   /** object-position override, e.g. "50% 30%" (wins over every crop computation) */
   position?: string;
   /**
+   * art direction by hand: the object-position from `frameMin` up ("x% y%"). Below it the picture
+   * keeps `position` (or its fitted crop, without zoom); pure CSS, no extra stylesheet.
+   */
+  positionLg?: string;
+  /**
    * Subject-aware crop for the frame the picture is shown in: heads and hands never cut, a product's
    * top kept, balanced headroom, a small product zoomed to fill (within limits). Defaults: the
    * `mask` shape at `ratio`; small thumbnails (`sizes` ≤ 8rem with a `ratio`) frame tightly; anything
@@ -65,9 +70,12 @@ export interface PictureProps {
  * renders a quiet placeholder block with an image glyph (never a broken image).
  *
  * Cropping writes custom properties only: `--pic-pos` (object-position; with `frameLg` a
- * viewport-switched value, so art direction needs no extra CSS), and for a fitted zoom `--pic-zoom`
- * + `--pic-org` (scale and its origin — base.css applies them where supported; the position alone
- * is already safe without them: the un-zoomed window contains the zoomed one).
+ * viewport-switched value, so art direction needs no extra CSS), `--pic-org` (the same fractions as
+ * the transform origin, so the zoom and any hover scale grow from the subject) and, for a fitted
+ * zoom, `--pic-zoom` (+ the `lp-pic--zoom` class). base.css draws the zoom with the individual
+ * `scale` property where supported; the position alone is already safe without it (the un-zoomed
+ * window contains the zoomed one). A section scaling the image itself (hover) should multiply:
+ * `scale: calc(var(--pic-zoom, 1) * 1.04)`.
  */
 export function Picture({
   asset,
@@ -79,6 +87,7 @@ export function Picture({
   fit = "cover",
   ratio,
   position,
+  positionLg,
   mask,
   frame,
   frameLg,
@@ -86,19 +95,26 @@ export function Picture({
 }: PictureProps): ReactElement {
   const box = cx(mask && (mask === "page" ? "lp-mask" : `lp-mask-${mask}`), className);
   if (!asset) return <EmptyPicture className={box} ratio={ratio} alt={alt} />;
-  const crop = position ? null : pictureCropVars(asset, { fit, ratio, mask, frame, frameLg, frameMin, sizes });
+  const lgPos = fit === "contain" ? undefined : safePosition(positionLg);
+  const crop = lgPos
+    ? steppedPosition(asset, lgPos, { ratio, mask, frame, frameMin, sizes, position: safePosition(position) })
+    : position
+      ? null
+      : pictureCropVars(asset, { fit, ratio, mask, frame, frameLg, frameMin, sizes });
+  // a plain "x% y%" position doubles as the transform origin (a hover zoom grows from the subject)
+  const plainPos = fit === "contain" || lgPos ? undefined : (safePosition(position) ?? (crop ? undefined : safePosition(asset.position)));
   const style = cssVars({
     "--ph": asset.alpha ? undefined : safeHex(asset.dominant),
     "--ratio": safeRatio(ratio),
     // --pic-pos, not --pos: the before/after runtime writes --pos on [data-compare] ancestors
-    "--pic-pos": safePosition(position) ?? crop?.pos ?? safePosition(asset.position),
+    "--pic-pos": (lgPos ? crop?.pos : undefined) ?? safePosition(position) ?? crop?.pos ?? safePosition(asset.position),
     "--pic-zoom": crop?.zoom,
-    "--pic-org": crop?.org,
+    "--pic-org": plainPos ?? crop?.org,
   });
   const imgSizes = crop?.zoom ? scaleSizes(sizes, crop.zoom) : sizes;
   return (
     <picture
-      className={cx("lp-pic", fit === "contain" && "lp-pic--contain", asset.alpha && "lp-pic--alpha", box)}
+      className={cx("lp-pic", fit === "contain" && "lp-pic--contain", asset.alpha && "lp-pic--alpha", crop?.zoom && "lp-pic--zoom", box)}
       style={style}
     >
       {asset.srcsetAvif ? <source type="image/avif" srcSet={asset.srcsetAvif} sizes={imgSizes} /> : null}
@@ -193,9 +209,40 @@ function resolveFrame(frame: PictureFrame | undefined, mask: MaskKind | undefine
   return null;
 }
 
+/** Visible share (0..1) of an image box in a frame of aspect F showing the image with crop c. */
+function shownShare(s: CropSubject, F: number, c: Crop, b: Box): number {
+  const [x0, y0] = framePointOf(s.aspect, F, c, b.x, b.y);
+  const [x1, y1] = framePointOf(s.aspect, F, c, b.x + b.w, b.y + b.h);
+  const area = Math.max(1e-6, (x1 - x0) * (y1 - y0));
+  return (Math.max(0, Math.min(1, x1) - Math.max(0, x0)) * Math.max(0, Math.min(1, y1) - Math.max(0, y0))) / area;
+}
+
+/**
+ * A fitted zoom never cuts what the plain (un-zoomed) window shows whole: a head, a hand or an item
+ * keeps the share it has at zoom 1 — or leaves the frame entirely (a tight bust may drop the hands,
+ * a second figure); a product's box (a cutout's or a product photo's subject) always keeps its
+ * share. The zoom steps down until that holds (at worst back to 1 — the plain window, which the
+ * fitter already made safe): products are never clipped, faces never sliced by a zoom.
+ */
+function guardZoom(s: CropSubject, F: number, c: Crop): Crop {
+  if (c.zoom <= 1.005 || s.fixed || s.kind === "none") return c;
+  const boxes: { b: Box; whole: boolean }[] = s.keep.map((k) => ({ b: k.b, whole: false }));
+  if (s.kind === "product" || s.kind === "cutout") boxes.push({ b: s.subject, whole: true });
+  if (!boxes.length) return c;
+  const plain = { ...c, zoom: 1 };
+  const base = boxes.map((r) => shownShare(s, F, plain, r.b));
+  const ok = (z: number) =>
+    boxes.every((r, i) => {
+      const v = shownShare(s, F, { ...c, zoom: z }, r.b);
+      return v >= base[i]! - 0.005 || (!r.whole && v <= 0.005);
+    });
+  for (let z = c.zoom; z > 1.005; z = Math.round((z - 0.02) * 1000) / 1000) if (ok(z)) return z === c.zoom ? c : { ...c, zoom: z };
+  return plain;
+}
+
 function cropOf(subject: CropSubject, f: ResolvedFrame, maxZoom?: number): Crop {
   const mz = maxZoom ?? f.maxZoom;
-  if (f.shape && f.ratio) return fitFrame(subject, { shape: f.shape, ratio: f.ratio, tight: f.tight, maxZoom: mz });
+  if (f.shape && f.ratio) return guardZoom(subject, f.ratio, fitFrame(subject, { shape: f.shape, ratio: f.ratio, tight: f.tight, maxZoom: mz }));
   if (f.shape) return robustCrop(subject, [f.shape]);
   if (f.ratio) return robustCrop(subject, PAGE_SHAPES, [f.ratio]);
   return CENTER_CROP;
@@ -229,10 +276,21 @@ function stepAxis(a: number, b: number, min: string): string {
   return A >= B ? `clamp(${A}%, (100vw - ${min}) / 0.00001, ${B}%)` : `clamp(${B}%, (${min} - 100vw - 1px) / 0.00001, ${A}%)`;
 }
 
+/**
+ * The same step for transform-origin, whose percentages resolve against the (positive) box size, so
+ * a larger percentage is a larger length: the bounds swap relative to stepAxis.
+ */
+function stepOrigin(a: number, b: number, min: string): string {
+  const A = pctNum(a);
+  const B = pctNum(b);
+  if (Math.abs(A - B) < 0.5) return `${A}%`;
+  return A <= B ? `clamp(${A}%, (100vw - ${min} + 1px) / 0.00001, ${B}%)` : `clamp(${B}%, (${min} - 100vw) / 0.00001, ${A}%)`;
+}
+
 function pictureCropVars(
   asset: ResolvedAsset,
   p: { fit: "cover" | "contain"; ratio?: string | number; mask?: MaskKind; frame?: PictureFrame; frameLg?: PictureFrame; frameMin?: string; sizes: string },
-): { pos: string; zoom?: number; org?: string } | null {
+): { pos: string; zoom?: number; org: string } | null {
   if (p.fit === "contain") return null;
   const base = resolveFrame(p.frame, p.mask, p.ratio, p.sizes);
   const lg = p.frameLg !== undefined ? resolveFrame(p.frameLg, p.mask, p.ratio, undefined) : null;
@@ -243,11 +301,29 @@ function pictureCropVars(
     const a = base ? cropOf(subject, base, 1) : posCrop(asset.position);
     const b = cropOf(subject, lg, 1);
     const min = p.frameMin && MIN_RE.test(p.frameMin) ? p.frameMin : "64rem";
-    return { pos: `${stepAxis(a.x, b.x, min)} ${stepAxis(a.y, b.y, min)}` };
+    return { pos: `${stepAxis(a.x, b.x, min)} ${stepAxis(a.y, b.y, min)}`, org: `${stepOrigin(a.x, b.x, min)} ${stepOrigin(a.y, b.y, min)}` };
   }
   const c = cropOf(subject, base!);
   const pos = percentPair(c.x, c.y);
-  return c.zoom > 1.005 ? { pos, zoom: Math.round(c.zoom * 1000) / 1000, org: pos } : { pos };
+  // the origin is written for every fitted crop: the zoom (and any scale a section adds on hover)
+  // grows from the subject's anchor, exactly as the fitter modelled it
+  return c.zoom > 1.005 ? { pos, zoom: Math.round(c.zoom * 1000) / 1000, org: pos } : { pos, org: pos };
+}
+
+/**
+ * `positionLg`: below `frameMin` the explicit `position`, else the frame's fitted crop (zoom 1), else the
+ * asset's default; from `frameMin` up the given position — both as viewport-switched clamp()s.
+ */
+function steppedPosition(
+  asset: ResolvedAsset,
+  lg: string,
+  p: { ratio?: string | number; mask?: MaskKind; frame?: PictureFrame; frameMin?: string; sizes: string; position?: string },
+): { pos: string; zoom?: number; org: string } {
+  const f = p.position ? null : resolveFrame(p.frame, p.mask, p.ratio, p.sizes);
+  const a = p.position ? posCrop(p.position) : f ? cropOf(cropSubjectOf(asset), f, 1) : posCrop(asset.position);
+  const b = posCrop(lg);
+  const min = p.frameMin && MIN_RE.test(p.frameMin) ? p.frameMin : "64rem";
+  return { pos: `${stepAxis(a.x, b.x, min)} ${stepAxis(a.y, b.y, min)}`, org: `${stepOrigin(a.x, b.x, min)} ${stepOrigin(a.y, b.y, min)}` };
 }
 
 /** "50% 12.5%" → a crop (centre when unparsable). */

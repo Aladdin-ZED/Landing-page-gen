@@ -821,6 +821,60 @@ html:not([data-texture="grain"]) .lp-grain[data-auto] {
 .lp-ringbadge__ring {
   transform-origin: 50% 50%;
 }
+/* two rings (badge.tsx): every phrase on a badge large enough to read them all ("rich"), the first
+   phrase alone, larger, below that size ("compact"). The badge is a size container (its width is
+   always explicit: --badge-size or the `size` prop); data-ring-at = the diameter the rich ring reads
+   from. Engines without container queries keep the rich ring. */
+.lp-ringbadge[data-ring-at] {
+  container: lp-ring / inline-size;
+}
+.lp-ringbadge__ring[data-fit="compact"] {
+  display: none;
+}
+@container lp-ring (width < 112px) {
+  .lp-ringbadge[data-ring-at="112"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="112"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 128px) {
+  .lp-ringbadge[data-ring-at="128"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="128"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 144px) {
+  .lp-ringbadge[data-ring-at="144"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="144"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 160px) {
+  .lp-ringbadge[data-ring-at="160"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="160"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 176px) {
+  .lp-ringbadge[data-ring-at="176"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="176"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 192px) {
+  .lp-ringbadge[data-ring-at="192"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="192"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 208px) {
+  .lp-ringbadge[data-ring-at="208"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="208"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 224px) {
+  .lp-ringbadge[data-ring-at="224"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="224"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 256px) {
+  .lp-ringbadge[data-ring-at="256"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="256"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 288px) {
+  .lp-ringbadge[data-ring-at="288"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="288"] > [data-fit="compact"] { display: block; }
+}
+@container lp-ring (width < 320px) {
+  .lp-ringbadge[data-ring-at="320"] > [data-fit="rich"] { display: none; }
+  .lp-ringbadge[data-ring-at="320"] > [data-fit="compact"] { display: block; }
+}
 .lp-ringbadge[data-variant="solid"] {
   background-color: var(--ill-c1, currentColor);
   color: var(--ill-on);

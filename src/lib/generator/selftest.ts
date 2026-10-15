@@ -16,12 +16,29 @@
  *     quiet directions: calm archetypes only, calm motion, light grounds, muted accents, pastel pops,
  *     no loud compositions, distinct accents — and its remixes stay calm;
  *   - the store identity defaults: no invented "My store", the product's short name stands in;
+ *   - product options (a wizard draft: colors linked to photos + sizes) and the chosen ad pixels
+ *     reach every direction unchanged, with the order form that shows the pickers and the first
+ *     color's photo leading the page;
  * plus bundle pricing, library copy coverage and the AI copy guard. Exits 1 on any failure.
  */
 import { libraryCopy, FAMILIES, familyOf } from "@/lib/ai/copy-library";
 import { mergeAiCopy } from "@/lib/ai/guard";
 import type { AiCopy } from "@/lib/ai/copy-schema";
 import { PRODUCT_CATEGORIES, type Locale, type Market, type PageDoc, type ProductCategory } from "@/lib/page/schema";
+import {
+  cleanVariants,
+  colorPalette,
+  inferPreset,
+  isOrangeHex,
+  leadPhotoId,
+  photoColorSuggestions,
+  presetName,
+  presetValues,
+  relocalizeVariants,
+  splitOptionText,
+  swatchFor,
+  type VariantGroup,
+} from "@/lib/page/variant-presets";
 import { bundleMath } from "@/lib/page/pricing";
 import { validateDoc } from "@/lib/page/validate";
 import { createRenderContext, isRealStoreName, liveAssetResolver, PREVIEW_LINKS, shortProductName } from "@/landing/context";
@@ -413,6 +430,95 @@ check(readMood({ keywords: "Pistolet de massage 6 têtes", category: "fitness", 
 check(readMood({ keywords: "Jouet néon fun", category: "toys", palette: P.red }).mood === "lively", "mood: neon toy not lively");
 check(readMood({ keywords: "Mixeur 1,5 L 6 lames inox", category: "kitchen", palette: P.white }).mood === "neutral", "mood: blender not neutral");
 check(readMood({ keywords: "Body bébé en coton bio", category: "kids", palette: null }).mood === "calm", "mood: baby body not calm");
+
+/* 2a — options and pixels from the wizard: Color (2, linked to photos) + Size (4), Meta + TikTok */
+/** JSON with sorted keys: equal values whatever the key order (schemas re-order object keys) */
+const stable = (v: unknown): string =>
+  JSON.stringify(v, (_, x: unknown) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x));
+{
+  let checked = 0;
+  for (const locale of ["ar", "fr", "en"] as const) {
+    const colors = locale === "ar" ? ["أسود", "بيج"] : locale === "fr" ? ["Noir", "Beige"] : ["Black", "Beige"];
+    const variants: VariantGroup[] = [
+      {
+        id: "g-color",
+        name: presetName("color", locale),
+        kind: "swatch",
+        perUnit: true,
+        options: colors.map((label, i) => ({ id: `o-c${i}`, label, swatch: swatchFor(label), image: ref(31 + i, label), soldOut: false })),
+      },
+      {
+        id: "g-size",
+        name: presetName("size", locale),
+        kind: "text",
+        perUnit: true,
+        options: presetValues("size", locale)
+          .slice(1, 5)
+          .map((label, i) => ({ id: `o-s${i}`, label, soldOut: i === 3 })),
+      },
+    ];
+    check(stable(cleanVariants(variants)) === stable(variants), `options/${locale}: a clean wizard draft changed in cleanVariants`);
+    const lead = leadPhotoId(variants);
+    // the wizard makes the first color's photo the main one: it leads the images
+    const images = [ref(31), ref(32), ref(33)];
+    const tracking = { metaPixelId: ["1234567890123456", "6543210987654321"], tiktokPixelId: ["C4ABCDEF12345678"] };
+    const input: GenerateInput = {
+      product: { name: locale === "ar" ? "عباية الصلاة بالدونتيل" : locale === "fr" ? "Abaya de prière en dentelle" : "Lace prayer abaya", price: 279, category: "fashion", images, variants },
+      palette: P.black,
+      facts: [],
+      locale,
+      market: "MA",
+      seedBase: 4242,
+      tracking,
+    };
+    for (const d of generateDirections(input)) {
+      const where = `options/${locale}/${d.archetype}`;
+      checked++;
+      check(stable(d.doc.product.variants) === stable(variants), `${where}: product.variants changed`);
+      check(d.doc.product.images[0]?.id === lead, `${where}: the first color's photo does not lead the page`);
+      const hero = d.doc.sections.find((x) => x.type === "hero");
+      const heroImage = (hero?.data.image as { id?: string } | undefined)?.id ?? d.doc.product.cutout?.id ?? d.doc.product.images[0]?.id;
+      check(heroImage === lead, `${where}: hero shows ${heroImage}, not the first color's photo`);
+      const form = d.doc.sections.filter((x) => x.type === "orderForm" && !x.hidden);
+      check(form.length === 1, `${where}: ${form.length} visible order forms`);
+      check(stable(d.doc.tracking) === stable(tracking), `${where}: tracking ${JSON.stringify(d.doc.tracking)}`);
+      const { doc, issues } = validateDoc(d.doc);
+      check(!!doc && stable(doc.product.variants) === stable(variants), `${where}: options lost in validateDoc`);
+      check(!issues.some((i) => i.level === "error"), `${where}: invalid (${issues.find((i) => i.level === "error")?.message})`);
+    }
+  }
+  // no pixels chosen → none; an invalid value → none (never a broken page)
+  const base: GenerateInput = { product: { name: "Sac", price: 199, category: "bags", images: [ref(40)] }, palette: null, locale: "fr", market: "MA", seedBase: 9 };
+  check(JSON.stringify(generateDirections(base)[0]!.doc.tracking) === "{}", "options: tracking invented without a choice");
+  check(JSON.stringify(generateDirections({ ...base, tracking: { metaPixelId: "not-a-pixel" } })[0]!.doc.tracking) === "{}", "options: invalid tracking kept");
+  console.log(`  options + pixels: ${checked} directions keep the wizard's options and pixels`);
+
+  // presets and the color dictionary: no orange offered, typed names get their real swatch
+  for (const l of ["ar", "fr", "en"] as const) check(colorPalette(l).every((c) => !isOrangeHex(c.hex)), `options/${l}: orange in the quick-add palette`);
+  check(swatchFor("Orange") === "#e8772e" && swatchFor("برتقالي") === "#e8772e", "options: a typed orange lost its real swatch");
+  check(swatchFor("الأسود") === swatchFor("Noir") && swatchFor("كحلي") === swatchFor("Bleu marine") && swatchFor("Noir mat") === swatchFor("Black"), "options: color names (ar / fr / en) not matched");
+  const fromPhotos = photoColorSuggestions(
+    [
+      { id: "a", palette: { colors: [{ hex: "#b98a57", weight: 0.7 }, { hex: "#1b1b1d", weight: 0.25 }], background: null } },
+      { id: "b", palette: { colors: [{ hex: "#e8772e", weight: 0.8 }], background: null } },
+    ],
+    "fr",
+  );
+  check(fromPhotos.length === 1 && fromPhotos[0]!.label === "Noir" && fromPhotos[0]!.photoId === "a", `options: photo suggestions ${JSON.stringify(fromPhotos)}`);
+  check(splitOptionText("S, M ,L,,XL\nXXL، m").join("|") === "S|M|L|XL|XXL", "options: list splitting");
+  check(inferPreset({ name: "Pointure", kind: "text", options: [] }) === "shoe" && inferPreset({ name: "x", kind: "swatch", options: [] }) === "color", "options: preset inference");
+  const fr: VariantGroup[] = [
+    { id: "g-c", name: "Couleur", kind: "swatch", perUnit: true, options: [{ id: "o-1", label: "Noir", swatch: "#141414", soldOut: false }, { id: "o-2", label: "Lavande pastel", soldOut: false }] },
+    { id: "g-v", name: "Contenance", kind: "text", perUnit: false, options: [{ id: "o-3", label: "50 ml", soldOut: false }] },
+    { id: "g-m", name: "Matière", kind: "text", perUnit: true, options: [{ id: "o-4", label: "Soie", soldOut: false }] },
+  ];
+  const ar = relocalizeVariants(fr, "fr", "ar");
+  check(
+    ar[0]!.name === "اللون" && ar[0]!.options[0]!.label === "أسود" && ar[0]!.options[1]!.label === "Lavande pastel" && ar[1]!.name === "الحجم" && ar[1]!.options[0]!.label === "50 مل" && ar[2] === fr[2],
+    `options: fr → ar wording ${JSON.stringify(ar.map((g) => [g.name, g.options.map((o) => o.label)]))}`,
+  );
+  check(stable(relocalizeVariants(ar, "ar", "fr")) === stable(fr), "options: ar → fr does not come back");
+}
 
 /* 2b — orange the page blends: a crimson accent over a butter field crosses the band, the repair re-pairs it */
 {

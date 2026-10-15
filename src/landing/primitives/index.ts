@@ -41,8 +41,8 @@ export type { KickerProps, EyebrowProps } from "./Kicker";
 /* media */
 export { Picture, pictureCrop, frameRegions, quietCorner, cropSubjectOf } from "./Picture";
 export type { PictureProps, MaskKind, PictureFrame, FrameRegions, Corner } from "./Picture";
-export { ProductStage, resolveProductVisual, STAGES } from "./ProductStage";
-export type { ProductStageProps, StageKind, VisualKind } from "./ProductStage";
+export { ProductStage, resolveProductVisual, stageCutoutBox, stagePhotoFrame, STAGES } from "./ProductStage";
+export type { ProductStageProps, StageKind, StagePhotoFrame, StageRect, VisualKind } from "./ProductStage";
 
 /* commerce */
 export { Cta, LinkButton, safeHref } from "./Cta";

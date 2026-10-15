@@ -11,7 +11,7 @@ import { newId } from "@/lib/db/ids";
 import { blocklist, leads, orders, pages } from "@/lib/db/schema";
 import { normalizePhone, toAsciiDigits } from "@/lib/markets/phone";
 import { cleanText, explain, pushOrderStatus, serviceAccountEmail, syncPendingOrders, type SyncResult } from "@/lib/sheets";
-import { ORDER_STATUSES, type OrderStatus } from "./contract";
+import { ORDER_STATUSES, variantText, type OrderStatus } from "./contract";
 
 export type OrderRecord = typeof orders.$inferSelect;
 export type LeadRecord = typeof leads.$inferSelect;
@@ -341,7 +341,7 @@ export async function unblock(id: string, actor: Actor): Promise<boolean> {
 /* ------------------------------------------------------------------ */
 
 const CSV_HEADER = [
-  "Order", "Date (UTC)", "Status", "Name", "Phone", "City", "Address", "Product", "Pack", "Qty", "Subtotal",
+  "Order", "Date (UTC)", "Status", "Name", "Phone", "City", "Address", "Product", "Pack", "Options", "Qty", "Subtotal",
   "Shipping", "Total", "Currency", "Note", "Email", "Page", "Source", "UTM source", "UTM campaign", "Risk", "Flags",
 ];
 
@@ -392,6 +392,7 @@ export function ordersCsv(filters: OrderFilters = {}): ReadableStream<Uint8Array
               o.address,
               o.productName,
               o.items.bundleLabel,
+              variantText(o.items.variants),
               o.qty,
               o.subtotal,
               o.shipping,

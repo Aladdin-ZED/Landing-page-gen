@@ -25,7 +25,7 @@ const GS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 /** Column order is a contract with call centers and with the Node app (src/lib/sheets/orders-sheet.ts). */
 const GS_COLUMNS = [
     ['N° commande', 120], ['Date', 130], ['Statut', 140], ['Client', 180], ['Téléphone', 130],
-    ['Ville', 120], ['Adresse', 260], ['Produit', 220], ['Variante', 140], ['Qté', 56],
+    ['Ville', 120], ['Adresse', 260], ['Produit', 220], ['Variante', 170], ['Qté', 56],
     ['Total', 110], ['Note', 220], ['Source', 130],
 ];
 

@@ -51,6 +51,15 @@ export interface UploadResult {
 /* concurrency gate — sharp/libvips work is CPU-heavy on shared hosting */
 /* ------------------------------------------------------------------ */
 
+/*
+ * libvips sizes each operation's thread pool from the CPU count the OS reports, which on shared
+ * hosting is the whole server's, not the plan's 2 cores. Two threads per operation (and at most
+ * MAX_CONCURRENT operations) fit the plan; the operation cache stays in memory only (no open file
+ * handles kept between uploads). Both settings are process-wide.
+ */
+sharp.concurrency(2);
+sharp.cache({ memory: 64, files: 0 });
+
 declare global {
   var __codMediaGate: { active: number; waiters: (() => void)[] } | undefined;
 }

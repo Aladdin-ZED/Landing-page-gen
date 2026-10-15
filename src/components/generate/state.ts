@@ -1,13 +1,16 @@
 /**
- * Generator wizard state: photos (local preview → uploaded asset), AI readings, product details and
- * the generation seed. Kept in a reducer and mirrored to sessionStorage, so a reload or a detour
+ * Generator wizard state: photos (local preview → uploaded asset), AI readings, product details
+ * (options and ad pixels included) and the generation seed. Kept in a reducer and mirrored to sessionStorage, so a reload or a detour
  * to the media library never loses uploads or typed facts (local previews and blobs are not
  * stored; restored photos are read back from the media library).
  */
 import { z } from "zod";
 import type { ClassifyResult } from "@/lib/ai/client";
+import { assetRowOf } from "@/lib/media/asset-row";
+import { parseFocus, type AssetFocus } from "@/lib/media/focus";
 import { AnalysisSchema, VIBES, type Analysis } from "@/lib/ai/copy-schema";
-import { MARKETS, PRODUCT_CATEGORIES, type Market, type ProductCategory } from "@/lib/page/schema";
+import { MARKETS, PRODUCT_CATEGORIES, VariantGroup as VariantGroupSchema, type Market, type ProductCategory } from "@/lib/page/schema";
+import { keepLinkedPhotos, MAX_VARIANT_GROUPS, type VariantGroup } from "@/lib/page/variant-presets";
 import { ExtractedPaletteSchema, type ExtractedPalette } from "@/lib/theme";
 import type { AssetRowLike } from "@/landing/context";
 import type { PageLocale } from "./labels";
@@ -32,18 +35,43 @@ export const PhotoAssetSchema = z.object({
   variants: z.array(z.object({ key: z.string().max(120), w: z.number(), h: z.number(), fmt: z.enum(FORMATS) })).max(24),
   url: z.string().max(400).nullable(),
   thumbUrl: z.string().max(400).nullable(),
+  /**
+   * the upload's subject analysis (focal point, subject box, heads, hands — src/lib/media/focus.ts),
+   * validated, null when the row predates it: previews crop like the published page, and the
+   * generator chooses the hero photo and places pins and frames by subject
+   */
+  focus: z.unknown().optional().transform((v): AssetFocus | null => parseFocus(v)),
+  /** the library's team default framing point (tag "focal:x,y"); null = auto framing */
+  focal: z.unknown().optional().transform((v): FocalPoint | null => focalPoint(v)),
 });
 export type PhotoAsset = z.infer<typeof PhotoAssetSchema>;
 
-export const toAssetRow = (a: PhotoAsset): AssetRowLike => ({
-  id: a.id,
-  kind: "image",
-  width: a.width,
-  height: a.height,
-  alpha: a.alpha,
-  dominant: a.dominant,
-  variants: a.variants,
-});
+export interface FocalPoint {
+  x: number;
+  y: number;
+}
+
+const unit = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1 ? Math.round(v * 1000) / 1000 : null);
+
+/** A framing point from JSON (the picker, the media API, a stored session), validated. */
+export function focalPoint(v: unknown): FocalPoint | null {
+  if (!v || typeof v !== "object") return null;
+  const x = unit((v as { x?: unknown }).x);
+  const y = unit((v as { y?: unknown }).y);
+  return x !== null && y !== null ? { x, y } : null;
+}
+
+/**
+ * A photo as the page references it: a freshly generated page starts from the library's team
+ * default point when it has one (like an image placed in the builder), else in auto framing.
+ */
+export const toAssetRef = (a: PhotoAsset, alt: string) => ({ id: a.id, alt, ...(a.focal ? { fx: a.focal.x, fy: a.focal.y } : {}) });
+
+/** The renderer row every path shares: the direction previews crop exactly like the published page. */
+export const toAssetRow = (a: PhotoAsset): AssetRowLike => assetRowOf(a, "image");
+
+/** What the generator may know about a photo (GenerateInput.photos, see generator PhotoInfo). */
+export const toPhotoInfo = (a: PhotoAsset) => ({ id: a.id, width: a.width, height: a.height, alpha: a.alpha, focus: a.focus });
 
 /** Media API / picker JSON → PhotoAsset (null for anything unusable, e.g. a video). */
 export function photoAssetFrom(raw: unknown): PhotoAsset | null {
@@ -95,6 +123,10 @@ export interface Details {
   market: Market;
   /** write the copy with the on-device language model */
   aiCopy: boolean;
+  /** product options (colors, sizes…) exactly as the page gets them — see src/components/admin/variants */
+  variants: VariantGroup[];
+  /** store pixels the owner unticked for this page ("meta:1234567890"); new store pixels stay on */
+  pixelsOff: string[];
 }
 
 export interface WizardState {
@@ -116,6 +148,11 @@ export type Action =
   | { type: "addPhotos"; photos: Photo[] }
   | { type: "patchPhoto"; key: string; patch: Partial<Photo> }
   | { type: "uploaded"; key: string; asset: PhotoAsset }
+  /**
+   * the library's crop data of a photo, read after it was added: the subject analysis (rows uploaded
+   * before it existed are analysed on that read) and the team default framing point
+   */
+  | { type: "photoFocus"; id: string; focus: AssetFocus | null; focal: FocalPoint | null }
   | { type: "removePhoto"; key: string }
   | { type: "setMain"; key: string }
   | { type: "setCutout"; cutout: Cutout | null }
@@ -137,7 +174,18 @@ export function initialState(defaults: { locale: PageLocale; market: Market; aiC
     cutout: null,
     classify: null,
     analysis: null,
-    details: { name: "", price: "", category: "other", categoryTouched: false, facts: ["", "", ""], locale: defaults.locale, market: defaults.market, aiCopy: defaults.aiCopy },
+    details: {
+      name: "",
+      price: "",
+      category: "other",
+      categoryTouched: false,
+      facts: ["", "", ""],
+      locale: defaults.locale,
+      market: defaults.market,
+      aiCopy: defaults.aiCopy,
+      variants: [],
+      pixelsOff: [],
+    },
     seedBase: newSeed(),
   };
 }
@@ -164,11 +212,20 @@ export function reducer(state: WizardState, action: Action): WizardState {
       if (state.photos.some((p) => p.key !== action.key && p.asset?.id === action.asset.id)) return reducer(state, { type: "removePhoto", key: action.key });
       return reducer(state, { type: "patchPhoto", key: action.key, patch: { status: "ready", progress: 1, asset: action.asset, error: undefined } });
     }
+    case "photoFocus": {
+      const patch = <T extends { asset: PhotoAsset | null }>(p: T): T =>
+        p.asset?.id === action.id ? { ...p, asset: { ...p.asset, focus: action.focus ?? p.asset.focus, focal: action.focal } } : p;
+      return { ...state, photos: state.photos.map(patch), cutout: state.cutout ? patch(state.cutout) : null };
+    }
     case "removePhoto": {
       const photos = state.photos.filter((p) => p.key !== action.key);
       const mainKey = state.mainKey === action.key ? (photos.find((p) => p.status !== "error")?.key ?? photos[0]?.key ?? null) : state.mainKey;
       const cutout = state.cutout?.sourceKey === action.key ? null : state.cutout;
-      return { ...state, photos, mainKey, cutout };
+      // options linked to a photo that left the page lose the link (never a dangling asset)
+      const kept = new Set(photos.flatMap((p) => (p.asset ? [p.asset.id] : [])));
+      const variants = keepLinkedPhotos(state.details.variants, kept);
+      const details = variants === state.details.variants ? state.details : { ...state.details, variants };
+      return { ...state, photos, mainKey, cutout, details };
     }
     case "setMain":
       return { ...state, mainKey: action.key };
@@ -232,6 +289,9 @@ const Stored = z.object({
     locale: z.enum(["ar", "fr", "en"]),
     market: z.enum(MARKETS),
     aiCopy: z.boolean(),
+    // drafts saved before options / pixel choices existed restore with none
+    variants: z.array(VariantGroupSchema).max(MAX_VARIANT_GROUPS).catch([]),
+    pixelsOff: z.array(z.string().max(80)).max(24).catch([]),
   }),
   seedBase: z.number().int().min(0).max(2_147_483_647),
 });
@@ -246,7 +306,8 @@ export function loadState(): WizardState | null {
     const s = parsed.data;
     const photos: Photo[] = s.photos.map((p) => ({ ...p, preview: p.asset.thumbUrl ?? p.asset.url, status: "ready", progress: 1 }));
     const step = (photos.length ? s.step : 0) as Step;
-    return { ...s, step, reached: Math.max(step, photos.length ? s.reached : 0) as Step, photos, mainKey: photos.some((p) => p.key === s.mainKey) ? s.mainKey : (photos[0]?.key ?? null) };
+    const details = { ...s.details, variants: keepLinkedPhotos(s.details.variants, new Set(s.photos.map((p) => p.asset.id))) };
+    return { ...s, details, step, reached: Math.max(step, photos.length ? s.reached : 0) as Step, photos, mainKey: photos.some((p) => p.key === s.mainKey) ? s.mainKey : (photos[0]?.key ?? null) };
   } catch {
     return null;
   }

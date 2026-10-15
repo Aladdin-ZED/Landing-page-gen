@@ -7,7 +7,7 @@ import { and, count, eq, gte, isNull, lt, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { blocklist, leads, orders } from "@/lib/db/schema";
 import { getOrder, isOrderStatus, type OrderFilters, type OrderRecord } from "@/lib/orders";
-import type { OrderStatus } from "@/lib/orders/contract";
+import { variantText, type OrderStatus } from "@/lib/orders/contract";
 import { addDays, dayKey, dayStart, isDay } from "./time";
 
 export type RangeKey = "today" | "7d" | "30d" | "90d" | "all" | "custom";
@@ -125,6 +125,8 @@ export interface OrderRow {
   city: string | null;
   productName: string;
   bundleLabel: string;
+  /** chosen product options in one line ("2 × Noir/M + Beige/L"), "" without options */
+  options: string;
   qty: number;
   total: number;
   currency: string;
@@ -145,6 +147,7 @@ export function toOrderRow(o: OrderRecord & { pageName: string | null }): OrderR
     city: o.city,
     productName: o.productName,
     bundleLabel: o.items?.bundleLabel ?? "",
+    options: variantText(o.items?.variants),
     qty: o.qty,
     total: Number(o.total),
     currency: o.currency,

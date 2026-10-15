@@ -6,7 +6,8 @@
  *     cheaply) and the privacy scrub (XMP uuid, udta/meta, telemetry tracks + their samples, trailing
  *     bytes; WebM Tags/Attachments/Chapters/Info/track names + SeekHead entries), with structure
  *     re-validated after the rewrite. Real WebM samples in qa/video/media are checked when present.
- *  2. upload-body.ts — single-copy body reader and multipart parser against undici-encoded forms.
+ *  2. upload-body.ts — single-copy body reader (and the capped reader for chunked bodies) and the
+ *     multipart parser against undici-encoded forms.
  *  3. upload-slots.ts / throttle.ts — in-flight upload slots and the per-IP media token bucket.
  * The database/disk side lives in selftest-store.ts.
  */
@@ -14,7 +15,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MediaError } from "./errors";
 import { spendMediaTokens, BUCKET_SIZE, REFILL_PER_SECOND } from "./throttle";
-import { declaredLength, MAX_PARTS, multipartBoundary, parseMultipart, readExactBody } from "./upload-body";
+import { declaredLength, MAX_PARTS, multipartBoundary, parseMultipart, readCappedBody, readExactBody } from "./upload-body";
 import { MAX_UPLOADS, MAX_UPLOADS_PER_USER, takeUploadSlot } from "./upload-slots";
 import { inspectVideo, MAX_SIBLINGS } from "./video";
 
@@ -459,6 +460,25 @@ async function uploadBodyTests(): Promise<void> {
   const long = await readExactBody(streamOf(body), body.length - 1);
   check("body longer than Content-Length → 400", !long.ok && long.status === 400);
   check("missing body → 400", !(await readExactBody(null, 10)).ok);
+
+  // no Content-Length (a proxy forwarding the upload chunked): streamed under a hard cap
+  const capped = await readCappedBody(streamOf(body), body.length);
+  check("chunked body within the cap read whole", capped.ok && capped.value.equals(body));
+  let pulled = 0;
+  let cancelled = false;
+  const endless = new ReadableStream<Uint8Array>({
+    pull(c) {
+      pulled++;
+      c.enqueue(new Uint8Array(64 * 1024));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const over = await readCappedBody(endless, 1024 * 1024);
+  check("endless chunked body → 413 at the cap, stream cancelled", !over.ok && over.status === 413 && cancelled && pulled <= 20, `pulled ${pulled} chunks`);
+  check("empty chunked body → 400", !(await readCappedBody(streamOf(Buffer.alloc(0)), 1024)).ok);
+  check("missing chunked body → 400", !(await readCappedBody(null, 1024)).ok);
 
   if (boundary) {
     check("truncated body → null", parseMultipart(body.subarray(0, body.length - 10), boundary) === null);

@@ -7,7 +7,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { adminAction, fail, type ActionResult } from "@/lib/admin-data/action";
-import { applyPixelsToDrafts, PIXEL_KEYS } from "@/lib/admin-data/pages";
 import { auditPage, AUDIT_AREAS, revokeDeviceSession, temporaryPassword, type AuditRow } from "@/lib/admin-data/security";
 import {
   can,
@@ -47,31 +46,6 @@ export async function saveDefaultsAction(input: SettingInput<"defaults">): Promi
     await setSetting("defaults", input, actor);
     refreshSettings();
     return null;
-  });
-}
-
-export async function savePixelsAction(
-  pixels: SettingInput<"pixels">,
-  secrets: Partial<SettingInput<"tracking_secrets">>,
-): Promise<ActionResult<{ secrets: Record<string, string | undefined> }>> {
-  return adminAction("settings.write", async ({ actor }) => {
-    await setSetting("pixels", pixels, actor);
-    const saved = await updateSetting("tracking_secrets", secrets, actor);
-    refreshSettings();
-    return { secrets: redactSetting("tracking_secrets", saved) as Record<string, string | undefined> };
-  });
-}
-
-/** Copy the saved store pixels into every page draft (live pages then show unpublished changes). */
-export async function applyPixelsToPagesAction(): Promise<ActionResult<{ updated: number; live: number; skipped: number }>> {
-  return adminAction("settings.write", async ({ user, actor }) => {
-    if (!can(user.role, "pages.write")) fail("Your role can't edit pages.");
-    const pixels = await getSetting("pixels", { fresh: true });
-    if (!PIXEL_KEYS.some((k) => pixels[k])) fail("Save at least one pixel ID first.");
-    const res = await applyPixelsToDrafts(pixels, actor);
-    revalidatePath("/admin/pages");
-    revalidatePath("/admin");
-    return res;
   });
 }
 

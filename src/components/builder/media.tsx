@@ -10,8 +10,8 @@ import { MediaPicker } from "@/components/admin/on-demand";
 // the picker's material layer; the builder doesn't load the panel stylesheet, and the code-split
 // picker must not open unstyled on a slow first fetch
 import "@/components/admin/styles/admin.css";
-import type { MediaFormat } from "@/lib/media/keys";
-import { parseFocus, type AssetFocus } from "@/lib/media/focus";
+import { assetRowOf } from "@/lib/media/asset-row";
+import type { AssetFocus } from "@/lib/media/focus";
 import type { EditorAsset } from "@/lib/editor/types";
 import { useEditorApi } from "./context";
 import { useEnv } from "./env";
@@ -25,6 +25,8 @@ export interface PickedAsset {
   dominant: string;
   variants: { key: string; w: number; h: number; fmt: string }[];
   kind?: "image" | "video";
+  /** stored MIME type (a WebM video plays its .webm file) */
+  mime?: string;
   /** the library's default alt text, when the picker provides one */
   alt?: string;
   /** subject analysis (focal point, subject box, heads, hands) — the canvas crops like the live page */
@@ -53,21 +55,12 @@ export interface PickOptions {
   title?: string;
 }
 
-const FORMATS = new Set<MediaFormat>(["webp", "avif", "png", "jpeg", "mp4", "webm"]);
-
+/**
+ * A picked or uploaded asset as the store's row: the renderer row every path shares (subject
+ * analysis and MIME included), so the canvas crops and plays it exactly like the published page.
+ */
 export function toEditorAsset(a: PickedAsset, kind: "image" | "video" = "image", palette?: unknown): EditorAsset {
-  return {
-    id: a.id,
-    kind,
-    width: a.width,
-    height: a.height,
-    alpha: a.alpha,
-    dominant: /^#[0-9a-fA-F]{6}$/.test(a.dominant) ? a.dominant : "#cccccc",
-    variants: a.variants.filter((v): v is { key: string; w: number; h: number; fmt: MediaFormat } => FORMATS.has(v.fmt as MediaFormat)),
-    // without it the canvas centres auto images while the published page fits them to the subject
-    focus: parseFocus(a.focus),
-    ...(palette !== undefined ? { palette } : {}),
-  };
+  return { ...assetRowOf(a, kind), ...(palette !== undefined ? { palette } : {}) };
 }
 
 interface MediaApi {

@@ -405,15 +405,20 @@ function costParts(s: CropSubject, shape: FrameShape, F: number, px: number, py:
     // actually cut (dominant) vs merely closer to the edge than the comfort margin — a veil that
     // touches the photo's own top edge can never get the margin, but must still never be cut
     let hc = 900 * (1 - h.seen) + (h.seen < 0.999 ? 220 : 0) + 160 * (1 - h.safe) + (h.safe < 0.999 ? 40 : 0);
-    // a face sliced by the frame edge in a photo of several people: never slice one face to save
-    // another — leaving this head fully out (HEAD_OUT) must always be the cheaper choice, and so must
-    // showing one face whole rather than two faces half. (A lone face has no such alternative: its
-    // ordinary cut cost already pulls it in.) A veil or crown that merely touches a curved mask, the
-    // face itself whole, is not a slice.
-    if (h.face > 0.001 && h.face < 0.999 && heads.length > 1) {
-      const sliced = Math.max(hc, HEAD_OUT + 260 + 400 * (1 - h.face) + (facesWhole > 0 ? 0 : 120));
-      slice += sliced;
-      hc = sliced;
+    // a head partly in the frame, its face not whole, in a photo of several people: leaving this head
+    // fully out (HEAD_OUT) must always be the cheaper choice. Worst, a face sliced by the edge: never
+    // slice one face to save another, and show one face whole rather than two faces half. Then a
+    // crown, a veil or a chin peeking in at the edge, the face itself out. (A lone head has no such
+    // alternative: its ordinary cut cost already pulls it in.) A veil or crown that merely touches a
+    // curved mask, the face itself whole, is neither.
+    if (heads.length > 1 && h.seen > 0.001 && h.face < 0.999) {
+      const partial =
+        h.face > 0.001
+          ? HEAD_OUT + 260 + 400 * (1 - h.face) + (facesWhole > 0 ? 0 : 120)
+          : HEAD_OUT + 140 + 120 * h.seen;
+      const cut = Math.max(hc, partial);
+      slice += cut;
+      hc = cut;
     }
     c += hc;
   }

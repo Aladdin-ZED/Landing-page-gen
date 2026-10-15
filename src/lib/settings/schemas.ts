@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import { AssetRef, Locale, Market, Money, Tracking } from "@/lib/page/schema";
+import { PIXEL_ID_RE } from "@/lib/pixels/ids";
 
 const text = (max: number) =>
   z
@@ -82,16 +83,46 @@ export const SheetsSettings = z.object({
   connectedAt: z.iso.datetime({ offset: true }).optional(),
 });
 
+/** Store-level ad pixels: the defaults new pages start with ("Apply to pages" copies them too). */
 export const PixelsSettings = Tracking;
 
+/** A platform's "Test events" code (Meta Events Manager / TikTok Events Manager), e.g. TEST12345. */
+export const TestEventCode = z.string().trim().regex(/^[A-Z0-9]{4,20}$/, { error: "4–20 capital letters and digits, e.g. TEST12345." });
+
+/** Server credentials keyed by pixel id (each pixel optional; at most a few per store). */
+const perPixel = <T extends z.ZodType>(platform: "meta" | "tiktok", value: T) =>
+  z
+    .record(z.string().regex(PIXEL_ID_RE[platform]), value)
+    .refine((o) => Object.keys(o).length <= 12, { error: "Too many pixels." })
+    .default({});
+
+/**
+ * Server-side event credentials (stored encrypted). Tokens and test codes are per pixel id — a
+ * Conversions API token / Events API token belongs to one pixel (dataset). The single-value fields
+ * are how they were stored before multi-pixel support: they still apply to any pixel without its
+ * own entry (see serverCredentials in src/lib/orders/conversions-core.ts) and move into the per-pixel
+ * maps the next time Settings → Pixels is saved.
+ */
 export const TrackingSecretsSettings = z.object({
+  /** Meta Conversions API access token per Meta pixel id */
+  metaTokens: perPixel("meta", secretToken),
+  /** Meta "Test events" code per Meta pixel id — only while testing */
+  metaTestCodes: perPixel("meta", TestEventCode),
+  /** TikTok Events API access token per TikTok pixel code */
+  tiktokTokens: perPixel("tiktok", secretToken),
+  /** TikTok "Test events" code per TikTok pixel code — only while testing */
+  tiktokTestCodes: perPixel("tiktok", TestEventCode),
+  /** legacy single Meta token (any Meta pixel without its own) */
   metaCapiToken: optional(secretToken),
-  /** Meta "Test events" code, only while testing */
-  metaTestEventCode: optional(z.string().trim().regex(/^[A-Z0-9]{4,20}$/)),
+  /** legacy single Meta test code */
+  metaTestEventCode: optional(TestEventCode),
+  /** legacy single TikTok token (any TikTok pixel without its own) */
   tiktokToken: optional(secretToken),
-  /** TikTok Events Manager "Test events" code, only while testing */
-  tiktokTestEventCode: optional(z.string().trim().regex(/^[A-Z0-9]{4,20}$/)),
+  /** legacy single TikTok test code */
+  tiktokTestEventCode: optional(TestEventCode),
+  /** kept for a later Snap Conversions API; not used */
   snapToken: optional(secretToken),
+  /** kept for a later GA4 Measurement Protocol; not used */
   ga4ApiSecret: optional(secretToken),
 });
 
@@ -136,7 +167,7 @@ export const SETTINGS = {
     schema: TrackingSecretsSettings,
     secret: true,
     defaults: () => ({}),
-    sensitive: ["metaCapiToken", "tiktokToken", "snapToken", "ga4ApiSecret"],
+    sensitive: ["metaTokens", "tiktokTokens", "metaCapiToken", "tiktokToken", "snapToken", "ga4ApiSecret"],
   }),
   ai: def({ schema: AiSettings, secret: false, defaults: () => ({}) }),
   turnstile: def({
@@ -182,6 +213,9 @@ export function redactSetting<K extends SettingKey>(key: K, value: SettingValue<
   for (const field of sensitive) {
     const v = copy[field];
     if (typeof v === "string" && v) copy[field] = maskSecret(v);
+    // a map of secrets (e.g. a token per pixel id): every value masked, keys kept
+    else if (v && typeof v === "object" && !Array.isArray(v))
+      copy[field] = Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, s]) => [k, typeof s === "string" && s ? maskSecret(s) : s]));
   }
   return copy as SettingValue<K>;
 }

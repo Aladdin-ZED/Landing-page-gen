@@ -15,7 +15,9 @@ managed **MariaDB** database. This guide takes you from zero to a live, private 
 ## 1. Create the database
 hPanel → **Websites → (your site) → Databases → MySQL Databases**
 1. Create a database, a user and a strong password. Note the three values.
-2. The host for Node.js apps is **`127.0.0.1`** (not `localhost`).
+2. The host for Node.js apps is **`127.0.0.1`**: not `localhost` (it can resolve to IPv6 `::1`, which the
+   database user may not be allowed from) and not the `srvNNNN.hstgr.io` name hPanel shows (that one is for
+   remote connections only).
 3. Your `DATABASE_URL` becomes:
    `mysql://DB_USER:DB_PASSWORD@127.0.0.1:3306/DB_NAME`
    (URL-encode special characters in the password, e.g. `@` → `%40`, `#` → `%23`).
@@ -27,13 +29,20 @@ lock serialises them, so a restart during a deploy is safe.
 hPanel → **Websites → Add website → Node.js Apps** (or *Deploy Node.js app*)
 1. Source: **GitHub** (auto-deploys on every push) or **Upload** a project zip. Leave `node_modules`, `.next`,
    `qa` and **`.env.local`** out of the zip: your local secrets must never be uploaded.
-2. Framework: **Next.js** (auto-detected). Node version: **22** (recommended) or **24**.
+2. Framework: **Next.js** (auto-detected). Node version: **22** (`package.json` asks for `22.x`).
 3. Build command: `npm run build`. It first compiles the landing CSS kit and runtime and the admin's
    Tailwind CSS (`prebuild`), then runs `next build`; if Turbopack fails on the build machine it retries
    once with webpack. Turbopack gets no loaders (Hostinger kills the Node workers they need: "node
-   process exited before we could connect to it"), so never add a `postcss.config` or `turbopack.rules`. Hostinger handles the start command and applies standalone output itself, so
-   `next.config.ts` stays a plain object without `output`.
+   process exited before we could connect to it"), so never add a `postcss.config` or `turbopack.rules`.
+   Hostinger handles the start command and applies standalone output itself, so `next.config.ts` stays a
+   plain object without `output`. Output directory: `.next`.
 4. Attach it to your domain (e.g. `mystore.ma`).
+
+> The repository's `.npmrc` stops `onnxruntime-node` (a dependency of the in-browser AI) from downloading
+> ~270 MB of CUDA libraries from nuget.org during `npm install` on Linux: the server never uses them. On your
+> own computer, npm 11 prints `Unknown project config "onnxruntime-node-install"` for it: harmless. If a
+> Hostinger build log ever shows a download from `api.nuget.org` again, add the environment variable
+> `ONNXRUNTIME_NODE_INSTALL=skip` (environment variables apply to the build too).
 
 > Do **not** add a `NODE_ENV` variable. The build needs the devDependencies (TypeScript, Tailwind, esbuild,
 > lightningcss), and `NODE_ENV=production` during `npm install` would skip them. Next.js sets the production
@@ -48,12 +57,12 @@ same list with comments. Saving the variables redeploys the app.
 | Name | Value |
 |---|---|
 | `DATABASE_URL` | from step 1 |
-| `APP_SECRET` | 64 random chars: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. At least 32 chars, or the admin stays unreachable; 48+ recommended. |
+| `APP_SECRET` | 64 random chars: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. At least 32 chars: shorter, or a template value, and the admin is unreachable **and every order fails with HTTP 500** (visitor IPs are hashed with it). 48+ recommended. |
 | `ADMIN_GATE` | your private door to the admin, e.g. `studio-k29fx81q4mz7w2pd`. **20+ random chars** of `A-Z a-z 0-9 _ -`. It cannot be a route name (`admin`, `api`, `media`, `fonts`, `login`, `setup`). |
 | `SETUP_TOKEN` | a one-time token (8–128 chars of `A-Z a-z 0-9 _ -`) to create the first owner. Remove it after setup. |
-| `PUBLIC_URL` | `https://mystore.ma`: canonical links, exports and server-side tracking. Must be `https://` for *Connected* exports. |
+| `PUBLIC_URL` | `https://mystore.ma`: canonical links, exports and server-side tracking. Must be `https://` for *Connected* exports. Live pages take orders **only on this domain** (and its `www.` twin): their security policy names no other. It is written into every published page: after changing it, see §12. |
 | `CRON_KEY` | a random string, **at least 8 chars** (32 recommended). Without it the cron endpoint stays disabled (404). |
-| `TRUSTED_PROXY_HOPS` | `1`. Hostinger has one proxy in front of the app (see §6). |
+| `TRUSTED_PROXY_HOPS` | `1` to start, then **check it after the first deploy** in *Settings → Security → Visitor IP check* (§6): a CDN that adds a public hop needs `2`. |
 | `BEHIND_CLOUDFLARE` | `0`, or `1` only when the domain is proxied by Cloudflare (see §6). |
 
 **Optional**
@@ -66,9 +75,10 @@ same list with comments. Saving the variables redeploys the app.
 | `ADMIN_HOST` | **Recommended.** A host name of its own for the admin, e.g. `studio.mystore.ma` (see §4a). |
 | `ADMIN_IP_ALLOWLIST` | comma-separated IPs allowed to reach the admin. Leave empty to allow all (see §6). |
 | `APP_TIMEZONE` | the store time zone for dashboard days and Sheets dates. Default `Africa/Casablanca`. |
+| `DB_QUOTA_MB` | your plan's size limit per database, in MB. Default `3072` (3 GB, Business). The admin warns at 70 % and pauses uploads at 85 % (§12). |
 
 The server prints a `[boot]` line for every missing or weak value (never the value itself). Check the app's
-logs after the first deploy.
+logs after the first deploy: a line starting with `[boot] ERROR` must be fixed before the site takes orders.
 
 > **`APP_SECRET` must never change after launch.** It signs sessions and the admin gate cookie, and it
 > encrypts the 2FA secrets and the secret settings (Turnstile secret key, pixel API tokens). Changing it signs
@@ -104,10 +114,23 @@ The public domain answers 404 for `/admin`, `/api/admin` and the gate. If your p
 `ADMIN_HOST` empty and open live pages only in a browser profile where you are not signed in to the admin.
 
 ## 5. Cron (Google Sheets sync + housekeeping)
-hPanel → **Advanced → Cron Jobs** → custom command, **every 5 minutes** (`*/5 * * * *`):
-```
-curl -fsS --max-time 110 "https://mystore.ma/api/cron/tick?key=YOUR_CRON_KEY" > /dev/null
-```
+1. First test the endpoint in a browser: `https://mystore.ma/api/cron/tick?key=YOUR_CRON_KEY` must answer
+   `{"ok":true,…}`. A **404** means a wrong key, `CRON_KEY` not set, or the app not running yet.
+2. hPanel → **Websites** → your site → **Dashboard** → **Advanced → Cron Jobs** (or type "Cron" in the
+   sidebar search) → **Create Cron Job**.
+3. Type **Custom**, schedule **every 5 minutes** (`*/5 * * * *`), command (one line):
+   ```
+   curl -fsS --max-time 110 -o /dev/null -H "X-Cron-Key: YOUR_CRON_KEY" "https://mystore.ma/api/cron/tick" || date >> "$HOME/cron-tick-failures.log"
+   ```
+   The header keeps the key out of web access logs. Never put a `%` in the command: cron turns it into a
+   new line (so no `curl -w "%{http_code}"`). A failing run appends its time to `cron-tick-failures.log`
+   in your home folder (File Manager): an empty or missing file means every run worked.
+4. **Save**. When `PUBLIC_URL` moves to another domain, change the URL here too.
+
+Always call the public `https://` address. `http://127.0.0.1` or `localhost` do not reach the app: Hostinger
+runs it on an internal port behind its web server. The job runs on the same server as the app, so the app may
+see it coming from the server's own or an internal address; that is fine, only the key lets it in.
+
 Each run:
 - pushes orders still queued for Google Sheets (up to 100 per run; new orders are normally sent within
   seconds, so this is the retry path) and pulls the statuses your team set in the sheet;
@@ -116,24 +139,48 @@ Each run:
 - keeps the Node.js process warm. Hostinger stops idle apps, so without the cron the first visitor after a
   quiet period waits for a cold start.
 
-A missing or wrong key answers **404**, and repeated guesses are rate-limited per IP. With a valid key you
-get a small JSON report (`{"ok":true,…}`), which is handy for a first manual test in the browser.
+A missing or wrong key answers the same **404** page as any unknown address, and repeated guesses are
+rate-limited per IP. With a valid key you get a small JSON report (`{"ok":true,…}`), which is handy for a first
+manual test in the browser.
 
 ## 6. Proxies, real visitor IPs and Cloudflare
-Rate limits, the duplicate-order guard and the risk score work per visitor IP (always stored hashed).
-The app reads the IP that **its own proxy** appended to `X-Forwarded-For`, never the client-supplied
-entries:
+Rate limits, the duplicate-order guard, the IP blocklist and the risk score work per visitor IP (always
+stored hashed). The app reads `X-Forwarded-For` from the right, where the proxies in front of it wrote, and
+never the entries a visitor can send themselves:
+- **internal** addresses (`10.x`, `172.16–31.x`, `192.168.x`, `100.64–127.x`, `127.x` and their IPv6
+  equivalents) are skipped: they are Hostinger's own machines talking to each other;
+- `TRUSTED_PROXY_HOPS` says how many **public** proxy addresses come after the visitor's. With `1`, the
+  right-most public entry is the visitor.
+
+On Hostinger a request passes the **Hostinger CDN** (response header `Server: hcdn`; hPanel →
+**Performance → CDN**) and the web server before it reaches the app. Hostinger does not document what they
+write into `X-Forwarded-For`, so the value has to be **checked on the live site**. A value that is too low
+makes every visitor share one address: one shared rate limit (orders start failing with "too many requests"
+at busy times) and "block IP" on one order blocks everyone.
+
+**Check it right after the first successful deploy, and again whenever the CDN is turned on or off:**
+1. Sign in to the admin on the live domain and open *Settings → Security* → **Visitor IP check** (owners
+   only). It shows the IP the app reads from your own request, and the whole `X-Forwarded-For` chain.
+2. Compare **Your IP as the app sees it** with your own public IP (search "what is my IP" from the same
+   device and network).
+   - Same address: the value is right. Nothing to do.
+   - Your IP appears in the chain as **hop 2** (and hop 1 is another public address, the CDN's): set
+     `TRUSTED_PROXY_HOPS=2` (saving redeploys), reload the page and check again.
+3. Do the check from a normal connection (not a VPN), and once from your phone's mobile data.
 
 | Setup | `TRUSTED_PROXY_HOPS` | `BEHIND_CLOUDFLARE` | `ADMIN_IP_ALLOWLIST` |
 |---|---|---|---|
-| Hostinger only (default) | `1` | `0` | works: your public IP(s) |
-| Cloudflare proxy (orange cloud) → Hostinger | `1` | `1` | **leave empty**: the app sees Cloudflare's address, so an allowlist would lock everyone out |
+| Your IP is the last public entry (hop 1) | `1` | `0` | works only if your IP is also the **last** entry of the chain (no internal hop after it) |
+| Your IP is hop 2 (a CDN with public addresses in front) | `2` | `0` | **leave empty**: it checks the last entry, the CDN's address, and would lock everyone out |
+| Cloudflare proxy (orange cloud) → Hostinger | as checked above | `1` | **leave empty**: the app sees Cloudflare's address, so an allowlist would lock everyone out |
 
-- `BEHIND_CLOUDFLARE=1` trusts the `CF-Connecting-IP` header. Set it only if **every** request goes through
-  Cloudflare. Otherwise a visitor could forge that header to dodge rate limits.
-- To confirm the app sees real addresses, temporarily set `ADMIN_IP_ALLOWLIST` to your current public IP.
-  If the admin still opens, the proxy hop is right. If it answers 404, remove the variable (and check the table
-  above).
+- `BEHIND_CLOUDFLARE=1` trusts the `CF-Connecting-IP` header, but only on requests that really come from a
+  Cloudflare address. Set it only if **every** request goes through Cloudflare.
+- Never set `TRUSTED_PROXY_HOPS` higher than the check shows: one hop too many lets a visitor choose the
+  address the app sees (by sending their own `X-Forwarded-For`) and dodge the rate limits.
+- Public endpoints also have a short in-memory limit per address in front of the database (beacons,
+  abandoned-cart leads, upsells, cron). It sits far above what real shoppers send, even many shoppers on
+  one mobile network.
 
 ## 7. Anti-spam (Cloudflare Turnstile, optional)
 Every order already goes through a honeypot, rate limits, a duplicate guard, a blocklist and a risk score.
@@ -179,15 +226,25 @@ Open these in a private window (or use `curl -I`):
 | `https://mystore.ma/admin` | **404** (the gate is closed in a fresh browser) |
 | `https://mystore.ma/<ADMIN_GATE>` | **303** to `/admin`, which sends you to `/admin/login` |
 | `https://mystore.ma/admin/setup` (after the owner exists) | **404** |
-| `https://mystore.ma/api/cron/tick?key=YOUR_CRON_KEY` | `{"ok":true,…}` (a wrong or missing key: **404**) |
+| `https://mystore.ma/api/cron/tick?key=YOUR_CRON_KEY` | `{"ok":true,…}` (a wrong or missing key: the plain **404** page) |
 | `https://mystore.ma/api/public/order` (GET) | **405** (the endpoint only accepts POST) |
 | `curl -X POST -H "Content-Type: application/json" -d "{}" https://mystore.ma/api/public/order` | **422** `{"ok":false,"error":"invalid","fields":{…}}` (a body that is not JSON: **400**) |
 | `https://mystore.ma/legal/privacy` | your privacy page, once a page is published (**404** before) |
+| `curl -i -X OPTIONS https://mystore.ma/api/admin/media` | **404** (no `Allow` header: the admin API stays invisible) |
+| `https://mystore.ma/admin/login` and `https://mystore.ma/no/such/page` | the **same** plain 404 page (an admin address looks like any unknown one) |
 
 With `ADMIN_HOST` set, the gate row becomes `https://studio.mystore.ma/<ADMIN_GATE>` → `/admin/login`.
 Also check `https://mystore.ma/<ADMIN_GATE>` → **404** and `https://studio.mystore.ma/<slug>` → **404**.
 
-Then place one real test order on a published page and check that it shows up in *Orders* and in the sheet.
+Then:
+- hPanel → your site → **Runtime logs** (or *Deployments → logs*): the start shows `[boot] applied N
+  migration(s)` or `[boot] database schema up to date`, and no line starting with `[boot] ERROR`. A
+  `[landing] a page was opened on …, which is not PUBLIC_URL` line means visitors reach your pages on a
+  domain `PUBLIC_URL` does not name, where orders are blocked: fix `PUBLIC_URL` (§12).
+- *Settings → Security → Visitor IP check*: **Your IP as the app sees it** is your own IP (§6).
+- *Media*: upload one photo. It must appear in the library (this also checks that uploads pass the
+  Hostinger proxies).
+- Place one real test order on a published page and check that it shows up in *Orders* and in the sheet.
 
 ## 11. Security checklist
 - [ ] 2FA enabled for every admin user
@@ -195,17 +252,43 @@ Then place one real test order on a published page and check that it shows up in
 - [ ] `ADMIN_HOST` set to a subdomain of its own (§4a), or live pages opened only in a browser profile without an admin session
 - [ ] `APP_SECRET` is 48+ random characters, saved in your password manager
 - [ ] `SETUP_TOKEN` removed
-- [ ] Optional: `ADMIN_IP_ALLOWLIST` with your office/home IPs (not behind Cloudflare, see §6)
+- [ ] `TRUSTED_PROXY_HOPS` checked on the live site (*Settings → Security → Visitor IP check*, §6), and again after any CDN change
+- [ ] Optional: `ADMIN_IP_ALLOWLIST` with your office/home IPs (only when your IP is the last entry of the chain, see §6)
 - [ ] `BEHIND_CLOUDFLARE=1` only if all traffic is proxied by Cloudflare
 - [ ] Google service-account JSON key stored only in the env var (never in Git or a zip)
 - [ ] Cron job runs every 5 minutes (*Settings → Google Sheets* shows no orders left pending for long)
 - [ ] Turnstile keys set in *Settings → Anti-spam* if you get fake orders
 
 ## 12. Updating and backups
-Push to GitHub (auto deploy) or upload a new zip. Uploaded images and videos, pages, versions, orders and
-settings all live in the database, so redeploys never lose data (Hostinger replaces the app folder on every
-deploy). New migrations apply automatically at boot. Hostinger keeps database backups, and you can also
-export from phpMyAdmin.
+**Ship a new version.** With a GitHub-connected app, every push to the connected branch (`main`) starts a
+new deployment of **that latest commit**: Hostinger pulls the code fresh each time, it never rebuilds an old
+copy. To rebuild without a new commit (after a failed build, or to retry), use **Redeploy** on the site
+dashboard or the **Deployments** page: it also pulls the latest code of the connected branch. Saving the
+environment variables redeploys too. Each deployment lists its commit hash in *Deployments*: check that it
+matches your latest commit on GitHub. If it does not:
+- the status must read **Connected with GitHub** (fix access with the button it shows otherwise);
+- the connected **branch** must be the one you push to;
+- an app created by pasting a public repository URL deploys Hostinger's own copy of that repository, which
+  does not follow your pushes: connect the app to your repository instead (*Disconnect from repository*,
+  then connect yours), or create a new Node.js app from it and move the domain.
+
+A failed build never replaces the live version: the site keeps running the last good deployment.
+
+Uploaded images and videos, pages, versions, orders and settings all live in the database, so redeploys
+never lose data (Hostinger replaces the app folder on every deploy). New migrations apply automatically at
+boot. Hostinger keeps database backups, and you can also export from phpMyAdmin.
+
+**Database size.** Business allows 3 GB per database, and past it Hostinger suspends writes until the size
+drops: orders and sign-ins would fail too. Images and videos are most of it. The *Media* screen shows the
+current size; from 70 % the dashboard warns, and from 85 % new uploads are paused so orders keep the rest.
+Prefer short, compressed clips, delete files you no longer use, and keep an eye on hPanel → **Databases**.
+The figure follows deletions with a delay of a few minutes.
+
+**Moving to another domain** (e.g. from the temporary `…hostingersite.com` address to your own):
+1. Update `PUBLIC_URL` (saving redeploys) and, if you use one, `ADMIN_HOST` (§4a).
+2. **Re-publish every live page**: canonical and social-preview links are written into each published page.
+3. Re-create *Connected* exports: old ZIPs keep sending orders to the old address.
+4. Change the URL in the cron job (§5).
 
 ## Static exports (optional)
 Any published version can be exported as a ZIP (Admin → page → **Export**) and uploaded to any host,

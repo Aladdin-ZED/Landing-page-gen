@@ -1,7 +1,7 @@
 import "server-only";
 /**
  * Dashboard data in one call: KPIs (today / 7 days vs the previous 7), a 30-day series, top pages,
- * recent orders, Google Sheets sync health and the setup checklist.
+ * recent orders, Google Sheets sync health, the setup checklist and the database size.
  *
  * Funnel numbers (orders, revenue, unique visitors) come from stats_daily, which is bucketed by the
  * store's calendar day and excludes bot (honeypot) orders. Revenue is the value of orders placed,
@@ -11,6 +11,7 @@ import { and, asc, count, desc, eq, gte, inArray, isNotNull, ne } from "drizzle-
 import { cronKeySecret } from "@/lib/auth/config";
 import { db } from "@/lib/db/client";
 import { orders, pages } from "@/lib/db/schema";
+import { getDbUsage, type DbUsage } from "@/lib/db/usage";
 import { getSettings } from "@/lib/settings";
 import { getSheetsConfig, isSheetsConfigured } from "@/lib/sheets";
 import { getPageStats, type StatsRow } from "@/lib/stats";
@@ -52,6 +53,8 @@ export interface DashboardData {
   sheet: SheetHealth;
   checklist: ChecklistItem[];
   hasPages: boolean;
+  /** database size against the plan's limit (null when it can't be read) */
+  storage: DbUsage | null;
 }
 
 export interface SheetHealth {
@@ -117,10 +120,11 @@ export async function getDashboard(user: { totpEnabled: boolean }): Promise<Dash
   const from14 = addDays(today, -13);
   const weekStart = addDays(today, -6);
 
-  const [stats, settings, sheet, recent, pipelineRows, publishedCount, pageTotal] = await Promise.all([
+  const [stats, settings, sheet, storage, recent, pipelineRows, publishedCount, pageTotal] = await Promise.all([
     getPageStats({ from: from30, to: today }),
     getSettings(["defaults", "store", "home"]),
     getSheetHealth(),
+    getDbUsage(),
     db
       .select({
         id: orders.id,
@@ -213,6 +217,7 @@ export async function getDashboard(user: { totpEnabled: boolean }): Promise<Dash
     sheet,
     checklist,
     hasPages: Number(pageTotal[0]?.n ?? 0) > 0,
+    storage,
   };
 }
 

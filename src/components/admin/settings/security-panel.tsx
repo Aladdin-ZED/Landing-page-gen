@@ -2,9 +2,10 @@
 /**
  * Settings → Security for the signed-in user: password change, two-step verification status
  * (enrolment itself lives on /admin/two-factor with its QR code and recovery codes) and the
- * devices signed in to this account, each revocable.
+ * devices signed in to this account, each revocable. Owners also get the visitor-IP check: the
+ * proxy headers of their own request and the address the app reads from them.
  */
-import { KeyRoundIcon, LaptopIcon, Loader2Icon, LogOutIcon, MonitorSmartphoneIcon, ShieldCheckIcon, ShieldIcon, SmartphoneIcon } from "lucide-react";
+import { GlobeIcon, KeyRoundIcon, LaptopIcon, Loader2Icon, LogOutIcon, MonitorSmartphoneIcon, ShieldCheckIcon, ShieldIcon, SmartphoneIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,7 +13,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth/actions";
 import { TWO_FACTOR_PATH } from "@/lib/auth/paths";
-import type { DeviceSession } from "@/lib/admin-data/security";
+import type { DeviceSession, NetworkView } from "@/lib/admin-data/security";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "../common/confirm-dialog";
 import { StatusChip } from "../common/status-chip";
@@ -35,6 +36,7 @@ export function SecurityPanel({
   twoFactor,
   twoFactorTurnedOff = false,
   sessions,
+  network = null,
   actions,
 }: {
   email: string;
@@ -43,6 +45,8 @@ export function SecurityPanel({
   /** back from /admin/two-factor after turning it off there */
   twoFactorTurnedOff?: boolean;
   sessions: DeviceSession[];
+  /** owners only: the visitor-IP check */
+  network?: NetworkView | null;
   actions: {
     changePassword: (input: PasswordInput) => Promise<ActionResult<null>>;
     revokeSession: (id: string) => Promise<ActionResult<null>>;
@@ -54,6 +58,7 @@ export function SecurityPanel({
       <PasswordCard email={email} minLength={minLength} save={actions.changePassword} />
       <TwoFactorCard {...twoFactor} turnedOff={twoFactorTurnedOff && !twoFactor.enabled} />
       <SessionsCard sessions={sessions} revoke={actions.revokeSession} revokeOthers={actions.revokeOthers} />
+      {network && <NetworkCard network={network} />}
     </>
   );
 }
@@ -296,6 +301,88 @@ function SessionsCard({
           router.refresh();
         }}
       />
+    </SettingsSection>
+  );
+}
+
+/**
+ * Owners only: the visitor address the app reads from the proxy headers of this very request
+ * (TRUSTED_PROXY_HOPS). On the live site it must be the owner's own public IP: one more public
+ * proxy in front of the host's (a CDN) would make it that proxy's address, and every visitor would
+ * then share one rate-limit bucket.
+ */
+function NetworkCard({ network }: { network: NetworkView }) {
+  const used = network.hops.find((h) => h.used);
+  const source = network.viaCloudflare
+    ? "from CF-Connecting-IP (the used hop is a Cloudflare address)"
+    : used
+      ? `from X-Forwarded-For, hop ${used.publicHop ?? "–"}`
+      : network.realIp
+        ? "from X-Real-IP"
+        : "no proxy header: every visitor would share this address";
+  return (
+    <SettingsSection
+      title="Visitor IP check"
+      description="Rate limits and blocked IPs work per visitor address, read from your host's proxy headers. Open this page on your live site: the address below must be your own public IP."
+      aside={
+        <StatusChip tone="neutral" dot={false} className="font-mono">
+          TRUSTED_PROXY_HOPS={network.trustedHops}
+        </StatusChip>
+      }
+      style={{ ["--i" as string]: 4 }}
+    >
+      <div className="flex items-center gap-3 rounded-2xl bg-brand/[0.04] p-3.5 ring-1 ring-brand/20 ring-inset">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand">
+          <GlobeIcon className="size-[1.1rem]" />
+        </span>
+        <div className="grid min-w-0 gap-0.5">
+          <p className="text-xs text-muted-foreground">Your IP as the app sees it</p>
+          <p className="font-mono text-[0.95rem] font-medium break-all">{network.clientIp}</p>
+          <p className="text-xs text-muted-foreground">{source}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        <p className="text-xs text-muted-foreground">X-Forwarded-For as received, oldest entry first; the last one was added by the proxy next to the app.</p>
+        {network.hops.length ? (
+          <ol className="flex flex-wrap items-center gap-2">
+            {network.hops.map((hop, i) => (
+              <li
+                key={`${i}-${hop.value}`}
+                className={cn(
+                  "flex min-w-0 items-center gap-2 rounded-xl px-3 py-1.5 ring-1 ring-inset",
+                  hop.used ? "bg-brand/[0.06] ring-brand/30" : hop.internal ? "bg-foreground/[0.03] ring-foreground/[0.06]" : "ring-foreground/[0.08]",
+                )}
+              >
+                <code className={cn("font-mono text-[0.8rem] break-all", hop.internal && "text-muted-foreground")}>{hop.value}</code>
+                <span className={cn("text-xs whitespace-nowrap tabular-nums", hop.used ? "font-medium text-brand" : "text-muted-foreground")}>
+                  {hop.internal ? "internal, skipped" : `hop ${hop.publicHop}${hop.used ? " · used" : ""}`}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm text-muted-foreground">Not sent{network.realIp ? `; X-Real-IP is ${network.realIp}.` : "."}</p>
+        )}
+      </div>
+
+      <p className="text-xs leading-relaxed text-pretty text-muted-foreground">
+        <code className="font-mono text-foreground">TRUSTED_PROXY_HOPS</code> is the number of public proxies in front of the app (internal 10.x, 192.168.x,
+        127.x… hops are skipped). Your IP listed as hop 2? Set it to 2 in the host&apos;s environment variables and redeploy, never higher than your IP&apos;s hop.
+      </p>
+      {network.allowlistSet && (
+        <p className="text-xs leading-relaxed text-pretty text-muted-foreground">
+          <code className="font-mono text-foreground">ADMIN_IP_ALLOWLIST</code> is matched against{" "}
+          <code className="font-mono text-foreground">{network.allowlistIp ?? "nothing"}</code>, the last entry above, whatever{" "}
+          <code className="font-mono text-foreground">TRUSTED_PROXY_HOPS</code> says.
+        </p>
+      )}
+      {network.behindCloudflare && !network.viaCloudflare && (
+        <p className="text-xs leading-relaxed text-pretty text-muted-foreground">
+          <code className="font-mono text-foreground">BEHIND_CLOUDFLARE=1</code>, but this request did not come through a Cloudflare address: CF-Connecting-IP was
+          ignored.
+        </p>
+      )}
     </SettingsSection>
   );
 }

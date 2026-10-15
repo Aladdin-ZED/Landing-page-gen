@@ -15,7 +15,7 @@ import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { RowDataPacket } from "mysql2/promise";
 import { db, pool } from "@/lib/db/client";
 import { orders, type OrderItems } from "@/lib/db/schema";
-import type { OrderStatus } from "@/lib/orders/contract";
+import { variantText as optionsText, type OrderStatus } from "@/lib/orders/contract";
 import { phoneToNational } from "@/lib/markets/phone";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { isSheetsConfigured, serviceAccountEmail, type GapiOptions } from "./client";
@@ -52,11 +52,9 @@ export function productText(o: Pick<OrderRow, "productName" | "items">): string 
   return parts.join(" + ");
 }
 
+/** "Variante" cell: "Noir/M", "2 × Noir/M", "Noir/M + Beige/L" (contract variantText, = order.php). */
 export function variantText(items: OrderItems): string {
-  const units = items.variants.map((v) => Object.values(v).filter(Boolean).join("/")).filter(Boolean);
-  if (!units.length) return "";
-  if (units.every((u) => u === units[0])) return units.length > 1 ? `${units[0]} ×${units.length}` : units[0]!;
-  return units.map((u, i) => `${i + 1}: ${u}`).join(" · ");
+  return optionsText(items.variants);
 }
 
 export function sourceText(o: Pick<OrderRow, "utm" | "source" | "ref">): string {

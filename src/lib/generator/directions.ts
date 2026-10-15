@@ -9,6 +9,7 @@ import {
   BUNDLE_CARD_STYLES,
   PageDoc,
   Product,
+  Tracking,
   type Archetype,
   type Locale,
   type Market,
@@ -68,6 +69,12 @@ export interface GenerateInput {
   photos?: readonly PhotoInfo[];
   /** force the archetypes instead of ranking them (admin choice) */
   archetypes?: readonly Archetype[];
+  /**
+   * The page's ad pixels (PageDoc.tracking), e.g. the store pixels the owner kept in the wizard
+   * (trackingForNewPage, src/lib/pixels/summary.ts). Validated with the Tracking schema; omitted or
+   * invalid → no pixels (the save fills in the store's own).
+   */
+  tracking?: unknown;
 }
 
 export interface Direction {
@@ -186,6 +193,8 @@ export function buildDirection(input: GenerateInput, archetype: Archetype, seed:
       hasWhatsapp,
     });
 
+  // the product's options (colors, sizes…) reach every direction exactly as typed: the order form
+  // (required, rendered by every direction) shows their pickers
   const product: PageDoc["product"] = {
     ...parsedProduct.data,
     tagline: parsedProduct.data.tagline || copy.tagline,
@@ -291,13 +300,20 @@ export function buildDirection(input: GenerateInput, archetype: Archetype, seed:
       ...(ogImage ? { ogImage } : {}),
       noindex: false,
     },
-    tracking: {},
+    tracking: trackingOf(input.tracking),
     thankYou: { title: glueEmphasis(copy.thankYou.title, input.locale), message: glueEmphasis(copy.thankYou.message, input.locale), showTimeline: true },
   };
 
   const { doc, issues } = validateDoc(draft);
   if (!doc) throw new GeneratorError(issues[0]?.message ?? "The generated page is invalid.");
   return doc;
+}
+
+/** The caller's tracking value when valid (schema-normalized), else none. */
+function trackingOf(value: unknown): PageDoc["tracking"] {
+  if (value === undefined || value === null) return {};
+  const parsed = Tracking.safeParse(value);
+  return parsed.success ? parsed.data : {};
 }
 
 /** Vibe words the ranking matched for an archetype ('AI vibe "luxury, heritage" +0.60'). */

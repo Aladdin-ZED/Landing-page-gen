@@ -34,6 +34,8 @@ export {
 export type { MediaFile, MediaFileMeta } from "./store";
 export { MediaError } from "./errors";
 export { FOCUS_VERSION, parseFocus } from "./focus";
+export { ensureFocus, ensureFocusMany, focusIsCurrent } from "./ensure-focus";
+export type { EnsureManyOptions } from "./ensure-focus";
 export type { AssetFocus, Box as FocusBox, KeepRegion, FocusKind } from "./focus";
 export type { MediaErrorCode } from "./errors";
 export { sniff } from "./sniff";

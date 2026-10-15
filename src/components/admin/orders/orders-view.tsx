@@ -325,6 +325,14 @@ function OrdersPanel({
                             <span className="truncate">{o.productName}</span>
                             <span className="truncate text-xs text-muted-foreground">
                               {o.bundleLabel || `${o.qty} unit${o.qty === 1 ? "" : "s"}`}
+                              {o.options ? (
+                                <>
+                                  {" · "}
+                                  <bdi className="font-medium text-foreground/80" title="Options">
+                                    {o.options}
+                                  </bdi>
+                                </>
+                              ) : null}
                               {o.pageName ? ` · ${o.pageName}` : ""}
                             </span>
                           </div>
@@ -366,6 +374,15 @@ function OrdersPanel({
                       </span>
                       <span className="font-semibold tabular-nums">{money(o.total, o.currency)}</span>
                     </div>
+                    <span className="-mt-1 truncate text-xs text-muted-foreground">
+                      {o.productName}
+                      {o.options ? (
+                        <>
+                          {" · "}
+                          <bdi className="font-medium text-foreground/80">{o.options}</bdi>
+                        </>
+                      ) : null}
+                    </span>
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-xs text-muted-foreground">
                         <span className="font-mono">{o.id}</span> · <RelativeTime iso={o.createdAt} />

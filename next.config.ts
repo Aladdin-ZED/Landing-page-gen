@@ -16,6 +16,21 @@ const nextConfig: NextConfig = {
     // until the client finishes sending. Media uploads (≤ 25 MB) bypass the proxy (see its matcher);
     // every other body is ≤ 16 KB and server actions are capped at 1 MB, so keep the clone small.
     proxyClientMaxBodySize: "1mb",
+    // Hostinger builds in a fresh folder it deletes afterwards: a build cache (~900 MB) is never read.
+    turbopackFileSystemCacheForBuild: false,
+    // Only the Pages Router reads this filter (the app has none); left on, the build publishes a bloom
+    // filter of every route (/admin/…, /api/cron/…) in the public _buildManifest.js.
+    clientRouterFilter: false,
+  },
+  /*
+   * Any path no route matches is answered by the /[slug] route as an unknown slug ("-" is never a
+   * slug), i.e. with the same static 404 (src/lib/auth/unknown-page.ts) as an un-gated /admin/… URL.
+   * Without it, an unknown path of two or more segments got Next's own not-found page (other bytes,
+   * other headers) while /admin/login got the static one: the admin's paths stood out.
+   * `fallback` rewrites run only after every page, route and static file has been checked.
+   */
+  async rewrites() {
+    return { beforeFiles: [], afterFiles: [], fallback: [{ source: "/:path+", destination: "/-" }] };
   },
   // files read at runtime from disk must be traced into the standalone output.
   // @img: sharp's native binding is traced but not the libvips libraries it links against

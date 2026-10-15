@@ -217,8 +217,8 @@ export function authConfigWarnings(): string[] {
   const placeholder = (name: string, effect: string) =>
     `${name} is still a template value (e.g. from .env.example) — ${effect}. Generate a random one: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`;
   const appSecret = process.env.APP_SECRET ?? "";
-  if (appSecret.length >= 32 && isPlaceholderSecret(appSecret)) warnings.push(placeholder("APP_SECRET", "the admin is unreachable and nothing is encrypted or signed until it is replaced"));
-  else if (!isAppSecretConfigured()) warnings.push("APP_SECRET is missing or shorter than 32 characters — the admin is unreachable and settings encryption fails.");
+  if (appSecret.length >= 32 && isPlaceholderSecret(appSecret)) warnings.push(placeholder("APP_SECRET", "every order fails (HTTP 500), the admin is unreachable and nothing is encrypted or signed until it is replaced"));
+  else if (!isAppSecretConfigured()) warnings.push("APP_SECRET is missing or shorter than 32 characters — every order fails (HTTP 500), the admin is unreachable and settings encryption fails.");
   else if (IS_PROD && appSecret.length < 48) warnings.push("APP_SECRET should be at least 48 random characters in production.");
 
   const gate = adminGateSecret();

@@ -19,7 +19,7 @@ export const COLUMNS = [
   ["Ville", 120],
   ["Adresse", 260],
   ["Produit", 220],
-  ["Variante", 140],
+  ["Variante", 170],
   ["Qté", 56],
   ["Total", 110],
   ["Note", 220],

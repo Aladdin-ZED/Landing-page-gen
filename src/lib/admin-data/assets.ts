@@ -10,7 +10,8 @@ import "server-only";
 import { and, count, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { assets, pages, pageVersions } from "@/lib/db/schema";
-import { getAssetsByIds, parseFocus, ASSET_ID_RE, type AssetRecord } from "@/lib/media";
+import { getAssetsByIds, ASSET_ID_RE } from "@/lib/media";
+import { assetRowOf } from "@/lib/media/asset-row";
 import type { AssetRef, PageDoc } from "@/lib/page/schema";
 import { getSetting } from "@/lib/settings";
 import { collectAssetIds, type AssetRowLike } from "@/landing/context";
@@ -26,20 +27,6 @@ export function altFromTags(tags: readonly string[] | null | undefined): string 
   return tag ? tag.slice(ALT_TAG_PREFIX.length) : "";
 }
 
-function toRow(a: AssetRecord): PreviewAssetRow {
-  return {
-    id: a.id,
-    kind: a.kind,
-    mime: a.mime,
-    width: a.width,
-    height: a.height,
-    alpha: a.alpha,
-    dominant: a.dominant,
-    variants: a.variants.map((v) => ({ key: v.key, w: v.w, h: v.h, fmt: v.fmt })),
-    // subject analysis: previews and thumbnails fit frames exactly like the published page
-    focus: parseFocus(a.focus),
-  };
-}
 
 /** Asset rows (by id) for every image the documents (and extra refs, e.g. the store logo) reference. */
 export async function previewAssetsFor(docs: readonly PageDoc[], extra: readonly (AssetRef | undefined)[] = []): Promise<PreviewAssetMap> {
@@ -48,7 +35,8 @@ export async function previewAssetsFor(docs: readonly PageDoc[], extra: readonly
   for (const ref of extra) if (ref?.id) ids.add(ref.id);
   if (!ids.size) return {};
   const rows = await getAssetsByIds([...ids]);
-  return Object.fromEntries(rows.map((r) => [r.id, toRow(r)]));
+  // the renderer row every path shares (subject analysis included): previews crop like the live page
+  return Object.fromEntries(rows.map((r) => [r.id, assetRowOf(r)]));
 }
 
 /** Strip control characters and collapse whitespace; ≤ ALT_MAX chars. */

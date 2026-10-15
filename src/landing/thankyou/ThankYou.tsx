@@ -10,8 +10,8 @@
  *   optional one-click upsell card (product on a lit stage, price, countdown tiles, CTA)
  *   WhatsApp help · back to the product · legal links
  *
- * Runtime hooks (src/landing/runtime/thankyou.ts): [data-ty="name|orderId|total|items"] are filled
- * from sessionStorage; <html data-ty-state="filled|partial|empty"> drives what is shown;
+ * Runtime hooks (src/landing/runtime/thankyou.ts): [data-ty="name|orderId|total|items|options"] are
+ * filled from sessionStorage (options: the chosen colors / sizes, drawn like the form's summary); <html data-ty-state="filled|partial|empty"> drives what is shown;
  * [data-ty-upsell] (+ accept/decline/status, [data-countdown]) is the upsell block.
  * Without JS the page still reads correctly (name & order rows stay hidden, upsell stays hidden).
  * Pure markup; every animation is CSS (collapsed by prefers-reduced-motion and data-motion="off").
@@ -36,6 +36,7 @@ export interface ThankYouProps {
 interface TyCopy {
   next: string;
   yourOrder: string;
+  options: string;
   hints: [string, string, string, string];
 }
 
@@ -43,16 +44,19 @@ const COPY: Record<"ar" | "fr" | "en", TyCopy> = {
   fr: {
     next: "Et maintenant ?",
     yourOrder: "Votre commande",
+    options: "Vos choix",
     hints: ["C'est enregistré.", "Nous vous appelons pour confirmer l'adresse.", "Votre colis part avec le livreur.", "Vérifiez, puis payez en espèces."],
   },
   ar: {
     next: "شنو غادي يوقع دابا؟",
     yourOrder: "الطلب ديالك",
+    options: "اختياراتك",
     hints: ["الطلب تسجل.", "كنعيطو ليك باش نأكدو العنوان.", "الكولي كيخرج مع شركة التوصيل.", "عاين المنتوج، من بعد خلص كاش."],
   },
   en: {
     next: "What happens next",
     yourOrder: "Your order",
+    options: "Your choices",
     hints: ["It's registered.", "We call you to confirm the address.", "Your parcel leaves with the courier.", "Check it, then pay in cash."],
   },
 };
@@ -147,6 +151,13 @@ function Summary({ doc, ctx, copy }: { doc: PageDoc; ctx: RenderContext; copy: T
           <dt>{ctx.t("form.choosePack")}</dt>
           <dd data-ty="items">{bundleLabel(ctx, bundle)}</dd>
         </div>
+        {product.variants.some((g) => g.options.length > 0) ? (
+          // filled by the runtime from the order just placed; hidden while empty (no JS, or no record)
+          <div className="lp-ty__row lp-ty__row--opts" data-need-order="">
+            <dt>{copy.options}</dt>
+            <dd className="lp-vsum" data-ty="options" />
+          </div>
+        ) : null}
         <div className="lp-ty__row lp-ty__row--total" data-need-order="">
           <dt>{ctx.t("form.total")}</dt>
           <dd data-ty="total">{totals ? ctx.money(totals.total) : ctx.money(bundle.price)}</dd>
