@@ -1,4 +1,4 @@
-/** Smooth scroll to an element below any sticky header, then run `done` once scrolling has settled. */
+/** Smooth scroll to an element below any sticky header (plus `gap`), then run `done` once scrolling has settled. */
 import type { Ctx } from "./core";
 import { $$ } from "./core";
 
@@ -25,9 +25,9 @@ export function headerOffset(c: Ctx): number {
   return Math.max(0, Math.round(h));
 }
 
-export function scrollToEl(c: Ctx, el: Element, done: () => void): void {
+export function scrollToEl(c: Ctx, el: Element, done: () => void, gap = 12): void {
   const { win } = c;
-  const top = Math.max(0, Math.round(el.getBoundingClientRect().top + win.scrollY - headerOffset(c) - 12));
+  const top = Math.max(0, Math.round(el.getBoundingClientRect().top + win.scrollY - headerOffset(c) - gap));
   if (Math.abs(top - win.scrollY) < 4) {
     done();
     return;

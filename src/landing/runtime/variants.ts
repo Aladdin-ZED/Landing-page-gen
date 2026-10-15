@@ -17,7 +17,8 @@
 import type { Ctl, Ctx } from "./core";
 import { $$, flag, setText, sget, sset } from "./core";
 
-const ROW = "data-lp-variant-row";
+/** A unit's row ("Piece n" head + its groups), tagged with its 0-based index. */
+export const ROW = "data-lp-variant-row";
 const CTLS = "input[name^='v.'],select[name^='v.']";
 const NAME = /^v\.(?:(\d{1,2})\.)?([A-Za-z0-9_-]{1,40})$/;
 const KEY = /^(?:[A-Za-z0-9_-]{1,40}:[A-Za-z0-9_-]{1,40}|@)$/;

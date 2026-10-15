@@ -495,9 +495,10 @@
    ========================================================================== */
 .lp-packs--tiers,
 .lp-packs--visual {
+  --pk-gap: clamp(0.5rem, 0.3rem + 1vw, 0.85rem);
   grid-template-columns: repeat(var(--pk-cols, 3), minmax(0, 1fr));
   align-items: stretch;
-  gap: clamp(0.5rem, 0.3rem + 1vw, 0.85rem);
+  gap: var(--pk-gap);
   padding-block-start: 0.85rem;
 }
 
@@ -585,17 +586,39 @@
   padding-inline: 0.65em;
 }
 
-/* three columns on a phone: the badge may wrap to two short lines instead of being cut */
+/* columns on a phone: a tight one-line pill that never leaves its card; only a label too long even
+   at the smallest size wraps (two short lines), never cut */
 @container of (max-width: 30rem) {
   .lp-packs--tiers .lp-pack__badge,
   .lp-packs--visual .lp-pack__badge {
-    padding: 0.32em 0.6em;
+    gap: 0.28em;
+    max-inline-size: calc(100% - 0.3rem);
+    padding: 0.32em 0.48em;
     border-radius: 0.7rem;
     font-size: calc(0.62rem * var(--lp-script-scale));
-    letter-spacing: 0.02em;
+    letter-spacing: 0;
     line-height: 1.15;
     text-align: center;
     white-space: normal;
+  }
+
+  /* three across (Latin caps): the star steps aside and the size follows the card, (card − 6px) /
+     9.4em — the widest stock label, "Le plus choisi" in mono caps, is 9.36em — never below 9px; a
+     label too long even then wraps to two short lines rather than shrinking further */
+  .lp-packs--tiers:is([data-n="3"], [data-n="5"]):not(:lang(ar)) .lp-pack__badge,
+  .lp-packs--visual:is([data-n="3"], [data-n="5"]):not(:lang(ar)) .lp-pack__badge {
+    font-size: clamp(0.5625rem, ((100cqi - 2 * var(--pk-gap)) / 3 - 0.375rem) / 9.4, 0.62rem);
+  }
+
+  .lp-packs--tiers:is([data-n="3"], [data-n="5"]):not(:lang(ar)) .lp-pack__badge .lp-icon,
+  .lp-packs--visual:is([data-n="3"], [data-n="5"]):not(:lang(ar)) .lp-pack__badge .lp-icon {
+    display: none;
+  }
+
+  .lp-packs--tiers .lp-pack__badge .lp-icon,
+  .lp-packs--visual .lp-pack__badge .lp-icon {
+    inline-size: 0.85em;
+    block-size: 0.85em;
   }
 
   .lp-packs--tiers .lp-pack__badge-t,

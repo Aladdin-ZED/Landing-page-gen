@@ -47,13 +47,13 @@ function OptionsBlock({ options, units }: { options: string; units: Record<strin
       </span>
     ));
   return (
-    <div className="grid gap-2.5 rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/60 ring-inset">
+    <div className="grid grid-cols-1 gap-2.5 rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/60 ring-inset">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-xs font-medium text-muted-foreground">Options</span>
-        <bdi className="text-end text-sm font-medium">{options}</bdi>
+        <span className="shrink-0 text-xs font-medium text-muted-foreground">Options</span>
+        <bdi className="min-w-0 text-end text-sm font-medium [overflow-wrap:anywhere]">{options}</bdi>
       </div>
       {units.length > 1 ? (
-        <ul className="grid gap-1.5 border-t border-border/60 pt-2.5">
+        <ul className="grid grid-cols-1 gap-1.5 border-t border-border/60 pt-2.5">
           {units.map((v, i) => (
             <li key={i} className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="w-12 shrink-0 font-medium text-muted-foreground tabular-nums">Unit {i + 1}</span>
@@ -150,7 +150,8 @@ export function OrderDrawer({
 
   return (
     <Sheet open={!!orderId} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full gap-0 overflow-hidden p-0 duration-300 sm:max-w-[34rem]">
+      {/* data-[side=right]: the same variants as the sheet's default max-w-sm, so cn() replaces it */}
+      <SheetContent side="right" className="gap-0 overflow-hidden p-0 duration-300 data-[side=right]:w-full data-[side=right]:sm:max-w-[34rem]">
         {!current ? (
           <DrawerSkeleton />
         ) : !order ? (
@@ -192,15 +193,16 @@ export function OrderDrawer({
               </div>
             </SheetHeader>
 
-            <div className="adm-scroll grid flex-1 content-start gap-4 overflow-y-auto p-5">
+            {/* one shrinkable column: no card is ever wider than the drawer (long URLs truncate) */}
+            <div className="adm-scroll grid flex-1 grid-cols-1 content-start gap-4 overflow-y-auto p-5">
               <Block title="Customer">
-                <div className="grid gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="grid gap-0.5">
-                      <span className="text-[0.95rem] font-semibold">{order.name}</span>
+                    <div className="grid min-w-0 gap-0.5">
+                      <span className="text-[0.95rem] font-semibold [overflow-wrap:anywhere]">{order.name}</span>
                       <span className="font-mono text-sm tabular-nums">{fmtPhone(order.phone)}</span>
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex shrink-0 gap-1.5">
                       <Button asChild size="icon-sm" variant="outline" className="rounded-full" aria-label="Call">
                         <a href={`tel:${order.phone}`}>
                           <PhoneIcon />
@@ -216,38 +218,38 @@ export function OrderDrawer({
                   {(order.city || order.address) && (
                     <p className="flex gap-2 text-sm text-foreground/85">
                       <MapPinIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <span>{[order.address, order.city].filter(Boolean).join(", ")}</span>
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{[order.address, order.city].filter(Boolean).join(", ")}</span>
                     </p>
                   )}
                   {order.note && (
                     <p className="flex gap-2 rounded-xl bg-warn/8 px-3 py-2 text-sm ring-1 ring-warn/40 ring-inset">
                       <StickyNoteIcon className="mt-0.5 size-4 shrink-0 text-warn-ink" />
-                      <span className="whitespace-pre-wrap">{order.note}</span>
+                      <span className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{order.note}</span>
                     </p>
                   )}
-                  {order.email && <p className="text-sm text-muted-foreground">{order.email}</p>}
+                  {order.email && <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{order.email}</p>}
                 </div>
               </Block>
 
               <Block title="Order">
-                <div className="grid gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="grid gap-0.5">
-                      <span className="font-medium">{order.productName}</span>
+                    <div className="grid min-w-0 gap-0.5">
+                      <span className="font-medium [overflow-wrap:anywhere]">{order.productName}</span>
                       <span className="text-sm text-muted-foreground">
                         {order.items.bundleLabel} · {order.items.qty} × {money(order.items.unitPrice, order.currency)}
                       </span>
                     </div>
                   </div>
                   {order.items.variants.length > 0 && <OptionsBlock options={order.options} units={order.items.variants} />}
-                  <dl className="grid gap-1.5 border-t border-border/60 pt-3 text-sm">
+                  <dl className="grid grid-cols-1 gap-1.5 border-t border-border/60 pt-3 text-sm">
                     <Line label="Subtotal" value={money(order.subtotal, order.currency)} />
                     {order.items.bump && <Line label={`+ ${order.items.bump.title}`} value={money(order.items.bump.price, order.currency)} />}
                     {order.items.upsell && <Line label={`+ ${order.items.upsell.title} (after order)`} value={money(order.items.upsell.price, order.currency)} />}
                     <Line label="Delivery" value={order.shipping ? money(order.shipping, order.currency) : "Free"} />
-                    <div className="mt-1 flex items-baseline justify-between border-t border-border/60 pt-2">
-                      <dt className="font-medium">Total to collect</dt>
-                      <dd className="text-lg font-semibold tabular-nums">{money(order.total, order.currency)}</dd>
+                    <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-border/60 pt-2">
+                      <dt className="min-w-0 font-medium">Total to collect</dt>
+                      <dd className="shrink-0 text-lg font-semibold tabular-nums">{money(order.total, order.currency)}</dd>
                     </div>
                   </dl>
                 </div>
@@ -266,8 +268,8 @@ export function OrderDrawer({
                   )
                 }
               >
-                <div className="grid gap-2 text-sm">
-                  <div className="flex items-center gap-2">
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
                     <SheetChip status={order.sheetStatus} />
                     {order.sheetAttempts > 0 && order.sheetStatus !== "synced" && (
                       <span className="text-xs text-muted-foreground">
@@ -278,7 +280,7 @@ export function OrderDrawer({
                   {order.sheetError && (
                     <p className="flex gap-2 rounded-xl bg-destructive/8 px-3 py-2 text-xs leading-relaxed text-destructive ring-1 ring-destructive/15 ring-inset">
                       <AlertTriangleIcon className="mt-px size-3.5 shrink-0" />
-                      {order.sheetError}
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{order.sheetError}</span>
                     </p>
                   )}
                   {order.sheetStatus === "disabled" && <p className="text-xs text-muted-foreground">Bot-flagged orders are never sent to the sheet.</p>}
@@ -286,7 +288,7 @@ export function OrderDrawer({
               </Block>
 
               <Block title="Risk" icon={<ShieldCheckIcon className="size-3.5" />}>
-                <div className="grid gap-2.5">
+                <div className="grid grid-cols-1 gap-2.5">
                   <div className="flex items-center gap-3">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/[0.06]">
                       <motion.div
@@ -296,7 +298,7 @@ export function OrderDrawer({
                         className={cn("h-full rounded-full", order.riskScore >= 60 ? "bg-destructive" : order.riskScore >= 30 ? "bg-warn" : "bg-emerald-500")}
                       />
                     </div>
-                    <span className="w-14 text-end text-sm font-semibold tabular-nums">{order.riskScore}/100</span>
+                    <span className="w-14 shrink-0 text-end text-sm font-semibold tabular-nums">{order.riskScore}/100</span>
                   </div>
                   {order.flags.length > 0 ? (
                     <ul className="flex flex-wrap gap-1.5">
@@ -322,15 +324,17 @@ export function OrderDrawer({
 
               {order.history.length > 0 && (
                 <Block title={`Same phone · ${order.history.length} other order${order.history.length === 1 ? "" : "s"}`} icon={<ClockIcon className="size-3.5" />}>
-                  <ul className="grid gap-1">
+                  <ul className="grid grid-cols-1 gap-1">
                     {order.history.map((h) => {
                       const m = orderStatusMeta(h.status);
                       return (
-                        <li key={h.id} className="flex items-center gap-3 rounded-lg px-1 py-1.5 text-sm">
-                          <span className="font-mono text-xs text-muted-foreground">{h.id}</span>
-                          <span className="min-w-0 flex-1 truncate">{h.productName}</span>
-                          <span className="tabular-nums">{money(h.total, h.currency)}</span>
-                          <StatusChip tone={m.tone} className="h-5 px-2 text-[0.68rem]">
+                        <li key={h.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg px-1 py-1.5 text-sm">
+                          <span className="shrink-0 font-mono text-xs text-muted-foreground">{h.id}</span>
+                          <span className="min-w-0 flex-1 basis-32 truncate" title={h.productName}>
+                            {h.productName}
+                          </span>
+                          <span className="shrink-0 tabular-nums">{money(h.total, h.currency)}</span>
+                          <StatusChip tone={m.tone} className="h-5 shrink-0 px-2 text-[0.68rem]">
                             {m.label}
                           </StatusChip>
                         </li>
@@ -341,14 +345,21 @@ export function OrderDrawer({
               )}
 
               <Block title="Source">
-                <dl className="grid gap-1.5 text-sm">
-                  <Line label="Channel" value={order.source === "live" ? "Live page" : order.source === "export" ? "Exported site" : "Exported site (PHP)"} />
+                <dl className="grid grid-cols-1 gap-1.5 text-sm">
+                  <Line label="Channel" value={order.source === "live" ? "Live page" : order.source === "export" ? "Exported site" : "Exported site (PHP)"} long />
                   {order.page && (
                     <div className="flex items-center justify-between gap-3">
-                      <dt className="text-muted-foreground">Page</dt>
-                      <dd>
-                        <a href={`/${order.page.slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium hover:underline">
-                          /{order.page.slug} <ArrowUpRightIcon className="size-3" />
+                      <dt className="shrink-0 text-muted-foreground">Page</dt>
+                      <dd className="min-w-0">
+                        <a
+                          href={`/${order.page.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`/${order.page.slug}`}
+                          className="flex max-w-full items-center gap-1 font-medium hover:underline"
+                        >
+                          <span className="min-w-0 truncate">/{order.page.slug}</span>
+                          <ArrowUpRightIcon className="size-3 shrink-0" />
                         </a>
                       </dd>
                     </div>
@@ -356,9 +367,9 @@ export function OrderDrawer({
                   {Object.entries(order.utm)
                     .filter(([k]) => ["source", "medium", "campaign", "content"].includes(k))
                     .map(([k, v]) => (
-                      <Line key={k} label={`UTM ${k}`} value={v} />
+                      <Line key={k} label={`UTM ${k}`} value={v} long />
                     ))}
-                  {order.ref && <Line label="Referrer" value={order.ref} />}
+                  {order.ref && <Line label="Referrer" value={order.ref} long />}
                 </dl>
               </Block>
             </div>
@@ -463,9 +474,9 @@ function SheetChip({ status }: { status: OrderDetailJson["sheetStatus"] }) {
 
 function Block({ title, icon, action, children }: { title: string; icon?: ReactNode; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="adm-surface-flat grid gap-3 rounded-2xl p-4">
+    <section className="adm-surface-flat grid min-w-0 grid-cols-1 gap-3 rounded-2xl p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-[0.72rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+        <h3 className="flex min-w-0 items-center gap-1.5 text-[0.72rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
           {icon}
           {title}
         </h3>
@@ -476,11 +487,19 @@ function Block({ title, icon, action, children }: { title: string; icon?: ReactN
   );
 }
 
-function Line({ label, value }: { label: string; value: string }) {
+/**
+ * A label/value row. Money rows keep the amount whole (a long add-on title truncates); `long` rows
+ * (source, UTM, referrer) keep the label and truncate the value instead, all of it in a tooltip.
+ */
+function Line({ label, value, long }: { label: string; value: string; long?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="min-w-0 truncate text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate text-end tabular-nums">{value}</dd>
+      <dt className={cn("text-muted-foreground", long ? "shrink-0" : "min-w-0 truncate")}>
+        {label}
+      </dt>
+      <dd className={cn("tabular-nums", long ? "line-clamp-3 min-w-0 text-start break-all" : "shrink-0 text-end")} title={long ? value : undefined}>
+        {value}
+      </dd>
     </div>
   );
 }

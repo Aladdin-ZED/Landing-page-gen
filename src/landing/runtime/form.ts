@@ -22,7 +22,7 @@ import { CAPTCHA_STRING, captcha } from "./turnstile";
 import type { RuntimeStringKey } from "./strings";
 import { str } from "./strings";
 import { adIds } from "./tracking";
-import { currentSummary, readVariants, variantMessage } from "./variants";
+import { ROW, currentSummary, readVariants, variantMessage } from "./variants";
 
 /** Server field errors → localized messages (server text is never shown). */
 const SERVER_FIELD: Record<string, RuntimeStringKey> = {
@@ -118,7 +118,9 @@ export function form(c: Ctx): void {
 
   /**
    * Bring a control to the shopper: an option picker scrolls its whole group (name and choices) below
-   * any sticky header before its first choice takes the focus; other fields scroll themselves.
+   * any sticky header before its first choice takes the focus; other fields scroll themselves. A
+   * piece's group brings its piece's row from the "Piece n" head (the shopper sees which piece, and
+   * its other choices) when the row fits on screen down to that group.
    */
   const reveal = (el: Ctl) => {
     const group = el.type === "radio" ? el.closest("fieldset") : null;
@@ -126,9 +128,13 @@ export function form(c: Ctx): void {
       focusInView(c, el);
       return;
     }
-    const r = group.getBoundingClientRect();
-    if (r.top >= headerOffset(c) && r.bottom <= win.innerHeight) focusQuiet(el);
-    else scrollToEl(c, group, () => focusQuiet(el));
+    const top = headerOffset(c);
+    const h = win.innerHeight;
+    const g = group.getBoundingClientRect();
+    let box = group.closest("[" + ROW + "]") || group;
+    if (g.bottom - box.getBoundingClientRect().top > h - top - 16) box = group;
+    if (box.getBoundingClientRect().top >= top && g.bottom <= h) focusQuiet(el);
+    else scrollToEl(c, box, () => focusQuiet(el), 16);
   };
 
   /**
