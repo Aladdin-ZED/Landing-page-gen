@@ -1,14 +1,25 @@
 /**
  * LandingRuntimeConfig builder — the public JSON the runtime reads from #lp-config.
  * Isomorphic (server renderer, admin preview). Contains ONLY public values.
+ *
+ * Offers v2 (docs/OFFERS.md §F.7): config `v: 2` — every amount integer cents; the page's items with
+ * their option groups (choice · matrix · field); one entry per offer with its units (one per
+ * physical piece, k = array index, `line` = the line it comes from); the page extras, the bump, the
+ * resolved fill (§E.1, once per page) and the optional runtime chunks the page embeds (`features`).
+ * Pages published before keep their own embedded v1 runtime + config.
  */
-import type { LandingRuntimeConfig } from "@/landing/runtime/config";
+import type { LandingRuntimeConfig, RuntimeFeature, RuntimeGroup, RuntimeOffer, RuntimeOfferLine } from "@/landing/runtime/config";
 import { RUNTIME_EXTRA_KEYS, RUNTIME_UI_KEYS } from "@/landing/runtime/strings";
 import { CAPTCHA_STRING } from "@/landing/runtime/turnstile";
+import { samePieces } from "@/landing/offers/model";
+import { offerNameT } from "@/landing/sections/orderForm/copy";
 import type { RenderContext, RenderMode } from "@/landing/types";
 import { moneyFormat, phoneSpec } from "@/lib/markets/info";
-import { bundleMath, defaultBundleId } from "@/lib/page/pricing";
-import type { Locale, PageDoc } from "@/lib/page/schema";
+import { contentIdOf, expandUnits, isLegacyOffer, itemById, itemName, itemShort, leadItem, offerAvailable, offerName, offerShort, offerUnits } from "@/lib/page/catalog";
+import { resolveDisplay } from "@/lib/page/display";
+import { cellKey, groupCombos } from "@/lib/page/options";
+import { defaultOfferId, effectiveFree, offersMath, toCents } from "@/lib/page/pricing";
+import { isChoiceGroup, isFieldGroup, isMatrixGroup, type ExtraGroup, type Item, type Locale, type Offer, type OptionGroup, type PageDoc } from "@/lib/page/schema";
 import { runtimePixels } from "@/lib/pixels/tracking";
 
 /** The page money format (shared with ctx.money — see moneyFormat() in @/lib/markets/info). */
@@ -33,11 +44,15 @@ export interface RuntimeConfigOptions {
   storeWhatsapp?: string;
   /** Cloudflare Turnstile site key — only when the runtime renders the widget for this page */
   turnstileSiteKey?: string;
+  /** publish version id (`ver`, §G.1); "" in previews and exports */
+  ver?: string;
+  /** order form variant (resolveDisplay context) */
+  formVariant?: string;
 }
 
-/** "x2 · Pack Duo" (or just "x2"). */
-export function bundleLabel(ctx: Pick<RenderContext, "t">, b: { qty: number; title?: string }): string {
-  const x = ctx.t("bundle.x", { n: b.qty });
+/** "x2 · Pack Duo" (or just "x2"): the offer's unit count and title. */
+export function bundleLabel(ctx: Pick<RenderContext, "t">, b: Pick<Offer, "lines" | "title">): string {
+  const x = ctx.t("bundle.x", { n: offerUnits(b) });
   const title = b.title?.trim();
   return title ? `${x} · ${title}` : x;
 }
@@ -95,8 +110,127 @@ const CAPTCHA_MESSAGE: Record<Locale, string> = {
   pt: "Conclua a verificação acima e confirme novamente.",
 };
 
+/* ------------------------------------------------------------------ */
+/* Groups, items, offers (cents)                                       */
+/* ------------------------------------------------------------------ */
+
+const cents = (m: number | undefined) => (m ? toCents(m) : 0);
+
+/** Matrix display "auto": combined when at most 8 combinations are made (the renderer applies the same rule). */
+export function matrixDisplay(g: Extract<OptionGroup, { kind: "matrix" }>, made: number): "linked" | "combined" {
+  return g.display === "auto" ? (made <= 8 ? "combined" : "linked") : g.display;
+}
+
+/** A choice / matrix / field group as the runtime reads it (deltas in cents, only when > 0). */
+export function runtimeGroup(g: OptionGroup): RuntimeGroup {
+  if (isChoiceGroup(g))
+    return {
+      id: g.id,
+      name: g.name,
+      kind: g.kind,
+      perUnit: g.perUnit,
+      options: g.options.map((o) => ({ id: o.id, label: o.label, soldOut: o.soldOut, ...(o.delta ? { delta: cents(o.delta) } : {}) })),
+    };
+  if (isMatrixGroup(g)) {
+    const made = groupCombos(g).filter((x) => x.state !== "none").length;
+    return {
+      id: g.id,
+      name: g.name,
+      kind: "matrix",
+      perUnit: g.perUnit,
+      display: matrixDisplay(g, made),
+      dims: g.dims.map((d) => ({
+        id: d.id,
+        name: d.name,
+        values: d.values.map((v) => ({ id: v.id, label: v.label, soldOut: v.soldOut, ...(v.delta ? { delta: cents(v.delta) } : {}) })),
+      })),
+      // exceptions only: state ≠ in, or a delta of their own (image / sku cells are markup / server only)
+      cells: g.cells
+        .filter((x) => x.state !== "in" || x.delta !== undefined)
+        .map((x) => ({
+          v: cellKey(x.v),
+          ...(x.state === "out" ? { s: "o" as const } : x.state === "none" ? { s: "n" as const } : {}),
+          ...(x.delta !== undefined ? { d: cents(x.delta) } : {}),
+        })),
+    };
+  }
+  const f = g as Extract<OptionGroup, { kind: "field" }>;
+  return {
+    id: f.id,
+    name: f.name,
+    kind: "field",
+    perUnit: f.perUnit,
+    input: f.input,
+    required: f.required,
+    maxLength: f.maxLength,
+    ...(f.min !== undefined ? { min: f.min } : {}),
+    ...(f.max !== undefined ? { max: f.max } : {}),
+    charset: f.charset,
+    ...(!f.required && f.delta ? { delta: cents(f.delta) } : {}),
+  };
+}
+
+/** Units of an offer, one per physical piece (k = array index), each with the line it comes from. */
+function runtimeUnits(offer: Offer, items: readonly Item[]): RuntimeOfferLine[] {
+  const byId = new Map(items.map((it) => [it.id, it]));
+  return expandUnits(offer, items).map((s) => {
+    const u: RuntimeOfferLine = { line: s.line };
+    if (s.item) u.item = s.item;
+    if (s.choices) {
+      u.choices = s.choices;
+      u.available = s.available ?? [];
+      if (s.distinct) u.distinct = true;
+      if (s.surcharge === "difference") u.surcharge = true;
+      u.base = s.choices
+        .map((id) => byId.get(id))
+        .filter((it): it is Item => !!it)
+        .map((it) => toCents(it.price))
+        .sort((a, b) => a - b);
+    }
+    if (s.free) u.free = true;
+    if (s.rules) {
+      const rules: NonNullable<RuntimeOfferLine["rules"]> = {};
+      for (const [key, r] of Object.entries(s.rules)) {
+        if ("lock" in r) rules[key] = { lock: r.lock };
+        else if ("allow" in r) rules[key] = { allow: r.allow, ...(r.preset ? { preset: r.preset } : {}) };
+        else rules[key] = { preset: r.preset };
+      }
+      u.rules = rules;
+    }
+    return u;
+  });
+}
+
+/** The offer's label in summaries, the thank-you page and the order record: v1 "x2 · Pack Duo" for v1-shaped offers. */
+export function offerLabel(ctx: Pick<RenderContext, "t"> & { doc: PageDoc }, b: Offer): string {
+  if (isLegacyOffer(ctx.doc, b)) return bundleLabel(ctx, b);
+  return offerName({ doc: ctx.doc, t: offerNameT(ctx.doc.locale as Locale) }, b);
+}
+
+/** Which optional runtime chunks the page needs (§F.9): matrix / fields in an available offer's units, extras or the bump item; steps / box fills. */
+export function runtimeFeatures(doc: PageDoc, fill: string): RuntimeFeature[] {
+  const used = new Set<string>();
+  for (const o of doc.offers.bundles) {
+    if (!offerAvailable(o, doc.items)) continue;
+    for (const l of o.lines) {
+      if ("item" in l.pick) used.add(l.pick.item);
+      else for (const id of l.pick.choice) used.add(id);
+    }
+  }
+  const bumpItem = doc.offers.orderBump?.enabled ? doc.offers.orderBump.item : undefined;
+  if (bumpItem) used.add(bumpItem);
+  const groups: OptionGroup[] = [];
+  for (const it of doc.items) if (used.has(it.id)) groups.push(...it.groups);
+  const out: RuntimeFeature[] = [];
+  if (groups.some(isMatrixGroup)) out.push("matrix");
+  if (groups.some(isFieldGroup) || doc.offers.extras.some((x: ExtraGroup) => x.kind === "field")) out.push("fields");
+  if (fill === "steps" || fill === "box") out.push("steps-box");
+  return out;
+}
+
 export function buildRuntimeConfig(doc: PageDoc, ctx: RenderContext, opts: RuntimeConfigOptions): LandingRuntimeConfig {
   const { product, offers, form } = doc;
+  const lead = leadItem(doc);
   const phone = phoneSpec(form.phoneCountry);
   const strings: Record<string, string> = {};
   for (const key of [...RUNTIME_UI_KEYS, ...RUNTIME_EXTRA_KEYS]) strings[key] = ctx.t(key);
@@ -108,9 +242,35 @@ export function buildRuntimeConfig(doc: PageDoc, ctx: RenderContext, opts: Runti
   if (turnstile) strings[CAPTCHA_STRING] = CAPTCHA_MESSAGE[doc.locale];
   // never in previews (the runtime also refuses to load pixels in preview mode)
   const pixels: LandingRuntimeConfig["pixels"] = preview ? {} : runtimePixels(doc.tracking);
+  const display = resolveDisplay(doc, { archetype: ctx.archetype, formVariant: opts.formVariant ?? "card" });
+  const maths = offersMath(doc);
+  const nameCtx = { doc, t: offerNameT(doc.locale) };
+  const bump = offers.orderBump?.enabled ? offers.orderBump : undefined;
+  const upsell = offers.upsell?.enabled ? offers.upsell : undefined;
+
+  const bundles: RuntimeOffer[] = offers.bundles.map((b, i) => {
+    const m = maths[i]!;
+    const r: RuntimeOffer = {
+      id: b.id,
+      label: offerLabel(ctx, b),
+      short: offerShort(nameCtx, b),
+      price: m.price,
+      from: m.from,
+      reference: m.displayReference,
+      savings: m.savings,
+      savingsPct: m.savingsPct,
+      free: effectiveFree(doc, b),
+      units: runtimeUnits(b, doc.items),
+    };
+    if (m.variable) r.variable = true;
+    if (m.perUnit !== null && samePieces(b)) r.perUnit = m.perUnit;
+    if (!offerAvailable(b, doc.items)) r.soldOut = true;
+    return r;
+  });
 
   return {
-    v: 1,
+    v: 2,
+    ver: preview ? "" : (opts.ver ?? ""),
     page: opts.page,
     pageKey: opts.pageKey,
     mode: opts.mode,
@@ -125,46 +285,45 @@ export function buildRuntimeConfig(doc: PageDoc, ctx: RenderContext, opts: Runti
     },
     thankYouUrl: opts.thankYouUrl,
     landingUrl: opts.landingUrl,
-    product: {
-      name: product.name,
-      price: product.price,
-      ...(product.sku ? { sku: product.sku } : {}),
-      contentId: product.sku || opts.pageKey,
-    },
-    bundles: offers.bundles.map((b) => {
-      const m = bundleMath(b, product.price);
-      return {
-        id: b.id,
-        qty: b.qty,
-        total: m.total,
-        reference: m.reference,
-        perUnit: m.perUnit,
-        savings: m.savings,
-        savingsPct: m.savingsPct,
-        label: bundleLabel(ctx, b),
-      };
-    }),
-    defaultBundleId: defaultBundleId(offers),
-    variants: product.variants.map((g) => ({
-      id: g.id,
-      name: g.name,
-      perUnit: g.perUnit,
-      options: g.options.map((o) => ({ id: o.id, label: o.label, soldOut: o.soldOut })),
-    })),
-    ...(offers.orderBump?.enabled ? { bump: { price: offers.orderBump.price, title: offers.orderBump.title } } : {}),
-    ...(offers.upsell?.enabled
-      ? { upsell: { price: offers.upsell.price, title: offers.upsell.title, windowMinutes: offers.upsell.windowMinutes } }
+    ...(upsell
+      ? { upsell: { price: toCents(upsell.price), title: upsell.title, windowMinutes: upsell.windowMinutes, ...(upsell.item ? { item: upsell.item } : {}) } }
       : {}),
-    shippingFee: offers.shippingFee,
     phone: { country: phone.country || form.phoneCountry, prefix: phone.prefix, national: phone.national },
     fields: { city: form.city, address: form.address, email: form.email },
-    money: moneyFormat(doc.currency, doc.locale),
+    money: { ...moneyFormat(doc.currency, doc.locale), minor: 100 },
     pixels,
     strings,
     ...(wa ? { whatsapp: { number: wa, text: `${ctx.t("form.whatsapp")}: ${product.name}` } } : {}),
     ...(turnstile ? { turnstileSiteKey: turnstile } : {}),
+    shippingFee: toCents(offers.shippingFee),
+    product: { name: product.name, contentId: contentIdOf(doc, lead, opts.pageKey) },
+    items: doc.items.map((it) => ({
+      id: it.id,
+      name: itemName(doc, it),
+      short: itemShort(doc, it),
+      price: toCents(it.price),
+      contentId: contentIdOf(doc, it, opts.pageKey),
+      groups: it.groups.map(runtimeGroup),
+    })),
+    bundles,
+    extras: offers.extras.map((x) => ({ ...runtimeGroup(x as OptionGroup), scope: x.scope === "all" ? ("all" as const) : [...x.scope] })),
+    ...(bump
+      ? {
+          bump: {
+            price: toCents(bump.price),
+            ...(bump.item && itemById(doc, bump.item) ? { item: bump.item } : {}),
+            ...(bump.offers ? { offers: [...bump.offers] } : {}),
+          },
+        }
+      : {}),
+    defaultBundleId: defaultOfferId(offers, doc.items),
+    fill: display.fill,
+    features: runtimeFeatures(doc, display.fill),
   };
 }
+
+/** Σ units of an offer (the v1 helper's name). */
+export const unitsOf = offerUnits;
 
 const BACKSLASH = String.fromCharCode(92);
 /** Characters that could end a <script> element or break JS-string embedding: < > & LS PS */

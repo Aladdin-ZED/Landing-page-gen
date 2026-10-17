@@ -1,10 +1,14 @@
 /**
- * Dev / QA fixtures — four complete, realistic PageDocs that use EVERY section type:
+ * Dev / QA fixtures — complete, realistic PageDocs (v2) that use EVERY section type:
  *
- *   argan    Moroccan argan oil serum   ar  souk
- *   massage  percussion massage gun     fr  kinetic
- *   blender  portable blender           fr  hearth
- *   parfum   eau de parfum              ar  maison
+ *   argan    Moroccan argan oil serum   ar  souk        one item, ×1 / ×2 / ×3
+ *   massage  percussion massage gun     fr  kinetic     one item, ×1 / ×2 / ×3
+ *   blender  portable blender           fr  hearth      one item, ×1 / ×2 / ×3
+ *   parfum   eau de parfum              ar  maison      one item, ×1 / ×2 / ×3
+ *   duo      day + night cream, serum   fr  bloom       the owner's example (docs/OFFERS.md §C.5): a group
+ *                                                       photo of two items, crops, choice / duo / trio offers
+ *   tshirt   t-shirt                    fr  editorial   color × size matrix + a name to print (§D.2)
+ *   colors   t-shirt packs              ar  playground  per-line option rules: locks, allow + preset (§C.6)
  *
  * Section data comes from each section definition's own defaults() (so fixtures stay valid while
  * sections evolve, and every field of every section is exercised), variants from the archetype's
@@ -23,7 +27,9 @@ import { fixtureAssetResolver, type AssetResolver, type AssetRowLike, type Store
 import { getSection, SECTION_TYPES } from "@/landing/registry";
 import { getArchetype, THEME_SECTION_TYPES, themeFromProduct, type ExtractedPalette, type ThemeSectionType } from "@/lib/theme";
 import {
+  MAIN_ITEM_ID,
   PageDoc,
+  PageDocObject,
   type Archetype,
   type AssetRef,
   type PageDocInput,
@@ -142,6 +148,46 @@ export const FIXTURE_ASSETS: readonly FixtureImage[] = [
     brightness: 0.705,
     warmth: 0.366,
   }),
+  img("duo-pair", "40b88379a913d4547c42c7cbc4a04fa8", 1440, 810, "#c8c8b8", [480, 960, 1440], "An amber dropper bottle and a clear glass bottle side by side", {
+    colors: [{ hex: "#c0c4bd", weight: 0.328, chroma: 0.011, lightness: 0.816, hue: 135 },{ hex: "#938a7c", weight: 0.264, chroma: 0.024, lightness: 0.637, hue: 78 },{ hex: "#d2dad6", weight: 0.193, chroma: 0.01, lightness: 0.881, hue: 169 },{ hex: "#7d5e44", weight: 0.111, chroma: 0.056, lightness: 0.505, hue: 61 },{ hex: "#643213", weight: 0.069, chroma: 0.084, lightness: 0.376, hue: 49 }],
+    background: null,
+    transparent: false,
+    colorfulness: 0.128,
+    brightness: 0.694,
+    warmth: 0.274,
+  }),
+  img("duo-serum", "b6ee0e53782ccb2b5721c474d0975ee5", 1440, 1800, "#b8a8a8", [480, 960, 1440], "Amber dropper bottle on a turned wooden stand", {
+    colors: [{ hex: "#b0aca3", weight: 0.5, chroma: 0.013, lightness: 0.746, hue: 91 },{ hex: "#817867", weight: 0.207, chroma: 0.027, lightness: 0.576, hue: 81 },{ hex: "#805531", weight: 0.082, chroma: 0.076, lightness: 0.489, hue: 60 },{ hex: "#9c9382", weight: 0.108, chroma: 0.027, lightness: 0.666, hue: 84 },{ hex: "#613d1e", weight: 0.072, chroma: 0.068, lightness: 0.395, hue: 59 }],
+    background: null,
+    transparent: false,
+    colorfulness: 0.14,
+    brightness: 0.641,
+    warmth: 0.357,
+  }),
+  img("tee-noir", "4508cdd123b86a79e0e2c542f861e2cb", 1440, 1800, "#e8e8e8", [480, 960, 1440], "Black crew-neck t-shirt, front view", {
+    colors: [{ hex: "#222224", weight: 0.874, chroma: 0.005, lightness: 0.252, hue: 296 },{ hex: "#d2cfcb", weight: 0.065, chroma: 0.007, lightness: 0.855, hue: 80 },{ hex: "#7d7c7a", weight: 0.037, chroma: 0.003, lightness: 0.586, hue: 66 },{ hex: "#b4b3b0", weight: 0.017, chroma: 0.004, lightness: 0.767, hue: 82 },{ hex: "#535352", weight: 0.007, chroma: 0.001, lightness: 0.441, hue: 84 }],
+    background: "#edebe7",
+    transparent: false,
+    colorfulness: 0.023,
+    brightness: 0.313,
+    warmth: 0,
+  }),
+  img("tee-blanc", "3f0fb0c3cdf3fe94a7779062d416a8ea", 1440, 1800, "#e8e8e8", [480, 960, 1440], "Off-white crew-neck t-shirt, front view", {
+    colors: [{ hex: "#edebe7", weight: 0.946, chroma: 0.006, lightness: 0.941, hue: 85 },{ hex: "#dddad5", weight: 0.03, chroma: 0.007, lightness: 0.889, hue: 82 },{ hex: "#ceccc8", weight: 0.023, chroma: 0.006, lightness: 0.846, hue: 82 }],
+    background: "#edebe7",
+    transparent: false,
+    colorfulness: 0.031,
+    brightness: 0.937,
+    warmth: 0,
+  }),
+  img("tee-gris", "549fe175e9e879b760036480016220ed", 1440, 1800, "#e8e8e8", [480, 960, 1440], "Grey crew-neck t-shirt, front view", {
+    colors: [{ hex: "#8d9095", weight: 0.881, chroma: 0.008, lightness: 0.652, hue: 256 },{ hex: "#d5d2ce", weight: 0.045, chroma: 0.007, lightness: 0.866, hue: 79 },{ hex: "#c7c6c2", weight: 0.037, chroma: 0.005, lightness: 0.825, hue: 90 },{ hex: "#afafaf", weight: 0.038, chroma: 0.001, lightness: 0.754, hue: 204 }],
+    background: "#edebe7",
+    transparent: false,
+    colorfulness: 0.04,
+    brightness: 0.672,
+    warmth: -0.004,
+  }),
 ];
 
 const IMAGE = new Map(FIXTURE_ASSETS.map((a) => [a.name, a]));
@@ -177,13 +223,18 @@ interface FixtureSpec {
   tagline: L;
   description: L;
   images: string[];
-  price: number;
-  compareAt: number;
-  sku: string;
-  rating: { value: number; count: number };
-  variants: { id: string; name: L; kind: "swatch" | "text"; options: { id: string; label: L; swatch?: string }[] }[];
-  bundles: { id: string; qty: number; price: number; compareAt?: number; title?: L; subtitle?: L; badge?: "popular" | "best"; gift?: L; image?: string }[];
-  cardStyle: "stack" | "tiers" | "ticket" | "pills" | "visual";
+  /** product photo alts (default: the photo's own alt) */
+  imageAlts?: L[];
+  /** classic fixtures: one item ("main") and ×N offers */
+  price?: number;
+  compareAt?: number;
+  sku?: string;
+  rating?: { value: number; count: number };
+  variants?: { id: string; name: L; kind: "swatch" | "text"; options: { id: string; label: L; swatch?: string }[] }[];
+  bundles?: { id: string; qty: number; price: number; compareAt?: number; title?: L; subtitle?: L; badge?: "popular" | "best"; gift?: L; image?: string }[];
+  cardStyle?: "stack" | "tiers" | "ticket" | "pills" | "visual";
+  /** Offers v2 fixtures: the items and offers, written directly */
+  catalog?: (tx: (l: L) => string, ref: (name: string, alt?: string) => AssetRef) => Catalog;
   showSavings: "amount" | "percent" | "both" | "none";
   bump?: { title: L; description: L; price: number; image?: string };
   upsell?: { title: L; description: L; price: number; compareAt: number; minutes: number; image?: string };
@@ -192,6 +243,14 @@ interface FixtureSpec {
   countdownHours?: number;
   seo: { title: L; description: L };
   fallbackTheme: Omit<ThemeSpec, "seed" | "archetype">;
+}
+
+type CatalogItem = PageDocInput["items"][number];
+interface Catalog {
+  items: CatalogItem[];
+  bundles: PageDocInput["offers"]["bundles"];
+  display: NonNullable<PageDocInput["offers"]["display"]>;
+  extras?: PageDocInput["offers"]["extras"];
 }
 
 const SPECS = {
@@ -487,12 +546,205 @@ const SPECS = {
       ornament: 0.8,
     },
   },
+  /* ---------------- Offers v2: the owner's example (docs/OFFERS.md §C.5) ---------------- */
+  duo: {
+    locale: "fr",
+    archetype: "bloom",
+    category: "skincare",
+    seed: 6203,
+    store: { name: "Maison Éclat", whatsapp: "+212664567890", phone: "+212522451000", email: "bonjour@maison-eclat.example", address: "Rue Abou Bakr Seddik, n° 18", city: "Rabat" },
+    name: { ar: "Duo Éclat", fr: "Duo Éclat", en: "Duo Éclat" },
+    tagline: {
+      ar: "كريم النهار وكريم الليل، *بنفس الثمن*، والسيروم باش يكمل الروتين",
+      fr: "Crème jour et crème nuit *au même prix*, et le sérum pour compléter la routine",
+      en: "Day cream and night cream *at the same price*, and the serum to complete the routine",
+    },
+    description: {
+      ar: "روتين بسيط للصباح والمساء.\n- كريم النهار: خفيف، كيدخل بزربة\n- كريم الليل: غني، للبشرة العطشانة\n- السيروم: قطرتين قبل الكريم",
+      fr: "Une routine simple pour le matin et le soir.\n- Crème jour : légère, pénètre vite\n- Crème nuit : riche, pour les peaux assoiffées\n- Sérum : deux gouttes avant la crème",
+      en: "A simple routine for morning and evening.\n- Day cream: light, absorbs fast\n- Night cream: rich, for thirsty skin\n- Serum: two drops before the cream",
+    },
+    images: ["duo-pair", "duo-serum"],
+    imageAlts: [
+      { ar: "كريم النهار وكريم الليل", fr: "Crème jour et crème nuit", en: "Day cream and night cream" },
+      { ar: "سيروم الإشراقة", fr: "Sérum éclat", en: "Radiance serum" },
+    ],
+    showSavings: "both",
+    catalog: (tx, ref) => {
+      const pair = ref("duo-pair", tx({ ar: "كريم النهار وكريم الليل", fr: "Crème jour et crème nuit", en: "Day cream and night cream" }));
+      const serum = ref("duo-serum", tx({ ar: "سيروم الإشراقة", fr: "Sérum éclat", en: "Radiance serum" }));
+      return {
+        items: [
+          { id: "main", name: tx({ ar: "كريم النهار", fr: "Crème jour", en: "Day cream" }), short: tx({ ar: "النهار", fr: "Jour", en: "Day" }), price: 149, images: [{ ...pair, box: { x: 0.04, y: 0.08, w: 0.46, h: 0.86 } }, pair] },
+          { id: "nuit", name: tx({ ar: "كريم الليل", fr: "Crème nuit", en: "Night cream" }), short: tx({ ar: "الليل", fr: "Nuit", en: "Night" }), price: 149, images: [{ ...pair, box: { x: 0.5, y: 0.08, w: 0.46, h: 0.86 } }, pair] },
+          { id: "serum", name: tx({ ar: "سيروم الإشراقة", fr: "Sérum éclat", en: "Radiance serum" }), short: tx({ ar: "السيروم", fr: "Sérum", en: "Serum" }), price: 199, images: [serum] },
+        ],
+        bundles: [
+          { id: "one", title: tx({ ar: "كريم واحد على اختيارك", fr: "Une crème au choix", en: "One cream of your choice" }), price: 149, lines: [{ id: "l1", qty: 1, pick: { choice: ["main", "nuit"] } }] },
+          {
+            id: "duo",
+            title: tx({ ar: "ثنائي النهار والليل", fr: "Le duo jour + nuit", en: "The day + night duo" }),
+            price: 249,
+            badge: "popular",
+            preselected: true,
+            lines: [
+              { id: "l1", qty: 1, pick: { item: "main" } },
+              { id: "l2", qty: 1, pick: { item: "nuit" } },
+            ],
+            visual: { mode: "custom", images: [pair] },
+          },
+          {
+            id: "trio",
+            title: tx({ ar: "الروتين الكامل", fr: "Le rituel complet", en: "The complete ritual" }),
+            price: 349,
+            badge: "best",
+            perks: [tx({ ar: "روتين الصباح والمساء", fr: "Routine matin + soir", en: "Morning + evening routine" }), tx({ ar: "التوصيل مجاني", fr: "Livraison offerte", en: "Free delivery" })],
+            lines: [
+              { id: "l1", qty: 1, pick: { item: "main" } },
+              { id: "l2", qty: 1, pick: { item: "nuit" } },
+              { id: "l3", qty: 1, pick: { item: "serum" } },
+            ],
+            visual: { mode: "custom", images: [pair, serum] },
+          },
+        ],
+        display: { picker: "visual", fill: "auto", selection: "soft", media: "auto", density: "comfortable" },
+      };
+    },
+    seo: {
+      title: { ar: "Duo Éclat — كريم النهار وكريم الليل", fr: "Duo Éclat — crème jour et crème nuit", en: "Duo Éclat — day cream and night cream" },
+      description: {
+        ar: "كريم النهار، كريم الليل والسيروم. الدفع عند الاستلام.",
+        fr: "Crème jour, crème nuit et sérum. Paiement à la livraison.",
+        en: "Day cream, night cream and serum. Cash on delivery.",
+      },
+    },
+    fallbackTheme: {
+      palette: { accent: "#7a5c8f", pop: "#2f7a6b", base: "light", harmony: "blush-berry" },
+      fonts: { display: "fraunces", body: "figtree", displayAr: "el-messiri", bodyAr: "readex-pro" },
+      radius: "archetype",
+      shadow: "archetype",
+      texture: "archetype",
+      surfaces: "archetype",
+      motion: "lively",
+      dividers: ["curve", "arch", "wave"],
+      ornament: 1,
+    },
+  },
+  /* ---------------- Offers v2: color × size matrix + a name to print (§D.2) ---------------- */
+  tshirt: {
+    locale: "fr",
+    archetype: "editorial",
+    category: "fashion",
+    seed: 7311,
+    store: { name: "Atelier Coton", whatsapp: "+212665678901", phone: "+212522334400", email: "contact@atelier-coton.example", address: "Bd d'Anfa, n° 102", city: "Casablanca" },
+    name: { ar: "تيشيرت أساسي", fr: "T-shirt Essentiel", en: "Essential T-shirt" },
+    tagline: {
+      ar: "قطن *ثقيل* وقصة مستقيمة، بالاسم ديالك إلا بغيتي",
+      fr: "Coton *épais*, coupe droite, avec votre prénom si vous voulez",
+      en: "*Heavy* cotton, straight cut, with your name if you like",
+    },
+    description: {
+      ar: "قطن 100% بوزن 220 غرام.\n- ياقة مدورة كتبقى فبلاصتها\n- كيتغسل فـ 30 درجة\n- الاسم مطبوع بالحرارة",
+      fr: "Coton 100 %, 220 g/m².\n- Col rond qui garde sa forme\n- Lavable à 30 °C\n- Prénom imprimé à chaud",
+      en: "100% cotton, 220 g/m².\n- Crew neck that keeps its shape\n- Washable at 30 °C\n- Heat-printed name",
+    },
+    images: ["tee-noir", "tee-blanc", "tee-gris"],
+    showSavings: "amount",
+    catalog: (tx, ref) => ({
+      items: [teeItem(tx, ref)],
+      bundles: [
+        { id: "x1", price: 129, lines: [{ id: "l1", qty: 1, pick: { item: "main" } }] },
+        { id: "x2", price: 229, badge: "popular", title: tx({ ar: "عرض الثنائي", fr: "Pack Duo", en: "Duo pack" }), lines: [{ id: "l1", qty: 2, pick: { item: "main" } }] },
+        { id: "x3", price: 319, badge: "best", title: tx({ ar: "عرض الثلاثي", fr: "Pack Trio", en: "Trio pack" }), lines: [{ id: "l1", qty: 3, pick: { item: "main" } }] },
+      ],
+      display: { picker: "tiers", fill: "auto", selection: "solid", media: "auto", density: "comfortable" },
+    }),
+    seo: {
+      title: { ar: "تيشيرت أساسي — قطن 220 غرام", fr: "T-shirt Essentiel — coton 220 g", en: "Essential T-shirt — 220 g cotton" },
+      description: { ar: "اختار اللون والمقاس لكل قطعة. الدفع عند الاستلام.", fr: "Couleur et taille au choix pour chaque pièce. Paiement à la livraison.", en: "Pick a color and size for each piece. Cash on delivery." },
+    },
+    fallbackTheme: {
+      palette: { accent: "#24324a", pop: "#c4113a", base: "light", harmony: "ink-accent" },
+      fonts: { display: "instrument-serif", body: "instrument-sans", displayAr: "el-messiri", bodyAr: "ibm-plex-sans-arabic" },
+      radius: "archetype",
+      shadow: "archetype",
+      texture: "archetype",
+      surfaces: "archetype",
+      motion: "calm",
+      dividers: ["fade", "curve"],
+      ornament: 0.6,
+    },
+  },
+  /* ---------------- Offers v2: per-line option rules (§C.6 "Pack 3 couleurs", "Noir/Gris only") ---------------- */
+  colors: {
+    locale: "ar",
+    archetype: "playground",
+    category: "fashion",
+    seed: 8423,
+    store: { name: "Atelier Coton", whatsapp: "+212665678901", phone: "+212522334400", email: "contact@atelier-coton.example", address: "Bd d'Anfa, n° 102", city: "Casablanca" },
+    name: { ar: "تيشيرت أساسي", fr: "T-shirt Essentiel", en: "Essential T-shirt" },
+    tagline: {
+      ar: "ثلاثة ألوان فباك واحد، *والمقاس على حساب كل قطعة*",
+      fr: "Trois couleurs en un pack, *la taille de chaque pièce au choix*",
+      en: "Three colors in one pack, *a size for each piece*",
+    },
+    description: {
+      ar: "قطن 100% بوزن 220 غرام.\n- أسود، أبيض ورمادي\n- المقاس لكل قطعة\n- كيتغسل فـ 30 درجة",
+      fr: "Coton 100 %, 220 g/m².\n- Noir, blanc et gris\n- Une taille par pièce\n- Lavable à 30 °C",
+      en: "100% cotton, 220 g/m².\n- Black, white and grey\n- A size for each piece\n- Washable at 30 °C",
+    },
+    images: ["tee-noir", "tee-blanc", "tee-gris"],
+    showSavings: "both",
+    catalog: (tx, ref) => ({
+      items: [teeItem(tx, ref)],
+      bundles: [
+        { id: "x1", price: 129, lines: [{ id: "l1", qty: 1, pick: { item: "main" } }] },
+        {
+          id: "colors",
+          title: tx({ ar: "باك 3 ألوان", fr: "Pack 3 couleurs", en: "3-colour pack" }),
+          price: 329,
+          badge: "popular",
+          lines: [
+            { id: "l1", qty: 1, pick: { item: "main" }, rules: { "g-fit.d-col": { lock: "o-noir" } } },
+            { id: "l2", qty: 1, pick: { item: "main" }, rules: { "g-fit.d-col": { lock: "o-blanc" } } },
+            { id: "l3", qty: 1, pick: { item: "main" }, rules: { "g-fit.d-col": { lock: "o-gris" } } },
+          ],
+        },
+        {
+          id: "x3-promo",
+          title: tx({ ar: "عرض 3 · أسود ولا رمادي", fr: "Promo ×3 · Noir ou Gris", en: "×3 promo · Black or Grey" }),
+          price: 299,
+          badge: "best",
+          lines: [{ id: "l1", qty: 3, pick: { item: "main" }, rules: { "g-fit.d-col": { allow: ["o-noir", "o-gris"], preset: "o-noir" } } }],
+        },
+      ],
+      display: { picker: "stack", fill: "auto", selection: "outline", media: "auto", density: "comfortable" },
+    }),
+    seo: {
+      title: { ar: "باك 3 تيشيرتات — أسود، أبيض، رمادي", fr: "Pack 3 t-shirts — noir, blanc, gris", en: "3 T-shirt pack — black, white, grey" },
+      description: { ar: "ثلاثة ألوان والمقاس لكل قطعة. الدفع عند الاستلام.", fr: "Trois couleurs, une taille par pièce. Paiement à la livraison.", en: "Three colors, a size for each piece. Cash on delivery." },
+    },
+    fallbackTheme: {
+      palette: { accent: "#2c5aa8", pop: "#e9a5b9", base: "light", harmony: "pop-complement" },
+      fonts: { display: "bricolage-grotesque", body: "dm-sans", displayAr: "baloo-bhaijaan-2", bodyAr: "tajawal" },
+      radius: "archetype",
+      shadow: "archetype",
+      texture: "archetype",
+      surfaces: "archetype",
+      motion: "lively",
+      dividers: ["wave", "curve"],
+      ornament: 1.1,
+    },
+  },
 } satisfies Record<string, FixtureSpec>;
 
 export type FixtureName = keyof typeof SPECS;
 export const FIXTURE_NAMES = Object.keys(SPECS) as FixtureName[];
 
 export const isFixtureName = (v: string): v is FixtureName => Object.prototype.hasOwnProperty.call(SPECS, v);
+
+/** The fixtures that exercise Offers v2 (several items, matrix, fields, rules). */
+export const OFFER_FIXTURES: readonly FixtureName[] = ["duo", "tshirt", "colors"];
 
 /* ------------------------------------------------------------------ */
 /* Layout                                                              */
@@ -582,23 +834,13 @@ export function getFixture(name: FixtureName, opts: FixtureOptions = {}): Fixtur
   const tx = (l: L) => l[locale];
   const theme = themeFor(spec, archetype, seed);
 
-  const product: PageDoc["product"] = {
+  const product: PageDocInput["product"] = {
     name: tx(spec.name),
     tagline: tx(spec.tagline),
     description: tx(spec.description),
     category: spec.category,
-    images: spec.images.map((n) => ref(n)),
-    price: spec.price,
-    compareAt: spec.compareAt,
-    sku: spec.sku,
-    variants: spec.variants.map((g) => ({
-      id: g.id,
-      name: tx(g.name),
-      kind: g.kind,
-      perUnit: true,
-      options: g.options.map((o) => ({ id: o.id, label: tx(o.label), soldOut: false, ...(o.swatch ? { swatch: o.swatch } : {}) })),
-    })),
-    rating: spec.rating,
+    images: spec.images.map((n, i) => ref(n, spec.imageAlts?.[i] ? tx(spec.imageAlts[i]!) : undefined)),
+    ...(spec.rating ? { rating: spec.rating } : {}),
   };
 
   const countdownEnd =
@@ -606,21 +848,45 @@ export function getFixture(name: FixtureName, opts: FixtureOptions = {}): Fixtur
       ? new Date(Math.ceil((nowMs + spec.countdownHours * 3_600_000) / 60_000) * 60_000).toISOString()
       : undefined;
 
-  const offers: PageDoc["offers"] = {
-    bundles: spec.bundles.map((b) => ({
-      id: b.id,
-      qty: b.qty,
-      price: b.price,
-      ...(b.compareAt ? { compareAt: b.compareAt } : {}),
-      ...(b.title ? { title: tx(b.title) } : {}),
-      ...(b.subtitle ? { subtitle: tx(b.subtitle) } : {}),
-      badge: b.badge ?? "none",
-      freeShipping: true,
-      ...(b.gift ? { gift: { label: tx(b.gift) } } : {}),
-      ...(b.image ? { image: ref(b.image) } : {}),
-      preselected: false,
-    })),
-    cardStyle: spec.cardStyle,
+  // the four classic fixtures: one item ("main") and ×N offers, as every v1 page upgrades to
+  const catalog: Catalog = spec.catalog
+    ? spec.catalog(tx, ref)
+    : {
+        items: [
+          {
+            id: MAIN_ITEM_ID,
+            name: "",
+            images: [],
+            price: spec.price!,
+            ...(spec.compareAt ? { compareAt: spec.compareAt } : {}),
+            ...(spec.sku ? { sku: spec.sku } : {}),
+            groups: (spec.variants ?? []).map((g) => ({
+              id: g.id,
+              name: tx(g.name),
+              kind: g.kind,
+              perUnit: true,
+              options: g.options.map((o) => ({ id: o.id, label: tx(o.label), soldOut: false, ...(o.swatch ? { swatch: o.swatch } : {}) })),
+            })),
+          },
+        ],
+        bundles: (spec.bundles ?? []).map((b) => ({
+          id: b.id,
+          lines: [{ id: "l1", qty: b.qty, pick: { item: MAIN_ITEM_ID } }],
+          price: b.price,
+          ...(b.compareAt ? { compareAt: b.compareAt } : {}),
+          ...(b.title ? { title: tx(b.title) } : {}),
+          ...(b.subtitle ? { subtitle: tx(b.subtitle) } : {}),
+          badge: b.badge ?? "none",
+          ...(b.gift ? { gift: { label: tx(b.gift) } } : {}),
+          visual: b.image ? { mode: "custom" as const, images: [ref(b.image)] } : { mode: "auto" as const },
+        })),
+        display: { picker: spec.cardStyle ?? "stack" },
+      };
+
+  const offers: PageDocInput["offers"] = {
+    bundles: catalog.bundles,
+    display: catalog.display,
+    ...(catalog.extras ? { extras: catalog.extras } : {}),
     showPerUnit: true,
     showSavings: spec.showSavings,
     shippingFee: 0,
@@ -654,7 +920,15 @@ export function getFixture(name: FixtureName, opts: FixtureOptions = {}): Fixtur
     },
   };
 
-  const basics = { locale, product, offers, theme };
+  // section defaults read the parsed page basics (defaults applied)
+  const head = PageDocObject.shape;
+  const basics = {
+    locale,
+    product: head.product.parse(product),
+    items: head.items.parse(catalog.items),
+    offers: head.offers.parse(offers),
+    theme,
+  };
   const defaultData = (type: string): Record<string, unknown> => {
     const def = getSection(type);
     if (!def) return {};
@@ -692,11 +966,12 @@ export function getFixture(name: FixtureName, opts: FixtureOptions = {}): Fixtur
   }));
 
   const input: PageDocInput = {
-    v: 1,
+    v: 2,
     locale,
     market: "MA",
     currency: "MAD",
     product,
+    items: catalog.items,
     offers,
     form: {
       city: "select",
@@ -719,5 +994,63 @@ export function getFixture(name: FixtureName, opts: FixtureOptions = {}): Fixtur
     store: { ...spec.store, country: "MA" },
     pageKey: `pk_fixture_${name}`,
     slug: name,
+  };
+}
+
+/** The t-shirt of the tshirt / colors fixtures: color × size matrix (§D.2) + an optional name to print. */
+function teeItem(tx: (l: L) => string, ref: (name: string, alt?: string) => AssetRef): CatalogItem {
+  return {
+    id: MAIN_ITEM_ID,
+    name: "",
+    price: 129,
+    sku: "TS",
+    images: [],
+    groups: [
+      {
+        id: "g-fit",
+        kind: "matrix",
+        name: tx({ ar: "اللون والمقاس", fr: "Couleur & taille", en: "Color & size" }),
+        perUnit: true,
+        display: "linked",
+        dims: [
+          {
+            id: "d-col",
+            name: tx({ ar: "اللون", fr: "Couleur", en: "Color" }),
+            kind: "swatch",
+            values: [
+              { id: "o-noir", label: tx({ ar: "أسود", fr: "Noir", en: "Black" }), code: "NR", swatch: "#141414", image: ref("tee-noir") },
+              { id: "o-blanc", label: tx({ ar: "أبيض", fr: "Blanc", en: "White" }), code: "BL", swatch: "#f3f1ec", image: ref("tee-blanc") },
+              { id: "o-gris", label: tx({ ar: "رمادي", fr: "Gris", en: "Grey" }), code: "GR", swatch: "#8a8d91", image: ref("tee-gris") },
+            ],
+          },
+          {
+            id: "d-size",
+            name: tx({ ar: "المقاس", fr: "Taille", en: "Size" }),
+            kind: "text",
+            values: [
+              { id: "o-s", label: "S" },
+              { id: "o-m", label: "M" },
+              { id: "o-l", label: "L" },
+              { id: "o-xl", label: "XL", delta: 20 },
+            ],
+          },
+        ],
+        cells: [
+          { v: { "d-col": "o-noir", "d-size": "o-xl" }, state: "out" },
+          { v: { "d-col": "o-blanc", "d-size": "o-s" }, state: "none" },
+          { v: { "d-col": "o-blanc", "d-size": "o-m" }, sku: "TS-BL-M" },
+        ],
+      },
+      {
+        id: "g-name",
+        kind: "field",
+        name: tx({ ar: "الاسم للطباعة", fr: "Prénom à imprimer", en: "Name to print" }),
+        input: "text",
+        maxLength: 12,
+        charset: "letters",
+        required: false,
+        delta: 30,
+      },
+    ],
   };
 }

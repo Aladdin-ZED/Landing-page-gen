@@ -1082,6 +1082,15 @@ export const AR: LocaleLibrary = {
       { title: "عرض الثنائي", subtitle: "لك ولمن تحب" },
       { title: "عرض الثلاثي", subtitle: "أفضل ثمن للقطعة" },
     ],
+    offers: {
+      choice: { title: "على اختيارك", subtitle: "اختار اللي عجبك" },
+      anyN: { title: "{n} على اختيارك", subtitle: "ركّب العرض ديالك" },
+      duo: { title: "عرض الثنائي", subtitle: "بجوج مع بعض" },
+      trio: { title: "عرض الثلاثي الكامل", subtitle: "الثلاثة مجموعين" },
+      set: { title: "المجموعة الكاملة", subtitle: "كل التشكيلة فعرض واحد", short: "المجموعة" },
+      bogo: { title: "شري وحدة والثانية هدية", subtitle: "القطعة الثانية هدية", short: "1 + 1" },
+      colors: { title: "عرض {n} ألوان", subtitle: "قطعة من كل لون", short: "{n} ألوان" },
+    },
     seo: {
       title: ["{product} — الدفع عند الاستلام", "{product} | توصيل سريع والدفع عند الاستلام"],
       description: [

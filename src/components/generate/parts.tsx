@@ -24,7 +24,7 @@ export function StepRail({ step, canGo, onGo }: { step: Step; canGo: (s: Step) =
     <LayoutGroup id={id}>
       <nav aria-label="Generator steps">
         {/* phones: the current step takes the room for its name, the others shrink to their number */}
-        <ol className="adm-surface-flat flex gap-1 rounded-2xl p-1.5 sm:grid sm:grid-cols-4">
+        <ol className="adm-surface-flat flex gap-1 rounded-2xl p-1.5 sm:grid sm:grid-cols-5">
           {STEPS.map((s, i) => {
             const active = i === step;
             const done = i < step;

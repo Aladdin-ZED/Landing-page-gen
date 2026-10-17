@@ -10,12 +10,18 @@
  * Everything the bridge needs is public page data (#lp-config) plus #lp-wa (number + localized
  * labels). Text is inserted with textContent only.
  */
+import { runtimeChunks } from "@/landing/generated/assets";
 import type { Locale } from "@/lib/page/schema";
 
 /** Order endpoint of WhatsApp exports (never fetched: the bridge answers it). */
 export const WA_ENDPOINT = "whatsapp:order";
 
 export interface WaLabels {
+  /** v2 bullets: a free piece ("Offert · 1 × Rose"), the offer's gift, the order-level choices line, "+n articles" */
+  free: string;
+  gift: string;
+  choices: string;
+  more: string;
   order: string;
   ref: string;
   product: string;
@@ -49,6 +55,10 @@ export interface WaCopy {
 const COPY: Record<Locale, WaCopy> = {
   ar: {
     labels: {
+      free: "هدية",
+      gift: "هدية مع العرض",
+      choices: "الطلب",
+      more: "+{n} قطع أخرى",
       order: "طلب جديد",
       ref: "المرجع",
       product: "المنتج",
@@ -74,6 +84,10 @@ const COPY: Record<Locale, WaCopy> = {
   },
   fr: {
     labels: {
+      free: "Offert",
+      gift: "Cadeau",
+      choices: "Commande",
+      more: "+{n} articles",
       order: "Nouvelle commande",
       ref: "Réf.",
       product: "Produit",
@@ -99,6 +113,10 @@ const COPY: Record<Locale, WaCopy> = {
   },
   en: {
     labels: {
+      free: "Free",
+      gift: "Gift",
+      choices: "Order",
+      more: "+{n} more items",
       order: "New order",
       ref: "Ref.",
       product: "Product",
@@ -124,6 +142,10 @@ const COPY: Record<Locale, WaCopy> = {
   },
   es: {
     labels: {
+      free: "Gratis",
+      gift: "Regalo",
+      choices: "Pedido",
+      more: "+{n} artículos más",
       order: "Nuevo pedido",
       ref: "Ref.",
       product: "Producto",
@@ -149,6 +171,10 @@ const COPY: Record<Locale, WaCopy> = {
   },
   de: {
     labels: {
+      free: "Gratis",
+      gift: "Geschenk",
+      choices: "Bestellung",
+      more: "+{n} weitere Artikel",
       order: "Neue Bestellung",
       ref: "Ref.",
       product: "Produkt",
@@ -174,6 +200,10 @@ const COPY: Record<Locale, WaCopy> = {
   },
   it: {
     labels: {
+      free: "In omaggio",
+      gift: "Regalo",
+      choices: "Ordine",
+      more: "+{n} altri articoli",
       order: "Nuovo ordine",
       ref: "Rif.",
       product: "Prodotto",
@@ -199,6 +229,10 @@ const COPY: Record<Locale, WaCopy> = {
   },
   nl: {
     labels: {
+      free: "Gratis",
+      gift: "Cadeau",
+      choices: "Bestelling",
+      more: "+{n} andere artikelen",
       order: "Nieuwe bestelling",
       ref: "Ref.",
       product: "Product",
@@ -224,6 +258,10 @@ const COPY: Record<Locale, WaCopy> = {
   },
   pt: {
     labels: {
+      free: "Grátis",
+      gift: "Oferta",
+      choices: "Encomenda",
+      more: "+{n} artigos",
       order: "Nova encomenda",
       ref: "Ref.",
       product: "Produto",
@@ -259,56 +297,113 @@ export function waData(number: string, locale: Locale): { v: 1; endpoint: string
   return { v: 1, endpoint: WA_ENDPOINT, number, labels: waCopy(locale).labels };
 }
 
+/* ------------------------------------------------------------------ */
+/* v2 message (docs/OFFERS.md §G.5)                                    */
+/* ------------------------------------------------------------------ */
+
+/** encodeURIComponent(message) stays under this (wa.me links longer than ~4 KB fail on some phones). */
+export const WA_URL_MAX = 3800;
+
+export interface WaOrderInput {
+  orderId: string;
+  /** product name (the page's story name) */
+  product: string;
+  /** the offer label the shopper saw ("Le rituel complet (x3)") */
+  pack: string;
+  /**
+   * The runtime's own `unitsText(cfg, selection, "customer")`: parts joined by " + ", then
+   * " || Commande : " and the order choices (the grammar guarantees neither appears inside a label).
+   */
+  units: string;
+  /** the runtime's total, cents (the bridge never prices) */
+  total: number;
+  customer: { name: string; phone: string; city?: string; address?: string; note?: string; email?: string };
+}
+
+const SEGMENT = " || Commande : ";
+const clip = (v: unknown, max: number) =>
+  String(v ?? "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+
+/** Pieces a part stands for: its "n × " count (after a marker), else 1. */
+function partCount(part: string): number {
+  const m = /^(?:\[[A-Z]+\] )?(\d{1,3}) (?:× |pièces?$)/.exec(part);
+  return m ? Number(m[1]) : 1;
+}
+
 /**
- * The bridge (ES2017, no dependencies, ~2.5 KB). Landing page: intercepts the order POST, opens
- * WhatsApp with the composed message and answers { ok, orderId, total, currency }. Thank-you page:
- * shows the floating "open WhatsApp again" card for the order that was just placed.
+ * The WhatsApp order message (§G.5), formatted from what the runtime computed (no pricing here; it is
+ * in the parity corpus): one bullet per part of the order text, the gift and the order choices on
+ * their own lines, the total, then the customer. French puts a space before the colon. When the link
+ * would be too long, unit bullets are dropped from the end and replaced by "… (+n articles)".
+ * The export bridge (WA_BRIDGE_JS) implements the same steps.
  */
-export const WA_BRIDGE_JS = String.raw`(function(){"use strict";
-var d=document,w=window,KEY="lp-wa",NB=String.fromCharCode(160);
-function data(id){var el=d.getElementById(id);if(!el)return null;try{return JSON.parse(el.textContent||"")}catch(e){return null}}
-var wa=data("lp-wa"),cfg=data("lp-config");
-if(!wa||wa.v!==1||!cfg||!wa.labels)return;
-var L=wa.labels;
-function clean(v,max){return String(v==null?"":v).replace(/[\u0000-\u001f\u007f]+/g," ").replace(/\s+/g," ").trim().slice(0,max)}
-function r2(n){return Math.round(n*100)/100}
-function money(n){var m=cfg.money||{},v=r2(isFinite(n)?n:0),dd=Math.max(0,Math.min(3,Math.floor(m.decimals)||0));if(dd===0&&Math.round(v*100)%100!==0)dd=2;var o={minimumFractionDigits:dd,maximumFractionDigits:dd},s;if(String(m.locale||"").indexOf("-nu-")<0)o.numberingSystem="latn";try{s=new Intl.NumberFormat(m.locale||"en",o).format(v)}catch(e){s=v.toFixed(dd)}var y=m.symbol||"";if(!y)return s;if(m.position==="before")return y+(y.length>1?NB:"")+s;return s+NB+y}
-function find(list,id){for(var i=0;list&&i<list.length;i++)if(list[i].id===id)return list[i];return null}
-function unitText(choice,shared){var out=[];for(var i=0;i<(cfg.variants||[]).length;i++){var g=cfg.variants[i],src=g.perUnit?choice:shared,o=find(g.options,src&&src[g.id]);if(o)out.push(o.label)}return out.join("/")}
-function variantText(list){var n=Object.create(null),keys=[],out=[];for(var i=0;list&&i<list.length;i++){var t=unitText(list[i],list[0]);if(!t)continue;if(!n[t]){n[t]=0;keys.push(t)}n[t]++}for(var j=0;j<keys.length;j++)out.push(n[keys[j]]>1?n[keys[j]]+" × "+keys[j]:keys[j]);return out.join(" + ")}
-function shown(name,value){var f=d.getElementById("order-form"),el=f&&f.querySelector('select[name="'+name+'"]');if(el&&el.selectedIndex>=0&&el.options[el.selectedIndex].value===value)return clean(el.options[el.selectedIndex].text,80);return clean(value,240)}
-function newId(){var A="0123456789ABCDEFGHJKMNPQRSTVWXYZ",b=new Uint8Array(6),s="";if(w.crypto&&w.crypto.getRandomValues)w.crypto.getRandomValues(b);else for(var i=0;i<6;i++)b[i]=Math.floor(Math.random()*256);for(var j=0;j<6;j++)s+=A.charAt(b[j]%32);return"WA-"+s}
-function line(label,value){return value?label+": "+value:""}
-function compose(p,id){var b=find(cfg.bundles,p.bundleId);if(!b)return null;var bump=!!(p.bump&&cfg.bump),total=r2(r2(b.total+(bump?cfg.bump.price:0))+(cfg.shippingFee||0));
-var top=["*"+L.order+"* · "+L.ref+" "+id,line(L.product,clean(cfg.product&&cfg.product.name,120)),line(L.pack,clean(b.label,120)),line(L.options,variantText(p.variants)),bump?line(L.extra,clean(cfg.bump.title,80)):"","*"+L.total+": "+money(total)+"* ("+L.cod+")"];
-var who=[line(L.name,clean(p.name,80)),line(L.phone,clean(p.phone,24)),line(L.city,p.city?shown("city",p.city):""),line(L.address,clean(p.address,240)),line(L.note,clean(p.note,300)),line(L.email,clean(p.email,120))];
-function keep(a){var o=[];for(var i=0;i<a.length;i++)if(a[i])o.push(a[i]);return o.join("\n")}
-return{text:keep(top)+"\n\n"+keep(who),total:total}}
-var IAB=/FBAN|FBAV|FB_IAB|Instagram|Line\/|TikTok|musical_ly|Bytedance|Snapchat|; wv\)/i;
-function openWa(href){try{var t=w.open("","_blank");if(!t)return false;try{t.opener=null}catch(e){}t.location.href=href;return true}catch(e){return false}}
-if(cfg.page==="landing"){
-var native=w.fetch;if(typeof native!=="function"||typeof w.Response!=="function")return;
-w.fetch=function(input,init){var url=typeof input==="string"?input:input&&input.url;if(url!==wa.endpoint)return native.apply(w,arguments);
-try{var p=JSON.parse(String(init&&init.body||"{}")),id=newId(),m=compose(p,id);if(!m)return Promise.resolve(new w.Response(JSON.stringify({ok:false,error:"invalid",fields:{bundleId:"invalid"}}),{status:422,headers:{"content-type":"application/json"}}));
-var href="https://wa.me/"+wa.number+"?text="+encodeURIComponent(m.text),opened=IAB.test(navigator.userAgent||"")?false:openWa(href),stored=false;
-try{w.sessionStorage.setItem(KEY,JSON.stringify({orderId:id,href:href,opened:opened,ts:Date.now()}));stored=true}catch(e){}
-if(!opened&&!stored){w.location.href=href;return new Promise(function(){})}
-return Promise.resolve(new w.Response(JSON.stringify({ok:true,orderId:id,total:m.total,currency:cfg.currency}),{status:200,headers:{"content-type":"application/json"}}))}catch(e){return Promise.reject(e)}};
-return}
-if(cfg.page!=="thanks")return;
-var rec=null;try{rec=JSON.parse(w.sessionStorage.getItem(KEY)||"null")}catch(e){}
-var q=/[?&]o=([A-Za-z0-9-]{4,40})/.exec(w.location.search);
-if(!rec||!q||rec.orderId!==q[1]||typeof rec.href!=="string"||rec.href.indexOf("https://wa.me/"+wa.number+"?text=")!==0)return;
-function el(tag,cls,text){var e=d.createElement(tag);if(cls)e.className=cls;if(text)e.textContent=text;return e}
-var title=rec.opened?L.cardTitle:L.cardTitleNow,box=el("aside","lp-wa-cta");box.setAttribute("aria-label",title);if(!rec.opened)box.setAttribute("data-attention","");
-var body=el("div","lp-wa-cta__body");body.appendChild(el("p","lp-wa-cta__title",title));body.appendChild(el("p","lp-wa-cta__text",L.cardText));
-var a=el("a","lp-wa-cta__btn");a.href=rec.href;a.target="_blank";a.rel="noopener noreferrer";
-var NS="http://www.w3.org/2000/svg",svg=d.createElementNS(NS,"svg"),path=d.createElementNS(NS,"path");svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");svg.setAttribute("class","lp-wa-cta__icon");
-path.setAttribute("d","M12 2.2a9.7 9.7 0 0 0-8.4 14.6L2.3 21.7l5-1.3A9.7 9.7 0 1 0 12 2.2Zm0 1.8a7.9 7.9 0 1 1-4.1 14.7l-.3-.2-2.9.8.8-2.8-.2-.3A7.9 7.9 0 0 1 12 4Zm-3.3 4.2c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.7s1.2 3.1 1.3 3.4c.2.2 2.3 3.6 5.6 4.9 2.8 1.1 3.3.9 3.9.8.6-.1 2-.8 2.2-1.6.3-.8.3-1.4.2-1.6-.1-.1-.3-.2-.6-.4l-2-1c-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.6-.7-.6h-.6Z");
-svg.appendChild(path);a.appendChild(svg);a.appendChild(el("span","",L.cardButton));
-a.addEventListener("click",function(){box.removeAttribute("data-attention");try{rec.opened=true;w.sessionStorage.setItem(KEY,JSON.stringify(rec))}catch(e){}});
-box.appendChild(body);box.appendChild(a);d.body.appendChild(box);
-})();`;
+export function composeWaMessage(input: WaOrderInput, labels: WaLabels, opts: { locale: Locale; money: (cents: number) => string }): { text: string; dropped: number } {
+  const sep = opts.locale === "fr" ? " : " : ": ";
+  const line = (label: string, value: string) => (value ? `${label}${sep}${value}` : "");
+  const at = input.units.indexOf(SEGMENT);
+  const head = (at >= 0 ? input.units.slice(0, at) : input.units).trim();
+  const seg = at >= 0 ? input.units.slice(at + SEGMENT.length).trim() : "";
+
+  const units: { bullet: string; n: number }[] = [];
+  const fixed: string[] = [];
+  for (const part of head ? head.split(" + ") : []) {
+    if (part.startsWith("CADEAU : ")) fixed.push(`• ${labels.gift}${sep}${part.slice(9)}`);
+    else if (part.startsWith("[AJOUT] ") || part.startsWith("[UPSELL] ")) fixed.push(`• ${labels.extra} · ${part.slice(part.indexOf(" ") + 1)}`);
+    else if (part.startsWith("[OFFERT] ")) units.push({ bullet: `• ${labels.free} · ${part.slice(9)}`, n: partCount(part) });
+    else units.push({ bullet: `• ${part}`, n: partCount(part) });
+  }
+  // "(+15)" after an order choice becomes "(+15 DH)"
+  const choices = seg
+    .split("; ")
+    .map((x) => x.replace(/ \(\+(\d+(?:\.\d{1,2})?)\)$/, (_m, n: string) => ` (+${opts.money(Math.round(Number(n) * 100))})`))
+    .join("; ");
+
+  const build = (kept: readonly { bullet: string }[], more: number) => {
+    const top = [
+      `*${labels.order}* · ${labels.ref} ${input.orderId}`,
+      line(labels.product, clip(input.product, 120)),
+      line(labels.pack, clip(input.pack, 120)),
+      ...kept.map((u) => u.bullet),
+      ...(more > 0 ? [`• … (${labels.more.replace("{n}", String(more))})`] : []),
+      ...fixed,
+      choices ? line(labels.choices, choices) : "",
+      `*${labels.total}${sep}${opts.money(input.total)}* (${labels.cod})`,
+    ];
+    const c = input.customer;
+    const who = [
+      line(labels.name, clip(c.name, 80)),
+      line(labels.phone, clip(c.phone, 24)),
+      line(labels.city, clip(c.city, 80)),
+      line(labels.address, clip(c.address, 240)),
+      line(labels.note, clip(c.note, 300)),
+      line(labels.email, clip(c.email, 120)),
+    ];
+    return `${top.filter(Boolean).join("\n")}\n\n${who.filter(Boolean).join("\n")}`;
+  };
+
+  let kept = units.length;
+  let more = 0;
+  let text = build(units, 0);
+  while (encodeURIComponent(text).length > WA_URL_MAX && kept > 0) {
+    kept--;
+    more = units.slice(kept).reduce((n, u) => n + u.n, 0);
+    text = build(units.slice(0, kept), more);
+  }
+  return { text, dropped: more };
+}
+
+/**
+ * The bridge: the "whatsapp" runtime chunk, built from src/landing/runtime/entry-whatsapp.ts (es2019,
+ * minified) by scripts/build-landing-assets.mjs. Landing page: intercepts the order POST, formats the
+ * runtime's own total and units text with composeWaMessage (above), opens WhatsApp and answers
+ * { ok, orderId, total, currency }. Thank-you page: shows the floating "open WhatsApp again" card for
+ * the order that was just placed.
+ */
+export const WA_BRIDGE_JS: string = runtimeChunks.whatsapp;
 
 /** Floating glass card of the thank-you page (theme tokens, logical properties, reduced motion). */
 export const WA_CARD_CSS = [

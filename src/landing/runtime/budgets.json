@@ -1,0 +1,12 @@
+{
+  "//": "gzip -9 bytes per runtime chunk, measured 2026-10-17 (docs/OFFERS.md §F.9); render-check fails above budget + 5%. page = the heaviest product page's scripts in one document (pixels + turnstile + every feature chunk + landing): the page cap that replaces DESIGN §10's 20 KB.",
+  "landing": 24200,
+  "thanks": 6650,
+  "pixels": 3900,
+  "turnstile": 1300,
+  "units-matrix": 2200,
+  "units-fields": 1000,
+  "fill-steps-box": 1750,
+  "whatsapp": 5800,
+  "page": 32000
+}

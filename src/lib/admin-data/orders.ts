@@ -6,8 +6,13 @@ import "server-only";
 import { and, count, eq, gte, isNull, lt, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { blocklist, leads, orders } from "@/lib/db/schema";
-import { getOrder, isOrderStatus, type OrderFilters, type OrderRecord } from "@/lib/orders";
-import { variantText, type OrderStatus } from "@/lib/orders/contract";
+import { orderView, type OrderView, type SwatchOf } from "@/components/admin/orders/parts";
+import type { OrderItems } from "@/lib/db/schema";
+import { getOrder, isOrderStatus, versionDoc, type OrderFilters, type OrderRecord } from "@/lib/orders";
+import type { OrderStatus } from "@/lib/orders/contract";
+import { optionText, sanitizeLabel } from "@/lib/orders/text";
+import { isChoiceGroup, isMatrixGroup, type PageDoc } from "@/lib/page/schema";
+import { orderTextOf } from "@/lib/sheets/row";
 import { addDays, dayKey, dayStart, isDay } from "./time";
 
 export type RangeKey = "today" | "7d" | "30d" | "90d" | "all" | "custom";
@@ -125,7 +130,7 @@ export interface OrderRow {
   city: string | null;
   productName: string;
   bundleLabel: string;
-  /** chosen product options in one line ("2 × Noir/M + Beige/L"), "" without options */
+  /** what the order contains in one line, customer wording ("1 × Jour + 1 × Nuit", "2 × Noir/M + Beige/L"); "" when there is nothing to say */
   options: string;
   qty: number;
   total: number;
@@ -147,7 +152,7 @@ export function toOrderRow(o: OrderRecord & { pageName: string | null }): OrderR
     city: o.city,
     productName: o.productName,
     bundleLabel: o.items?.bundleLabel ?? "",
-    options: variantText(o.items?.variants),
+    options: orderTextOf(o.items, { mode: "customer", max: 240 }),
     qty: o.qty,
     total: Number(o.total),
     currency: o.currency,
@@ -174,7 +179,15 @@ export interface OrderDetailJson extends OrderRow {
     variants: Record<string, string>[];
     bump: { title: string; price: number } | null;
     upsell: { title: string; price: number } | null;
+    /** v2 rows: the offer price, Σ surcharges, and what added money */
+    price: number | null;
+    deltas: number | null;
+    reasons: { label: string; count: number; amount: number }[];
   };
+  /** the pieces, grouped (§G.4 drawer): items, options, typed values, gift, bump, upsell, order choices */
+  view: OrderView;
+  /** the Variante cell the warehouse gets (codes, markers) */
+  warehouseText: string;
   utm: Record<string, string>;
   ref: string | null;
   sheetAttempts: number;
@@ -202,9 +215,14 @@ export async function orderDetailJson(id: string): Promise<OrderDetailJson | nul
       qty: o.items.qty,
       unitPrice: Number(o.items.unitPrice),
       variants: o.items.variants ?? [],
-      bump: o.items.bump ?? null,
-      upsell: o.items.upsell ?? null,
+      bump: o.items.bump ? { title: o.items.bump.title, price: o.items.bump.price } : null,
+      upsell: o.items.upsell ? { title: o.items.upsell.title, price: o.items.upsell.price } : null,
+      price: typeof o.items.price === "number" ? o.items.price : null,
+      deltas: typeof o.items.deltas === "number" ? o.items.deltas : null,
+      reasons: o.items.reasons ?? [],
     },
+    view: orderView(o.items, { swatchOf: await swatches(o.versionId, o.items) }),
+    warehouseText: orderTextOf(o.items, { mode: "warehouse", orderId: o.id }),
     utm: o.utm ?? {},
     ref: o.ref,
     sheetAttempts: o.sheetAttempts,
@@ -223,6 +241,40 @@ export async function orderDetailJson(id: string): Promise<OrderDetailJson | nul
   };
 }
 
+/**
+ * Swatch colours of the options an order shows, read from the version it was validated against
+ * (best effort: a snapshot label is matched back to its option; no version → no dots).
+ */
+async function swatches(versionId: string | null, items: OrderItems): Promise<SwatchOf | undefined> {
+  if (!versionId || !(items.units?.length || items.variants?.length || items.bump?.unit)) return undefined;
+  const doc = await versionDoc(versionId).catch(() => null);
+  return doc ? swatchesOf(doc) : undefined;
+}
+
+export function swatchesOf(doc: Pick<PageDoc, "items">): SwatchOf {
+  const byId = new Map(doc.items.map((it) => [it.id, it]));
+  return (unit, option) => {
+    const item = byId.get(unit.item) ?? (unit.item === "main" ? doc.items[0] : undefined);
+    if (!item) return undefined;
+    for (const g of item.groups) {
+      if (sanitizeLabel(g.name) !== option.name) continue;
+      if (isChoiceGroup(g)) {
+        const o = g.options.find((x) => optionText(g.name, x.label) === option.value);
+        if (o?.swatch) return o.swatch;
+      } else if (isMatrixGroup(g)) {
+        const parts = option.value.split("/");
+        if (parts.length !== g.dims.length) continue;
+        for (let i = 0; i < g.dims.length; i++) {
+          const d = g.dims[i]!;
+          const v = d.values.find((x) => optionText(d.name, x.label) === parts[i]);
+          if (v?.swatch) return v.swatch;
+        }
+      }
+    }
+    return undefined;
+  };
+}
+
 export interface LeadRow {
   id: string;
   createdAt: string;
@@ -230,11 +282,23 @@ export interface LeadRow {
   phone: string;
   city: string | null;
   bundleId: string | null;
+  /** warehouse text of what the visitor had chosen (v2 runtimes), else null */
+  selection: string | null;
   pageName: string | null;
   utmSource: string | null;
 }
 
-export function toLeadRow(l: { id: string; createdAt: Date; name: string | null; phone: string; city: string | null; bundleId: string | null; pageName: string | null; utm: Record<string, string> | null }): LeadRow {
+export function toLeadRow(l: {
+  id: string;
+  createdAt: Date;
+  name: string | null;
+  phone: string;
+  city: string | null;
+  bundleId: string | null;
+  selection?: string | null;
+  pageName: string | null;
+  utm: Record<string, string> | null;
+}): LeadRow {
   return {
     id: l.id,
     createdAt: l.createdAt.toISOString(),
@@ -242,6 +306,7 @@ export function toLeadRow(l: { id: string; createdAt: Date; name: string | null;
     phone: l.phone,
     city: l.city,
     bundleId: l.bundleId,
+    selection: l.selection ?? null,
     pageName: l.pageName,
     utmSource: l.utm?.source ?? null,
   };

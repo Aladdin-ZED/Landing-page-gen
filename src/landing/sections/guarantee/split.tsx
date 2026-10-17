@@ -9,7 +9,8 @@
  * stands alone under the heading and the promises run side by side.
  */
 import type { ReactElement } from "react";
-import { defaultBundleId } from "@/lib/page/pricing";
+import { fromCents } from "@/lib/page/pricing";
+import { defaultOfferView } from "@/landing/offers/model";
 import { Icon, Picture, SectionHeader, cx, reveal } from "@/landing/primitives";
 import { maskOf, pageShape, placeOverlay, shapeFor, type Spot, type SpotOptions } from "../story/fit";
 import { UI, langOf } from "./copy";
@@ -26,7 +27,8 @@ const SEAM: readonly Spot[] = ["xs", "xc", "xe"];
 export function Split({ ctx, data, titleId }: ViewProps): ReactElement {
   const lines = promiseLines(data);
   const photo = pickPhoto(ctx, data);
-  const bundle = ctx.offers.bundles.find((b) => b.id === defaultBundleId(ctx.offers));
+  // the default offer's card price (`from`, docs/OFFERS.md §B.2); the runtime keeps it live
+  const bundle = defaultOfferView(ctx);
   const ui = UI[langOf(ctx.locale)];
   // landscape shots keep a landscape frame (a portrait crop would cut the product in half); one
   // frame at every width, so the crop and the chip's spot hold from phone to desktop
@@ -106,7 +108,7 @@ export function Split({ ctx, data, titleId }: ViewProps): ReactElement {
                   <span className="lp-guarantee__chip-txt">
                     {/* the runtime rewrites this text when the shopper picks another bundle */}
                     <bdi className="lp-guarantee__chip-price" data-lp-price="current">
-                      {ctx.money(bundle.price)}
+                      {ctx.money(fromCents(bundle.math.from))}
                     </bdi>
                     <span className="lp-guarantee__chip-note">{ui.atDoor}</span>
                   </span>

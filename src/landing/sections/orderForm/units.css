@@ -1,0 +1,955 @@
+/* ==========================================================================
+   Personalization — units (docs/OFFERS.md §F.1–F.5; markup: units.tsx)
+   One sheet per unit (the .lp-vrow sheet of the option pickers), its head ("Pièce 2", "Rose · 2",
+   "Au choix · 1") with the "Offert" chip, the "= pièce 1" tag, the collapsed summary and
+   "Modifier"; the item chooser (photo chips), locked values as static chips, linked matrix dims,
+   typed fields with a live counter; four layouts on the container's data-fill:
+     inline  compact rows inside the selected card (stack / ticket rows, the pills panel)
+     rows    one sheet per unit, all visible
+     steps   a strip of unit chips + one panel, Suivant / Précédent
+     box     a tray of N tiles ("build your box"), the tapped tile's panel below
+   Logical properties only (RTL mirrors), every target ≥ 44px, tokens only (no orange).
+   ========================================================================== */
+.lp-units {
+  display: grid;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+.lp-units__list {
+  display: grid;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+.lp-unit[hidden],
+.lp-ushared[hidden],
+.lp-uextra[hidden],
+.lp-bump-wrap[hidden] {
+  display: none;
+}
+
+/* --- unit head ------------------------------------------------------------ */
+.lp-unit__head {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.35rem 0.55rem;
+}
+
+.lp-unit__n {
+  min-inline-size: 0;
+}
+
+.lp-unit__free,
+.lp-unit__tag {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 1.5rem;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-size: calc(var(--lp-step--1) * 0.82 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.lp-unit__free {
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-unit:not([data-free]) > .lp-unit__head > .lp-unit__free {
+  display: none;
+}
+
+.lp-unit__tag {
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-ink-soft);
+  font-variant-numeric: lining-nums;
+}
+
+.lp-unit__tag[hidden] {
+  display: none;
+}
+
+/* a complete unit collapsed (runtime: data-collapsed): "Pièce 2 · Noir / M" + Modifier */
+.lp-unit__sum {
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--sec-ink);
+  font-size: calc(var(--lp-step--1) * 0.98 * var(--lp-script-scale));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-unit__sum:empty {
+  display: none;
+}
+
+.lp-unit__edit {
+  position: relative;
+  flex: none;
+  margin-inline-start: auto;
+  min-block-size: 2.25rem;
+  padding-inline: 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-ink);
+  font: inherit;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow var(--lp-dur-s) var(--lp-ease), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-unit__edit::after {
+  content: "";
+  position: absolute;
+  inset: -0.25rem -0.125rem;
+}
+
+.lp-unit__edit[hidden] {
+  display: none;
+}
+
+@media (hover: hover) {
+  .lp-unit__edit:hover {
+    box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
+  }
+}
+
+.lp-unit__edit:active {
+  scale: 0.97;
+}
+
+.lp-unit__edit:focus-visible {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 2px;
+}
+
+.lp-unit[data-collapsed] > .lp-unit__in {
+  display: none;
+}
+
+.lp-unit[data-collapsed] {
+  padding-block-end: 0.75rem;
+}
+
+.lp-unit__in {
+  display: grid;
+  gap: 1rem;
+  min-inline-size: 0;
+}
+
+.lp-unit__in:empty {
+  display: none;
+}
+
+/* a unit prefilled from piece 1 reads calmer until touched */
+.lp-unit[data-prefilled] {
+  background: color-mix(in oklab, var(--mx-field) 60%, var(--sec-card));
+}
+
+/* the shared groups of an item: "Pour vos 3 T-shirts" */
+.lp-ushared .lp-vrow__n {
+  color: var(--sec-ink);
+}
+
+/* --- locked value: a static chip, never a control ---------------------------- */
+.lp-vg--lock .lp-vg__head {
+  margin-block-end: 0.5rem;
+}
+
+.lp-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 2.5rem;
+  padding: 0.35em 0.85em 0.35em 0.45em;
+  border-radius: 999px;
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-card-ink);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.lp-lock__sw,
+.lp-lock__pic {
+  flex: none;
+  inline-size: 1.6rem;
+  block-size: 1.6rem;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.lp-lock__sw {
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sec-ink) 20%, transparent);
+}
+
+.lp-lock:not(:has(.lp-lock__sw, .lp-lock__pic)) {
+  padding-inline-start: 0.85em;
+}
+
+.lp-lock__ico {
+  inline-size: 0.9rem;
+  block-size: 0.9rem;
+  fill: none;
+  stroke: var(--sec-ink-soft);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- surcharges on options ("XL +20 DH") ------------------------------------ */
+.lp-vo__txt {
+  display: inline-grid;
+  justify-items: center;
+  gap: 0.05rem;
+}
+
+.lp-vo__delta {
+  font-size: 0.74em;
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.1;
+  opacity: 0.78;
+  white-space: nowrap;
+}
+
+.lp-vo__plus {
+  justify-self: center;
+  margin-block-start: 0.15rem;
+  color: var(--sec-ink-soft);
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* --- matrix (linked): one selector per dim; conflicts struck but selectable ---- */
+.lp-vm {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.lp-vm > .lp-vg__head {
+  display: none;
+}
+
+.lp-vm__dim .lp-vg__head {
+  margin-block-end: 0.5rem;
+}
+
+.lp-vo[data-conflict] .lp-vo__face {
+  color: var(--sec-ink-soft);
+}
+
+.lp-vo[data-conflict] .lp-vo__face::before,
+.lp-vo[data-conflict] .lp-vo__pic {
+  opacity: 0.55;
+}
+
+.lp-vo[data-none] {
+  cursor: not-allowed;
+}
+
+.lp-vg[data-look="chip"] .lp-vo[data-none] .lp-vo__face {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  color: var(--sec-ink-soft);
+  opacity: 0.6;
+}
+
+.lp-vo[data-none] .lp-vo__face::before,
+.lp-vo[data-none] .lp-vo__pic {
+  opacity: 0.3;
+}
+
+.lp-vm__note {
+  margin: 0;
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * 0.95 * var(--lp-script-scale));
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.lp-vm__note:empty {
+  display: none;
+}
+
+/* native dropdown for long lists (30 shoe sizes) */
+.lp-vsel {
+  display: block;
+  max-inline-size: 20rem;
+}
+
+/* --- item chooser: photo chips (56px photo + short name, "+50 DH") ---------- */
+.lp-vg__opts[data-layout="pick"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.25rem), 1fr));
+  gap: 0.5rem;
+}
+
+.lp-ipick__face {
+  justify-content: flex-start;
+  gap: 0.65rem;
+  inline-size: 100%;
+  min-block-size: 4.25rem;
+  padding: 0.4rem;
+  padding-inline-end: 0.75rem;
+  text-align: start;
+}
+
+.lp-ipick__pic {
+  inline-size: 3.5rem;
+}
+
+.lp-ipick__txt {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+.lp-ipick__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.lp-ipick__txt .lp-vo__delta {
+  justify-self: start;
+  color: var(--sec-ink-soft);
+  opacity: 1;
+}
+
+.lp-ipick__out {
+  color: var(--sec-ink-soft);
+  font-size: 0.74em;
+  font-weight: 600;
+}
+
+.lp-ipick .lp-vo__tick {
+  inset: 0.4rem auto auto 0.4rem;
+  inset-inline: 0.4rem auto;
+  inline-size: 1.2rem;
+  block-size: 1.2rem;
+  margin: 0;
+  padding: 0.2rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 2px var(--sec-card);
+  stroke: var(--sec-accent-ink);
+  stroke-width: 3;
+}
+
+.lp-ipick .lp-vo__in:checked + .lp-vo__face {
+  background: var(--sec-card);
+  box-shadow:
+    inset 0 0 0 2px var(--sec-accent),
+    0 8px 18px -12px var(--mx-btn-2);
+}
+
+.lp-ipick .lp-vo__in:checked + .lp-vo__face .lp-vo__tick {
+  opacity: 1;
+  stroke-dashoffset: 0;
+}
+
+.lp-ipick .lp-vo[data-soldout] .lp-ipick__pic {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+/* --- typed fields (name to print): label + optional price, live counter ----- */
+.lp-vf {
+  min-inline-size: 0;
+}
+
+.lp-vf__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+}
+
+.lp-vf__opt {
+  color: var(--sec-ink-soft);
+  font-weight: 500;
+  font-size: 0.92em;
+}
+
+.lp-vf__wrap {
+  position: relative;
+  display: block;
+}
+
+.lp-vf__in {
+  padding-inline-end: 3.75rem;
+}
+
+.lp-vf__count {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0.9rem;
+  display: grid;
+  place-items: center;
+  color: var(--sec-ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+  pointer-events: none;
+}
+
+.lp-vf__count[data-full] {
+  color: var(--sec-ink);
+}
+
+/* --- inline: compact rows inside the selected card ----------------------------
+   The container follows the selected card in the picker grid (a sibling, never inside its <label>):
+   a sheet joined to the card by a small pointer, one compact row per unit. */
+.lp-units--inline {
+  --ui-r: max(calc(var(--pk-R, 1rem) - 0.15rem), 0.75rem);
+  position: relative;
+  gap: 0.6rem;
+  margin-block-start: -0.35rem;
+  padding: 0.9rem;
+  border-radius: var(--ui-r);
+  corner-shape: var(--lp-corner);
+  background: var(--mx-field);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-units--inline::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -0.4rem;
+  inset-inline-start: 1.75rem;
+  inline-size: 0.8rem;
+  block-size: 0.8rem;
+  background: inherit;
+  box-shadow: inset 1px 1px 0 var(--mx-hair);
+  rotate: 45deg;
+  border-start-start-radius: 0.15rem;
+}
+
+[dir="rtl"] .lp-units--inline::before {
+  box-shadow: inset -1px 1px 0 var(--mx-hair);
+  rotate: -45deg;
+}
+
+.lp-packs--tiers > .lp-units--inline,
+.lp-packs--visual > .lp-units--inline,
+.lp-packs--ticket > .lp-units--inline {
+  grid-column: 1 / -1;
+}
+
+.lp-units--inline .lp-units__list {
+  gap: 0.5rem;
+}
+
+.lp-units--inline .lp-unit {
+  padding: 0.55rem 0.75rem 0.75rem;
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-units--inline .lp-unit__head {
+  min-block-size: 2rem;
+}
+
+.lp-units--inline .lp-unit__in {
+  gap: 0.7rem;
+}
+
+.lp-units--inline .lp-vg__head {
+  margin-block-end: 0.4rem;
+}
+
+/* a single unit: no inner sheet, the groups sit on the panel */
+.lp-units--inline[data-units="1"] .lp-unit {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+@container of (min-width: 34rem) {
+  .lp-units--inline .lp-unit:not([data-choice]) {
+    grid-template-columns: minmax(6.5rem, auto) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 1rem;
+  }
+
+  .lp-units--inline .lp-unit:not([data-choice]) > .lp-unit__head {
+    padding-block-start: 0.35rem;
+  }
+
+  .lp-units--inline[data-units="1"] .lp-unit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.lp-packs--pills > .lp-units--inline::before {
+  inset-inline-start: 50%;
+}
+
+/* --- steps: a strip of unit chips + one panel -------------------------------- */
+.lp-usteps {
+  display: flex;
+  gap: 0.45rem;
+  margin-inline: -0.25rem;
+  padding: 0.25rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.lp-usteps::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-ustep {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  padding: 0;
+  border: 0;
+  border-radius: calc(max(var(--lp-radius-s), 0.75rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-ink);
+  cursor: pointer;
+  transition: box-shadow var(--lp-dur-m) var(--lp-smooth), background-color var(--lp-dur-s) var(--lp-ease), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-ustep__pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-ustep__pic > .lp-ithumb {
+  position: absolute;
+  inset: 0.3rem;
+  inline-size: auto;
+  opacity: 0.9;
+}
+
+.lp-ustep__n {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-inline-size: 1.35rem;
+  block-size: 1.35rem;
+  padding-inline: 0.25rem;
+  border-radius: 999px;
+  background: var(--sec-card);
+  font-size: 0.78rem;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+}
+
+.lp-ustep__pic:has(> .lp-ithumb) > .lp-ustep__n {
+  position: absolute;
+  inset-block-end: -0.2rem;
+  inset-inline-end: -0.2rem;
+  box-shadow: 0 0 0 1px var(--mx-line);
+}
+
+.lp-ustep__tick {
+  position: absolute;
+  inset-block-start: -0.3rem;
+  inset-inline-end: -0.3rem;
+  z-index: 2;
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  padding: 0.18rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  box-shadow: 0 0 0 2px var(--sec-card);
+  fill: none;
+  stroke: var(--sec-accent-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  scale: 0.5;
+  transition: opacity var(--lp-dur-s) var(--lp-ease), scale var(--lp-dur-m) var(--lp-spring-pop);
+}
+
+.lp-ustep[data-done] .lp-ustep__tick {
+  opacity: 1;
+  scale: 1;
+}
+
+.lp-ustep__err {
+  position: absolute;
+  inset-block-start: -0.15rem;
+  inset-inline-start: -0.15rem;
+  inline-size: 0.6rem;
+  block-size: 0.6rem;
+  border-radius: 50%;
+  background: var(--sec-danger);
+  box-shadow: 0 0 0 2px var(--sec-card);
+  opacity: 0;
+}
+
+.lp-ustep[data-error] .lp-ustep__err {
+  opacity: 1;
+}
+
+.lp-ustep[aria-current="step"] {
+  box-shadow:
+    inset 0 0 0 2px var(--sec-accent),
+    0 0 0 3px var(--mx-tint);
+}
+
+@media (hover: hover) {
+  .lp-ustep:not([aria-current="step"]):hover {
+    box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
+  }
+}
+
+.lp-ustep:active {
+  scale: 0.96;
+}
+
+.lp-ustep:focus-visible,
+.lp-uslot:focus-visible,
+.lp-unav__b:focus-visible {
+  outline: 2px solid var(--sec-ink);
+  outline-offset: 2px;
+}
+
+.lp-unav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lp-unav__b {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-block-size: 2.75rem;
+  padding-inline: 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+  color: var(--sec-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow var(--lp-dur-s) var(--lp-ease), background-color var(--lp-dur-s) var(--lp-ease), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-unav__b svg {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[dir="rtl"] .lp-unav__b svg {
+  scale: -1 1;
+}
+
+.lp-unav__b--next {
+  margin-inline-start: auto;
+  background: var(--sec-ink);
+  box-shadow: none;
+  color: var(--sec-bg);
+}
+
+.lp-unav__b:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lp-unav__b:not(:disabled):active {
+  scale: 0.97;
+}
+
+/* --- box: a tray of N tiles, the tapped tile's panel below ------------------- */
+.lp-ubox {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr));
+  gap: 0.5rem;
+}
+
+.lp-uslot {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sec-ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.lp-uslot__face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  aspect-ratio: 1;
+  border-radius: calc(max(var(--lp-radius-m), 0.9rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: color-mix(in oklab, var(--sec-accent) 6%, var(--sec-card));
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+  overflow: hidden;
+  transition: box-shadow var(--lp-dur-m) var(--lp-smooth), scale var(--lp-dur-m) var(--lp-spring);
+}
+
+.lp-uslot__plus {
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+  fill: none;
+  stroke: var(--sec-accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.lp-uslot__pic {
+  position: absolute;
+  inset: 0;
+}
+
+.lp-uslot__pic:empty {
+  display: none;
+}
+
+.lp-uslot__pic > .lp-pic {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-uslot__dot {
+  position: absolute;
+  inset-block-end: 0.4rem;
+  inset-inline-end: 0.4rem;
+  inline-size: 0.8rem;
+  block-size: 0.8rem;
+  border-radius: 50%;
+  background: var(--sw, transparent);
+  box-shadow: 0 0 0 2px var(--sec-card);
+}
+
+.lp-uslot__dot:not([style]) {
+  display: none;
+}
+
+.lp-uslot__tick {
+  position: absolute;
+  inset-block-start: 0.35rem;
+  inset-inline-end: 0.35rem;
+  inline-size: 1.2rem;
+  block-size: 1.2rem;
+  padding: 0.18rem;
+  border-radius: 50%;
+  background: var(--sec-accent);
+  fill: none;
+  stroke: var(--sec-accent-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.lp-uslot[data-done] .lp-uslot__tick {
+  opacity: 1;
+}
+
+.lp-uslot[data-done] .lp-uslot__plus {
+  display: none;
+}
+
+.lp-uslot[aria-expanded="true"] .lp-uslot__face {
+  box-shadow:
+    inset 0 0 0 2px var(--sec-accent),
+    0 0 0 3px var(--mx-tint);
+}
+
+.lp-uslot[data-error] .lp-uslot__face {
+  box-shadow: inset 0 0 0 1.5px var(--sec-danger);
+}
+
+@media (hover: hover) {
+  .lp-uslot:not([aria-expanded="true"]):hover .lp-uslot__face {
+    box-shadow: inset 0 0 0 1px var(--sec-ink-soft);
+  }
+}
+
+.lp-uslot:active .lp-uslot__face {
+  scale: 0.96;
+}
+
+.lp-uslot__n {
+  max-inline-size: 100%;
+  overflow: hidden;
+  font-size: calc(var(--lp-step--1) * 0.86 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-uslot[aria-expanded="true"] .lp-uslot__n {
+  color: var(--sec-ink);
+}
+
+/* --- "Contenu du pack": what an offer with nothing to fill holds -------------- */
+.lp-ucontents {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem 1rem;
+  border-radius: calc(max(var(--lp-radius-m), 0.875rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--mx-field);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-ucontents:not([data-selected]) {
+  display: none;
+}
+
+/* the units of the selected offer and its contents never show together (the runtime empties the list) */
+.lp-units:has(.lp-units__list > .lp-unit) > .lp-ucontents {
+  display: none;
+}
+
+.lp-ucontents__k {
+  margin: 0;
+  font-family: var(--lp-font-label, var(--lp-font-body));
+  font-size: var(--of-lab);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: var(--lp-label-tracking);
+  text-transform: var(--lp-label-case);
+  color: var(--sec-ink-soft);
+}
+
+.lp-ucontents__list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-ucontents__i {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-inline-size: 0;
+}
+
+.lp-ucontents__i > .lp-ithumb {
+  inline-size: 2.75rem;
+}
+
+.lp-ucontents__t {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-inline-size: 0;
+  font-weight: 600;
+}
+
+.lp-ucontents__q {
+  color: var(--sec-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- extras and the bump item's options -------------------------------------- */
+.lp-uextras {
+  display: grid;
+  gap: 1rem;
+}
+
+.lp-of__extras {
+  display: grid;
+}
+
+.lp-bump-wrap {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.lp-bump__opts {
+  padding: 0.85rem 1rem 1rem;
+  border-radius: calc(max(var(--lp-radius-m), 0.875rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--mx-field);
+  box-shadow: inset 0 0 0 1px var(--mx-hair);
+}
+
+.lp-bump__opts[hidden] {
+  display: none;
+}
+
+/* --- summary: surcharge reasons and the stale notice --------------------------- */
+.lp-sum__row--reasons:has(> .lp-sum__reasons:empty),
+.lp-sum__row--stale[hidden] {
+  display: none;
+}
+
+.lp-sum__reasons {
+  display: grid;
+  flex: 1;
+  gap: 0.2rem;
+  min-inline-size: 0;
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * 0.96 * var(--lp-script-scale));
+}
+
+.lp-of__stale {
+  flex: 1;
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: calc(max(var(--lp-radius-s), 0.6rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: color-mix(in oklab, var(--sec-accent) 9%, var(--sec-card));
+  box-shadow: inset 0 0 0 1px var(--sec-accent);
+  color: var(--sec-ink);
+  font-weight: 600;
+}
+
+.lp-of__stale:empty {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-ustep,
+  .lp-ustep__tick,
+  .lp-uslot__face,
+  .lp-unav__b,
+  .lp-unit__edit {
+    transition: none;
+  }
+}

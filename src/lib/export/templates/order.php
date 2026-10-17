@@ -5,17 +5,24 @@
  * Requirements: PHP 8.1+ (syntax kept 7.3-compatible), ext-json, ext-mbstring; ext-curl + ext-openssl
  * for Google Sheets / Telegram; ext-intl optional (better text normalization).
  *
- * POST (same origin, JSON ≤ 16 KB) → the same OrderResponse JSON as the COD Studio API:
+ * POST (same origin, JSON ≤ 24 KB) → the same OrderResponse JSON as the COD Studio API:
  *   {ok:true, orderId, total, currency}  |  {ok:false, error: invalid|duplicate|rate_limited|unavailable|server, fields?, orderId?}
  *
- *   1. payload checks (same rules as OrderPayload), honeypot → decoy success, timing & user-agent flags
+ *   1. payload checks (same rules as the app's parseOrderPayload: v1 payloads — no "v", "variants" —
+ *      and v2 payloads — "v": 2, units with item / options / typed fields, extras, bump item),
+ *      honeypot → decoy success, timing & user-agent flags
  *   2. file-based rate limits (per IP — IPv6 per /64 —, per phone) and idempotent replays; a page-wide
  *      surge never refuses clean orders, it marks them for review (and refuses only risky ones)
- *   3. totals recomputed from the price table below — what the browser sends is never trusted
+ *   3. the selection validated and priced exactly like the app (docs/OFFERS.md §G.2, §C.3): item
+ *      choosers, options and combinations, line rules, typed fields, order extras, bump; integer
+ *      cents from the page data below — what the browser sends is never trusted
  *   4. the order is appended to cod-private/data/orders.jsonl (your private backup) and, when Google
  *      Sheets is configured, queued for it
  *   5. after the answer: Google Sheets (service account) + optional Telegram message; failed pushes
- *      stay queued and are retried on the next orders (or GET order.php?sync=1)
+ *      stay queued and are retried on the next orders (or GET order.php?sync=1). "Variante" is the
+ *      warehouse order text (codes, [OFFERT] / [AJOUT], « typed values », "|| Commande : …"); the
+ *      columns "SKU", "Articles", "Livraison", "Prix pack" are filled when you add those headers after
+ *      column M (other columns you add are never touched)
  *
  * Counters, replay records and phone markers live in a fixed set of shard files (data/rl, data/idem,
  * data/phones — 256 each, pruned on write), so the number of files never grows with the number of
@@ -33,12 +40,12 @@ declare(strict_types=1);
  */
 const COD_PRIVATE_DIR = '';
 
-/* Generated at export time — prices, packs, variants and form rules of the exported page. */
+/* Generated at export time — items, options, offers, prices (cents) and form rules of the exported page. */
 const COD_SPEC_JSON = <<<'JSON'
 {"v":0}
 JSON;
 
-const COD_MAX_BODY = 16384;
+const COD_MAX_BODY = 24576;
 const COD_DUPLICATE_WINDOW = 43200;
 const COD_REVIEW_SCORE = 50;
 const COD_BOT_UA = '/bot|crawl|spider|curl|wget|python|httpclient|okhttp|java\/|go-http|axios|node-fetch|headless|phantom|selenium|puppeteer|playwright/i';
@@ -63,12 +70,21 @@ const COD_CLOUDFLARE_IPS = [
     '2a06:98c0::/29', '2c0f:f248::/32',
 ];
 const COD_DENY_HTACCESS = "# Private folder of order.php — never served over HTTP\n<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n";
+/* Order texts are capped (Sheets cells); ids and item ids of payloads (= the app's contract). */
+const COD_TEXT_MAX = 1000;
+const COD_ID_RE = '/^[A-Za-z0-9_-]{2,40}$/';
+const COD_ITEM_RE = '/^[a-z0-9][a-z0-9-]{1,23}$/';
+/* JavaScript's \s (and String.prototype.trim) as a PCRE class: text is cleaned exactly like the app. */
+const COD_JS_SPACE = '[\t\n\x{000B}\f\r \x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]';
 
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 error_reporting(E_ALL);
 
-cod_main();
+// COD_TEST: the parity test (scripts/qa/php-parity.ts) loads the functions without serving a request
+if (!defined('COD_TEST')) {
+    cod_main();
+}
 
 /* ------------------------------------------------------------------ */
 /* entry                                                               */
@@ -78,7 +94,7 @@ function cod_main(): void
 {
     $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     $spec = json_decode(COD_SPEC_JSON, true);
-    if (!is_array($spec) || ($spec['v'] ?? 0) !== 1) {
+    if (!is_array($spec) || ($spec['v'] ?? 0) !== 2) {
         cod_respond(500, ['ok' => false, 'error' => 'server']);
         return;
     }
@@ -606,6 +622,15 @@ function cod_len(string $s): int
     return function_exists('mb_strlen') ? mb_strlen($s, 'UTF-8') : (int)preg_match_all('/./us', $s);
 }
 
+/** Length in UTF-16 code units (what the app's zod `.max()` counts). */
+function cod_u16len(string $s): int
+{
+    if (function_exists('mb_convert_encoding')) {
+        return intdiv(strlen((string)mb_convert_encoding($s, 'UTF-16LE', 'UTF-8')), 2);
+    }
+    return cod_len($s);
+}
+
 function cod_cut(string $s, int $max): string
 {
     if (function_exists('mb_substr')) {
@@ -614,8 +639,19 @@ function cod_cut(string $s, int $max): string
     return preg_match('/^.{0,' . $max . '}/us', $s, $m) ? $m[0] : '';
 }
 
+function cod_js_trim(string $s): string
+{
+    return (string)preg_replace('/^' . COD_JS_SPACE . '+|' . COD_JS_SPACE . '+$/u', '', $s);
+}
+
 /** Trim, NFC, drop control & bidi-override characters, collapse whitespace (= cleanInput in the app). */
 function cod_clean($v, int $max): string
+{
+    return cod_cut(cod_clean_text($v), $max);
+}
+
+/** = cleanText (src/lib/page/options.ts): NFC, controls / bidi / zero-width → space, whitespace collapsed, trimmed. */
+function cod_clean_text($v): string
 {
     $s = is_string($v) ? $v : (is_int($v) || is_float($v) ? (string)$v : '');
     if (!preg_match('//u', $s)) {
@@ -626,8 +662,8 @@ function cod_clean($v, int $max): string
         $s = is_string($n) ? $n : $s;
     }
     $s = (string)preg_replace('/[\x{0000}-\x{001F}\x{007F}-\x{009F}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', ' ', $s);
-    $s = trim((string)preg_replace('/\s+/u', ' ', $s));
-    return cod_cut($s, $max);
+    $s = (string)preg_replace('/' . COD_JS_SPACE . '+/u', ' ', $s);
+    return cod_js_trim($s);
 }
 
 /** Customer name: ≥ 2 letters of any script, no digits or symbols. */
@@ -701,170 +737,252 @@ function cod_fold(string $s): string
     return (string)preg_replace('/[\s\'’`\-_.]+/u', '', $s);
 }
 
-/**
- * Option choices (= resolveVariants() in the app): ['units' => [unit => [groupName => optionLabel]]],
- * or ['errors' => [controlName => code]] keyed like the form controls — 'v.<unit>.<groupId>' for a
- * per-unit group, 'v.<groupId>' for a shared one — with 'required' (nothing chosen; a group with a
- * single available option is filled in), 'invalid' (unknown option) or 'unavailable' (sold out).
- */
-function cod_variants(array $spec, int $qty, array $chosen): array
+/* ------------------------------------------------------------------ */
+/* payload (= parseOrderPayload in the app: dispatch on v, no union)   */
+/* ------------------------------------------------------------------ */
+
+function cod_is_list($v): bool
 {
-    $groups = $spec['variants'];
-    if (!$groups) {
-        return ['units' => []];
+    return is_array($v) && ($v === [] || array_keys($v) === range(0, count($v) - 1));
+}
+
+/** A JSON object (record): an array whose keys are not 0..n-1 (an empty array counts as {}). */
+function cod_is_record($v): bool
+{
+    return is_array($v) && ($v === [] || !cod_is_list($v));
+}
+
+/** JSON integer (2 and 2.0 alike, as in JavaScript). */
+function cod_is_int($v): bool
+{
+    return is_int($v) || (is_float($v) && is_finite($v) && floor($v) === $v && abs($v) < 9007199254740992);
+}
+
+/**
+ * One unit of a v2 payload ({ item?, o, f }) → [unit|null, issues]: `$issues` collects
+ * [fieldKey|null, code] like the app's Zod issues (null = no field of its own).
+ */
+function cod_parse_unit($u, string $prefix, bool $withItem): array
+{
+    $issues = [];
+    if (!cod_is_record($u)) {
+        return [null, [[null, 'invalid']]];
     }
-    $units = array_fill(0, $qty, []);
-    $errors = [];
-    $seen = [];
-    foreach ($groups as $g) {
-        if (empty($g['options'])) {
+    $out = ['o' => [], 'f' => []];
+    if ($withItem && array_key_exists('item', $u)) {
+        if (!is_string($u['item']) || !preg_match(COD_ITEM_RE, $u['item'])) {
+            $issues[] = [$prefix . '@item', 'invalid'];
+        } else {
+            $out['item'] = $u['item'];
+        }
+    } elseif (!$withItem && array_key_exists('item', $u) && (!is_string($u['item']) || !preg_match(COD_ITEM_RE, $u['item']))) {
+        $issues[] = [null, 'invalid'];
+    }
+    foreach (['o' => 250, 'f' => 240] as $part => $max) {
+        if (!array_key_exists($part, $u)) {
             continue;
         }
-        $seen[$g['name']] = ($seen[$g['name']] ?? 0) + 1;
-        $name = $seen[$g['name']] > 1 ? $g['name'] . ' (' . $seen[$g['name']] . ')' : $g['name'];
-        $available = array_values(array_filter($g['options'], function ($o) {
-            return empty($o['soldOut']);
-        }));
-        $perUnit = !empty($g['perUnit']);
-        for ($u = 0; $u < ($perUnit ? $qty : 1); $u++) {
-            $source = $chosen[$u] ?? null;
-            $wanted = is_array($source) && isset($source[$g['id']]) && is_string($source[$g['id']]) ? $source[$g['id']] : '';
-            $key = $perUnit ? 'v.' . $u . '.' . $g['id'] : 'v.' . $g['id'];
-            $opt = null;
-            foreach ($g['options'] as $o) {
-                if ($wanted !== '' && $o['id'] === $wanted) {
-                    $opt = $o;
-                    break;
-                }
+        if (!cod_is_record($u[$part])) {
+            $issues[] = [null, 'invalid'];
+            continue;
+        }
+        foreach ($u[$part] as $k => $v) {
+            $k = (string)$k;
+            if (!preg_match(COD_ID_RE, $k)) {
+                $issues[] = [null, 'invalid'];
+                continue;
             }
-            if ($opt === null && $wanted === '' && count($available) === 1) {
-                $opt = $available[0];
-            }
-            if ($opt === null) {
-                $errors[$key] = $wanted !== '' ? 'invalid' : 'required';
-            } elseif (!empty($opt['soldOut'])) {
-                $errors[$key] = 'unavailable';
-            } elseif ($perUnit) {
-                $units[$u][$name] = $opt['label'];
+            if (!is_string($v)) {
+                $issues[] = [$prefix . $k, 'invalid'];
+            } elseif (cod_u16len($v) > $max) {
+                $issues[] = [$prefix . $k, 'too_long'];
             } else {
-                for ($k = 0; $k < $qty; $k++) {
-                    $units[$k][$name] = $opt['label'];
-                }
+                $out[$part][$k] = $v;
             }
         }
     }
-    return $errors ? ['errors' => $errors] : ['units' => $units];
+    if (!$issues && (count($out['o']) > 8 || count($out['f']) > 4)) {
+        $issues[] = [null, 'invalid'];
+    }
+    return [$issues ? null : $out, $issues];
 }
 
-/** "Noir/M", "2 × Noir/M", "Noir/M + Beige/L" (= variantText() in the app: identical units counted). */
-function cod_variant_text(array $units): string
-{
-    $counts = [];
-    foreach ($units as $unit) {
-        $parts = [];
-        foreach ((array)$unit as $label) {
-            $label = trim((string)$label);
-            if ($label !== '') {
-                $parts[] = $label;
-            }
-        }
-        $t = implode('/', $parts);
-        if ($t !== '') {
-            $counts[$t] = ($counts[$t] ?? 0) + 1;
-        }
-    }
-    $out = [];
-    foreach ($counts as $t => $n) {
-        $out[] = $n > 1 ? $n . ' × ' . $t : (string)$t;
-    }
-    return implode(' + ', $out);
-}
-
-/** Shape checks mirroring OrderPayload (zod). Returns [payload, fieldErrors] — payload null when unusable. */
+/**
+ * Shape checks mirroring parseOrderPayload: `v` absent → v1 (`variants`), `v === 2` → v2 (`units`,
+ * `extras`, `b`, `ver`, `st`), anything else → invalid. Returns [payload, fieldErrors]: payload
+ * null when anything is wrong (fieldErrors then holds the keys the form can mark, maybe none).
+ */
 function cod_parse_payload($raw): array
 {
-    if (!is_array($raw)) {
+    if (!is_array($raw) || cod_is_list($raw)) {
         return [null, []];
     }
     $fields = [];
-    $str = function (string $key, int $max, bool $required) use ($raw): ?string {
-        if (!array_key_exists($key, $raw) || $raw[$key] === null) {
-            return $required ? null : '';
+    $bad = false;
+    $issue = function ($key, string $code) use (&$fields, &$bad) {
+        $bad = true;
+        if ($key !== null && !isset($fields[$key])) {
+            $fields[$key] = $code;
         }
-        if (!is_string($raw[$key])) {
-            return null;
-        }
-        $v = trim($raw[$key]);
-        return cod_len($v) <= $max ? $v : null;
     };
-    $p = [];
+    if (array_key_exists('v', $raw)) {
+        if (!(cod_is_int($raw['v']) && (int)$raw['v'] === 2)) {
+            return [null, []];
+        }
+        $version = 2;
+    } else {
+        $version = 1;
+    }
+    $p = ['v' => $version];
     foreach ([['pageKey', '/^[a-zA-Z0-9_-]{8,80}$/'], ['idem', '/^[a-f0-9-]{36}$/'], ['eventId', '/^[a-zA-Z0-9_-]{8,64}$/']] as $rule) {
         $v = $raw[$rule[0]] ?? null;
         if (!is_string($v) || !preg_match($rule[1], $v)) {
-            return [null, []];
+            $issue(null, 'invalid');
+            $v = '';
         }
         $p[$rule[0]] = $v;
     }
     $bundle = $raw['bundleId'] ?? null;
     if (!is_string($bundle) || !preg_match('/^[a-zA-Z0-9_-]{2,40}$/', $bundle)) {
-        $fields['bundleId'] = 'invalid';
+        $issue('bundleId', 'invalid');
         $bundle = '';
     }
     $p['bundleId'] = $bundle;
-
-    $variants = $raw['variants'] ?? [];
-    if (!is_array($variants) || count($variants) > 20) {
-        return [null, []];
-    }
-    $p['variants'] = [];
-    foreach (array_values($variants) as $unit) {
-        if (!is_array($unit)) {
-            return [null, []];
-        }
-        $clean = [];
-        foreach ($unit as $k => $v) {
-            if (!is_string($k) || !is_string($v) || strlen($k) > 40 || strlen($v) > 40) {
-                return [null, []];
-            }
-            $clean[$k] = $v;
-        }
-        $p['variants'][] = $clean;
-    }
-    $bump = $raw['bump'] ?? false;
+    $bump = array_key_exists('bump', $raw) ? $raw['bump'] : false;
     if (!is_bool($bump)) {
-        return [null, []];
+        $issue(null, 'invalid');
+        $bump = false;
     }
     $p['bump'] = $bump;
 
-    $name = $str('name', 80, true);
-    if ($name === null || cod_len($name) < 2) {
-        $fields['name'] = 'invalid';
-    }
-    $phone = $str('phone', 24, true);
-    if ($phone === null || cod_len($phone) < 6) {
-        $fields['phone'] = 'invalid';
-    }
-    foreach ([['city', 80], ['address', 240]] as $f) {
-        $v = $str($f[0], $f[1], false);
-        if ($v === null) {
-            $fields[$f[0]] = 'invalid';
+    // text fields: trimmed, then capped (UTF-16 units, as zod counts)
+    $text = function (string $key, int $max, bool $required, int $min = 0) use ($raw, $issue): string {
+        if (!array_key_exists($key, $raw)) {
+            if ($required) {
+                $issue($key === 'note' ? null : $key, 'invalid');
+            }
+            return '';
         }
-        $p[$f[0]] = (string)$v;
+        $v = $raw[$key];
+        if (!is_string($v)) {
+            $issue($key === 'note' ? null : $key, 'invalid');
+            return '';
+        }
+        $v = cod_js_trim($v);
+        if (cod_u16len($v) > $max) {
+            $issue($key === 'note' ? null : $key, 'too_long');
+            return '';
+        }
+        if (cod_u16len($v) < $min) {
+            $issue($key, 'invalid');
+            return '';
+        }
+        return $v;
+    };
+    $p['name'] = $text('name', 80, true, 2);
+    $p['phone'] = $text('phone', 24, true, 6);
+    $p['city'] = $text('city', 80, false);
+    $p['address'] = $text('address', 240, false);
+    $p['note'] = $text('note', 300, false);
+    $email = array_key_exists('email', $raw) ? $raw['email'] : '';
+    if (!is_string($email)) {
+        $issue('email', 'invalid');
+        $email = '';
     }
-    $note = $str('note', 300, false);
-    $p['note'] = (string)$note;
-    $email = $str('email', 120, false);
-    if ($email === null || ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL))) {
-        $fields['email'] = 'invalid';
+    $email = cod_js_trim($email);
+    if ($email !== '' && (cod_u16len($email) > 120 || !filter_var($email, FILTER_VALIDATE_EMAIL))) {
+        $issue('email', 'invalid');
     }
-    $p['email'] = (string)$email;
+    $p['email'] = $email;
     $t = $raw['t'] ?? null;
-    if (!is_int($t) || $t < 0 || $t > 86400000) {
-        return [null, []];
+    if (!cod_is_int($t) || $t < 0 || $t > 86400000) {
+        $issue(null, 'invalid');
+        $t = 0;
     }
-    $p['t'] = $t;
-    $p['name'] = (string)$name;
-    $p['phone'] = (string)$phone;
+    $p['t'] = (int)$t;
+
+    if ($version === 1) {
+        // a v2-shaped body without `v` never parses as v1
+        if (array_key_exists('units', $raw) || array_key_exists('extras', $raw)) {
+            return [null, []];
+        }
+        $variants = array_key_exists('variants', $raw) ? $raw['variants'] : [];
+        if (!cod_is_list($variants) || count($variants) > 20) {
+            $issue(null, 'invalid');
+            $variants = [];
+        }
+        $p['variants'] = [];
+        foreach ($variants as $unit) {
+            if (!cod_is_record($unit)) {
+                $issue(null, 'invalid');
+                continue;
+            }
+            $clean = [];
+            foreach ($unit as $k => $v) {
+                $k = (string)$k;
+                if (!is_string($v) || cod_u16len($k) > 40 || cod_u16len($v) > 40) {
+                    $issue(null, 'invalid');
+                    continue;
+                }
+                $clean[$k] = $v;
+            }
+            $p['variants'][] = $clean;
+        }
+    } else {
+        $ver = $raw['ver'] ?? null;
+        if (array_key_exists('ver', $raw) && (!is_string($ver) || !preg_match('/^[A-Za-z0-9]{26}$/', $ver))) {
+            $issue(null, 'invalid');
+        }
+        $st = $raw['st'] ?? null;
+        if (!cod_is_int($st) || $st < 0 || $st > 1000000000) {
+            $issue(null, 'invalid');
+            $st = 0;
+        }
+        $p['st'] = (int)$st;
+        $units = array_key_exists('units', $raw) ? $raw['units'] : [];
+        if (!cod_is_list($units) || count($units) > 20) {
+            $issue(null, 'invalid');
+            $units = [];
+        }
+        $p['units'] = [];
+        foreach ($units as $k => $u) {
+            list($unit, $issues) = cod_parse_unit($u, 'u.' . $k . '.', true);
+            foreach ($issues as $is) {
+                $issue($is[0], $is[1]);
+            }
+            $p['units'][] = $unit ?? ['o' => [], 'f' => []];
+        }
+        $extras = array_key_exists('extras', $raw) ? $raw['extras'] : [];
+        $p['extras'] = [];
+        if (!cod_is_record($extras)) {
+            $issue(null, 'invalid');
+        } else {
+            foreach ($extras as $k => $v) {
+                $k = (string)$k;
+                if (!preg_match(COD_ID_RE, $k)) {
+                    $issue(null, 'invalid');
+                } elseif (!is_string($v)) {
+                    $issue('x.' . $k, 'invalid');
+                } elseif (cod_u16len($v) > 240) {
+                    $issue('x.' . $k, 'too_long');
+                } else {
+                    $p['extras'][$k] = $v;
+                }
+            }
+            if (count($p['extras']) > 4) {
+                $issue(null, 'invalid');
+            }
+        }
+        if (array_key_exists('b', $raw)) {
+            list($b, $issues) = cod_parse_unit($raw['b'], 'b.', false);
+            foreach ($issues as $is) {
+                $issue($is[0], $is[1]);
+            }
+            if ($b !== null) {
+                $p['b'] = $b;
+            }
+        }
+    }
 
     $utm = [];
     if (isset($raw['utm']) && is_array($raw['utm'])) {
@@ -878,33 +996,950 @@ function cod_parse_payload($raw): array
     $p['utm'] = array_filter($utm, 'strlen');
     $p['ref'] = is_string($raw['ref'] ?? null) ? cod_clean($raw['ref'], 500) : '';
     $p['locale'] = is_string($raw['locale'] ?? null) ? cod_cut($raw['locale'], 5) : '';
-    return [$p, $fields];
+    return [$bad ? null : $p, $fields];
 }
 
-/** Field rules of the exported form (= validateOrder in the app), prices from the embedded table. */
+/** v1 → v2 view (= toSelectionInput): units[u] = { o: variants[u] ?? variants[0] ?? {}, f: {} }. */
+function cod_selection_input(array $p): array
+{
+    if ($p['v'] === 2) {
+        return ['offerId' => $p['bundleId'], 'units' => $p['units'], 'extras' => $p['extras'], 'bump' => $p['bump'], 'b' => $p['b'] ?? null];
+    }
+    $units = [];
+    for ($u = 0; $u < 20; $u++) {
+        $units[] = ['o' => $p['variants'][$u] ?? ($p['variants'][0] ?? []), 'f' => []];
+    }
+    return ['offerId' => $p['bundleId'], 'units' => $units, 'extras' => [], 'bump' => $p['bump'], 'b' => null];
+}
+
+/* ------------------------------------------------------------------ */
+/* options (= src/lib/page/options.ts)                                  */
+/* ------------------------------------------------------------------ */
+
+function cod_find(array $list, $id): ?array
+{
+    if (!is_string($id) || $id === '') {
+        return null;
+    }
+    foreach ($list as $x) {
+        if ($x['id'] === $id) {
+            return $x;
+        }
+    }
+    return null;
+}
+
+/** Does a line rule let this value through? (lock: only it; allow: the list; preset: everything) */
+function cod_rule_allows(?array $rule, string $id): bool
+{
+    if ($rule === null) {
+        return true;
+    }
+    if (array_key_exists('lock', $rule)) {
+        return $rule['lock'] === $id;
+    }
+    if (array_key_exists('allow', $rule)) {
+        return in_array($id, $rule['allow'], true);
+    }
+    return true;
+}
+
+function cod_rule_lock(?array $rule): ?string
+{
+    return $rule !== null && isset($rule['lock']) && is_string($rule['lock']) ? $rule['lock'] : null;
+}
+
+/** "d-col=o-noir|d-size=o-m" (any order) → ['d-col' => 'o-noir', …]; null when malformed or a dim repeats. */
+function cod_parse_cell_key(string $key): ?array
+{
+    if ($key === '' || strlen($key) > 250) {
+        return null;
+    }
+    $out = [];
+    foreach (explode('|', $key) as $part) {
+        if (!preg_match('/^([A-Za-z0-9_-]{2,40})=([A-Za-z0-9_-]{2,40})$/', $part, $m) || array_key_exists($m[1], $out)) {
+            return null;
+        }
+        $out[$m[1]] = $m[2];
+    }
+    return $out;
+}
+
+/** Canonical key: entries sorted by dim id. */
+function cod_cell_key(array $combo): string
+{
+    ksort($combo, SORT_STRING);
+    $parts = [];
+    foreach ($combo as $d => $v) {
+        $parts[] = $d . '=' . $v;
+    }
+    return implode('|', $parts);
+}
+
+/** Every combination of a matrix, dims in order. */
+function cod_all_combos(array $g): array
+{
+    $out = [[]];
+    foreach ($g['dims'] as $d) {
+        $next = [];
+        foreach ($out as $c) {
+            foreach ($d['values'] as $v) {
+                $next[] = $c + [$d['id'] => $v['id']];
+            }
+        }
+        $out = $next;
+    }
+    return $out;
+}
+
+/**
+ * A complete combination (= resolveCombo): state none > out > in, delta (cents) and sku from the
+ * most specific matching cell that defines them (tie → first), else Σ value deltas / item sku.
+ */
+function cod_resolve_combo(array $g, array $combo, array $item): ?array
+{
+    $values = [];
+    foreach ($g['dims'] as $d) {
+        $id = $combo[$d['id']] ?? null;
+        $v = $id === null ? null : cod_find($d['values'], $id);
+        if ($v === null) {
+            return null;
+        }
+        $values[] = ['dim' => $d, 'value' => $v];
+    }
+    if (count($combo) !== count($g['dims'])) {
+        return null;
+    }
+    $severity = ['in' => 0, 'out' => 1, 'none' => 2];
+    $state = 'in';
+    foreach ($values as $x) {
+        if (!empty($x['value']['soldOut'])) {
+            $state = 'out';
+        }
+    }
+    $matching = [];
+    foreach ($g['cells'] as $at => $cell) {
+        $v = (array)$cell['v'];
+        if (!$v) {
+            continue;
+        }
+        $all = true;
+        foreach ($v as $dim => $val) {
+            if (($combo[$dim] ?? null) !== $val) {
+                $all = false;
+                break;
+            }
+        }
+        if ($all) {
+            $matching[] = ['cell' => $cell, 'size' => count($v), 'at' => $at];
+        }
+    }
+    foreach ($matching as $m) {
+        if ($severity[$m['cell']['state']] > $severity[$state]) {
+            $state = $m['cell']['state'];
+        }
+    }
+    usort($matching, function ($a, $b) {
+        return $b['size'] - $a['size'] ?: $a['at'] - $b['at'];
+    });
+    $delta = null;
+    $sku = null;
+    foreach ($matching as $m) {
+        if ($delta === null && array_key_exists('delta', $m['cell'])) {
+            $delta = (int)$m['cell']['delta'];
+        }
+        if ($sku === null && isset($m['cell']['sku']) && (string)$m['cell']['sku'] !== '') {
+            $sku = (string)$m['cell']['sku'];
+        }
+    }
+    $fromCell = $delta !== null;
+    if ($delta === null) {
+        $delta = 0;
+        foreach ($values as $x) {
+            $delta += (int)$x['value']['delta'];
+        }
+    }
+    if ($sku === null && isset($item['sku']) && (string)$item['sku'] !== '') {
+        $sku = (string)$item['sku'];
+    }
+    return ['key' => cod_cell_key($combo), 'state' => $state, 'delta' => $delta, 'fromCell' => $fromCell, 'sku' => $sku, 'values' => $values];
+}
+
+/** Rules of a line for one matrix group, keyed by dim id. */
+function cod_dim_rules(array $g, ?array $rules): array
+{
+    $out = [];
+    foreach ($g['dims'] as $d) {
+        $k = $g['id'] . '.' . $d['id'];
+        if ($rules !== null && isset($rules[$k])) {
+            $out[$d['id']] = $rules[$k];
+        }
+    }
+    return $out;
+}
+
+/** The orderable combinations of a matrix under a line's rules. */
+function cod_available_combos(array $g, ?array $rules, array $item): array
+{
+    $r = !empty($g['perUnit']) ? cod_dim_rules($g, $rules) : [];
+    $out = [];
+    foreach (cod_all_combos($g) as $combo) {
+        foreach ($g['dims'] as $d) {
+            if (!cod_rule_allows($r[$d['id']] ?? null, $combo[$d['id']])) {
+                continue 2;
+            }
+        }
+        $res = cod_resolve_combo($g, $combo, $item);
+        if ($res !== null && $res['state'] === 'in') {
+            $out[] = $res;
+        }
+    }
+    return $out;
+}
+
+/** A choice group (= resolveChoice): lock = the server's value, allow = subset, a lone available option filled in. */
+function cod_resolve_choice(array $g, string $wanted, ?array $rule): array
+{
+    $lock = cod_rule_lock($rule);
+    if ($lock !== null) {
+        $o = cod_find($g['options'], $lock);
+        return $o === null ? ['error' => 'invalid'] : (!empty($o['soldOut']) ? ['error' => 'unavailable'] : ['value' => $lock]);
+    }
+    if ($wanted === '') {
+        $avail = [];
+        foreach ($g['options'] as $o) {
+            if (cod_rule_allows(!empty($g['perUnit']) ? $rule : null, $o['id']) && empty($o['soldOut'])) {
+                $avail[] = $o;
+            }
+        }
+        return count($avail) === 1 ? ['value' => $avail[0]['id']] : ['error' => 'required'];
+    }
+    $o = cod_find($g['options'], $wanted);
+    if ($o === null || !cod_rule_allows($rule, $o['id'])) {
+        return ['error' => 'invalid'];
+    }
+    return !empty($o['soldOut']) ? ['error' => 'unavailable'] : ['value' => $o['id']];
+}
+
+/** A matrix value "dim=value|dim=value" + the line's dim rules → a canonical cell key (= resolveMatrix). */
+function cod_resolve_matrix(array $g, array $item, string $raw, ?array $rules): array
+{
+    $r = !empty($g['perUnit']) ? cod_dim_rules($g, $rules) : [];
+    $combo = [];
+    if ($raw !== '') {
+        $parsed = cod_parse_cell_key($raw);
+        if ($parsed === null) {
+            return ['error' => 'invalid'];
+        }
+        foreach ($parsed as $dim => $value) {
+            $d = cod_find($g['dims'], $dim);
+            if ($d === null || cod_find($d['values'], $value) === null) {
+                return ['error' => 'invalid'];
+            }
+        }
+        $combo = $parsed;
+    }
+    foreach ($g['dims'] as $d) {
+        $lock = cod_rule_lock($r[$d['id']] ?? null);
+        if ($lock !== null) {
+            $combo[$d['id']] = $lock;
+        } elseif (isset($combo[$d['id']]) && !cod_rule_allows($r[$d['id']] ?? null, $combo[$d['id']])) {
+            return ['error' => 'invalid'];
+        }
+    }
+    $missing = [];
+    foreach ($g['dims'] as $d) {
+        if (!isset($combo[$d['id']])) {
+            $missing[] = $d;
+        }
+    }
+    if ($missing) {
+        $fits = [];
+        foreach (cod_available_combos($g, !empty($g['perUnit']) ? $rules : null, $item) as $c) {
+            $ok = true;
+            foreach ($c['values'] as $x) {
+                if (isset($combo[$x['dim']['id']]) && $combo[$x['dim']['id']] !== $x['value']['id']) {
+                    $ok = false;
+                    break;
+                }
+            }
+            if ($ok) {
+                $fits[] = $c;
+            }
+        }
+        $fill = [];
+        foreach ($missing as $d) {
+            $ids = [];
+            foreach ($fits as $c) {
+                foreach ($c['values'] as $x) {
+                    if ($x['dim']['id'] === $d['id']) {
+                        $ids[$x['value']['id']] = true;
+                    }
+                }
+            }
+            if (count($ids) === 1) {
+                $fill[$d['id']] = (string)array_keys($ids)[0];
+            }
+        }
+        $combo = $combo + $fill;
+    }
+    foreach ($g['dims'] as $d) {
+        if (!isset($combo[$d['id']])) {
+            return ['error' => 'required'];
+        }
+    }
+    $res = cod_resolve_combo($g, $combo, $item);
+    if ($res === null || $res['state'] === 'none') {
+        return ['error' => 'invalid'];
+    }
+    return $res['state'] === 'out' ? ['error' => 'unavailable'] : ['value' => $res['key']];
+}
+
+/** Eastern Arabic "٠-٩" and Persian "۰-۹" digits → "0-9". */
+function cod_fold_digits(string $s): string
+{
+    return strtr($s, ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9']);
+}
+
+/** A typed value (= checkField): clean → fold digits → required → "<>" → length → charset / range. */
+function cod_check_field(array $g, $raw): array
+{
+    $value = is_string($raw) || is_int($raw) || is_float($raw) ? cod_clean_text($raw) : '';
+    if ($g['input'] === 'number' || $g['charset'] === 'digits') {
+        $value = cod_fold_digits($value);
+    }
+    if ($value === '') {
+        return !empty($g['required']) ? ['error' => 'required'] : ['value' => ''];
+    }
+    if (preg_match('/[<>]/', $value)) {
+        return ['error' => 'invalid'];
+    }
+    if (cod_len($value) > (int)$g['maxLength']) {
+        return ['error' => 'too_long'];
+    }
+    if ($g['input'] === 'number') {
+        if (!preg_match('/^[0-9]{1,7}$/', $value)) {
+            return ['error' => 'invalid'];
+        }
+        $n = (int)$value;
+        if ($n < (int)($g['min'] ?? 0) || $n > (int)($g['max'] ?? 1000000)) {
+            return ['error' => 'invalid'];
+        }
+        return ['value' => $value];
+    }
+    $charsets = [
+        'letters' => '/^[\p{L}\p{M}][\p{L}\p{M} \'’.\-]*$/u',
+        'latin' => '/^[A-Za-z\x{C0}-\x{D6}\x{D8}-\x{F6}\x{F8}-\x{FF}0-9 \'’.\-&]+$/u',
+        'digits' => '/^[0-9]+$/',
+    ];
+    if ($g['charset'] !== 'any' && (!isset($charsets[$g['charset']]) || !preg_match($charsets[$g['charset']], $value))) {
+        return ['error' => 'invalid'];
+    }
+    return ['value' => $value];
+}
+
+/** One group of a unit / the bump / an extra against its input (= resolveGroup). */
+function cod_resolve_group(array $g, ?array $item, ?array $src, ?array $rules): array
+{
+    $o = $src !== null && isset($src['o'][$g['id']]) && is_string($src['o'][$g['id']]) ? $src['o'][$g['id']] : '';
+    if ($g['kind'] === 'choice') {
+        $r = cod_resolve_choice($g, $o, !empty($g['perUnit']) && $rules !== null && isset($rules[$g['id']]) ? $rules[$g['id']] : null);
+        return $r;
+    }
+    if ($g['kind'] === 'matrix') {
+        return cod_resolve_matrix($g, (array)$item, $o, $rules);
+    }
+    $r = cod_check_field($g, $src !== null && array_key_exists($g['id'], $src['f']) ? $src['f'][$g['id']] : null);
+    if (isset($r['error'])) {
+        return $r;
+    }
+    return $r['value'] !== '' ? ['field' => $r['value']] : [];
+}
+
+/* ------------------------------------------------------------------ */
+/* order text (= src/lib/orders/text.ts, warehouse rendering)          */
+/* ------------------------------------------------------------------ */
+
+/** One line of text, no control characters (= oneLine). */
+function cod_one_line(string $s): string
+{
+    $s = (string)preg_replace('/[\x{0000}-\x{001F}\x{007F}-\x{009F}]/u', ' ', $s);
+    return cod_js_trim((string)preg_replace('/' . COD_JS_SPACE . '+/u', ' ', $s));
+}
+
+/** Owner labels: the separators of the grammar can never appear inside one (= sanitizeLabel). */
+function cod_label(string $s): string
+{
+    $s = cod_one_line($s);
+    $s = str_replace(' + ', ' & ', $s);
+    $s = str_replace('/', '-', $s);
+    $s = (string)preg_replace('/\|{2,}/', '|', $s);
+    $s = str_replace(' · ', ' - ', $s);
+    return str_replace(['«', '»'], '"', $s);
+}
+
+/** A typed value in « » (= quoteValue). */
+function cod_quote(string $s): string
+{
+    return '« ' . str_replace(['«', '»'], '"', cod_one_line($s)) . ' »';
+}
+
+/** Cents → "15", "15.5", "15.25" (= String(Math.round(n * 100) / 100)). */
+function cod_plain(int $cents): string
+{
+    $sign = $cents < 0 ? '-' : '';
+    $c = abs($cents);
+    $s = (string)intdiv($c, 100);
+    $r = $c % 100;
+    if ($r !== 0) {
+        $s .= '.' . rtrim(sprintf('%02d', $r), '0');
+    }
+    return $sign . $s;
+}
+
+/** Cents → the JSON money the app answers (349 / 349.5). */
+function cod_money($cents)
+{
+    $c = (int)$cents;
+    return $c % 100 === 0 ? intdiv($c, 100) : $c / 100;
+}
+
+/** The stored snapshot of one resolved unit (= orderUnitOf): labels, codes, sku, deltas on paid units. */
+function cod_unit_snapshot(array $item, array $choice, bool $free): array
+{
+    $options = [];
+    $fields = [];
+    $sku = isset($item['sku']) && $item['sku'] !== '' ? (string)$item['sku'] : null;
+    foreach ($item['groups'] as $g) {
+        if ($g['kind'] === 'choice') {
+            $o = cod_find($g['options'], $choice['options'][$g['id']] ?? null);
+            if ($o === null) {
+                continue;
+            }
+            $opt = ['name' => $g['label'], 'value' => $o['text']];
+            if (isset($o['code'])) {
+                $opt['code'] = $o['code'];
+            }
+            if (!$free && (int)$o['delta'] > 0) {
+                $opt['delta'] = cod_money($o['delta']);
+            }
+            $options[] = $opt;
+        } elseif ($g['kind'] === 'matrix') {
+            $key = $choice['options'][$g['id']] ?? '';
+            $combo = $key !== '' ? cod_parse_cell_key($key) : null;
+            $res = $combo !== null ? cod_resolve_combo($g, $combo, $item) : null;
+            if ($res === null) {
+                continue;
+            }
+            $value = [];
+            $code = [];
+            $coded = false;
+            foreach ($res['values'] as $x) {
+                $value[] = $x['value']['text'];
+                $code[] = $x['value']['ctext'];
+                $coded = $coded || isset($x['value']['code']);
+            }
+            $opt = ['name' => $g['label'], 'value' => implode('/', $value)];
+            if ($coded) {
+                $opt['code'] = implode('/', $code);
+            }
+            if (!$free && $res['delta'] > 0) {
+                $opt['delta'] = cod_money($res['delta']);
+            }
+            $options[] = $opt;
+            if ($res['sku'] !== null) {
+                $sku = $res['sku'];
+            }
+        } else {
+            $v = $choice['fields'][$g['id']] ?? '';
+            if ($v !== '') {
+                $f = ['name' => $g['label'], 'value' => cod_one_line($v)];
+                if (!$free && (int)$g['delta'] > 0) {
+                    $f['delta'] = cod_money($g['delta']);
+                }
+                $fields[] = $f;
+            }
+        }
+    }
+    $u = ['item' => $item['id'], 'label' => (string)$item['label']];
+    if (isset($item['short'])) {
+        $u['short'] = $item['short'];
+    }
+    if ($sku !== null) {
+        $u['sku'] = $sku;
+    }
+    if ($free) {
+        $u['free'] = true;
+    }
+    $u['options'] = $options;
+    if ($fields) {
+        $u['fields'] = $fields;
+    }
+    return $u;
+}
+
+function cod_pieces(int $n): string
+{
+    return $n . ' pièce' . ($n > 1 ? 's' : '');
+}
+
+/** [count][label][ (values)][ · fields] — "" when there is nothing to say (= partBody, warehouse). */
+function cod_part_body(array $u, int $n, bool $multi): string
+{
+    $values = [];
+    foreach ($u['options'] as $o) {
+        $v = (string)($o['code'] ?? $o['value']);
+        if ($v !== '') {
+            $values[] = $v;
+        }
+    }
+    $fields = [];
+    foreach ($u['fields'] ?? [] as $f) {
+        if ($f['value'] !== '') {
+            $fields[] = $f['name'] . ' ' . cod_quote($f['value']);
+        }
+    }
+    $label = $multi ? cod_label((string)($u['short'] ?? '') !== '' ? (string)$u['short'] : (string)$u['label']) : '';
+    if ($label === '' && !$values && !$fields) {
+        return '';
+    }
+    $s = $multi || $n > 1 ? $n . ' × ' : '';
+    if ($label !== '') {
+        $s .= $label . ($values ? ' (' . implode('/', $values) . ')' : '');
+    } else {
+        $s .= implode('/', $values);
+    }
+    if ($fields) {
+        $s .= ($label !== '' || $values ? ' · ' : '') . implode(', ', $fields);
+    }
+    return cod_js_trim($s);
+}
+
+function cod_marked_part(string $marker, array $u, int $n, bool $multi): string
+{
+    $body = cod_part_body($u, $n, $multi);
+    return $marker . ' ' . ($body !== '' ? $body : cod_pieces($n));
+}
+
+/** The order text (= unitsText(…, "warehouse")): units, gift, bump, extras segment, capped at $max code points. */
+function cod_units_text(array $units, bool $multi, ?string $gift, ?array $bumpUnit, array $extras, string $orderId, int $max = COD_TEXT_MAX): string
+{
+    $groups = [];
+    foreach ($units as $u) {
+        $opts = [];
+        foreach ($u['options'] as $o) {
+            $opts[] = [$o['name'], (string)($o['code'] ?? $o['value'])];
+        }
+        $flds = [];
+        foreach ($u['fields'] ?? [] as $f) {
+            $flds[] = [$f['name'], $f['value']];
+        }
+        $key = json_encode([!empty($u['free']), $u['item'], (string)($u['short'] ?? ''), $u['label'], $opts, $flds], JSON_UNESCAPED_UNICODE);
+        if (isset($groups[$key])) {
+            $groups[$key]['n']++;
+        } else {
+            $groups[$key] = ['unit' => $u, 'n' => 1];
+        }
+    }
+    $unitParts = [];
+    foreach ($groups as $g) {
+        $text = !empty($g['unit']['free']) ? cod_marked_part('[OFFERT]', $g['unit'], $g['n'], $multi) : cod_part_body($g['unit'], $g['n'], $multi);
+        if ($text !== '') {
+            $unitParts[] = ['text' => $text, 'n' => $g['n']];
+        }
+    }
+    $fixed = [];
+    if ($gift !== null && $gift !== '') {
+        $fixed[] = 'CADEAU : ' . cod_label($gift);
+    }
+    if ($bumpUnit !== null) {
+        $fixed[] = cod_marked_part('[AJOUT]', $bumpUnit, 1, true);
+    }
+    $segs = [];
+    foreach ($extras as $x) {
+        if ($x['value'] === '') {
+            continue;
+        }
+        $v = !empty($x['typed']) ? cod_quote($x['value']) : cod_label((string)($x['code'] ?? $x['value']));
+        $segs[] = cod_label($x['name']) . ' = ' . $v . (!empty($x['delta']) ? ' (+' . cod_plain((int)$x['delta']) . ')' : '');
+    }
+    $segment = $segs ? ' || Commande : ' . implode('; ', $segs) : '';
+    $join = function (array $parts): string {
+        return implode(' + ', array_values(array_filter($parts, 'strlen')));
+    };
+    $kept = count($unitParts);
+    $all = [];
+    foreach ($unitParts as $p) {
+        $all[] = $p['text'];
+    }
+    $text = $join(array_merge($all, $fixed)) . $segment;
+    while (cod_len($text) > $max && $kept > 0) {
+        $kept--;
+        $dropped = 0;
+        for ($i = $kept; $i < count($unitParts); $i++) {
+            $dropped += $unitParts[$i]['n'];
+        }
+        $head = array_slice($all, 0, $kept);
+        $more = ' … (+' . $dropped . ($orderId !== '' ? ', voir ' . $orderId : '') . ')';
+        $text = ($head ? $join(array_merge([implode(' + ', $head) . $more], $fixed)) : $join(array_merge([trim($more)], $fixed))) . $segment;
+    }
+    return $text;
+}
+
+/* ------------------------------------------------------------------ */
+/* selection, prices (= resolveSelection, orderTotals; integer cents)  */
+/* ------------------------------------------------------------------ */
+
+function cod_bump_offered(array $spec, string $offerId): bool
+{
+    $b = $spec['bump'] ?? null;
+    return is_array($b) && (!isset($b['offers']) || in_array($offerId, $b['offers'], true));
+}
+
+/**
+ * The units, extras and bump of an order against the offer. Returns ['units' => choices per slot,
+ * 'snaps' => snapshots of the resolved units, 'extras' => id → value, 'bump' => bool,
+ * 'bumpChoice' => ?, 'bumpUnit' => ?, 'errors' => [[key, code, gi, k], …]].
+ */
+function cod_resolve_selection(array $spec, array $offer, array $in): array
+{
+    $items = [];
+    foreach ($spec['items'] as $it) {
+        $items[$it['id']] = $it;
+    }
+    $errors = [];
+    $units = [];
+    $snaps = [];
+    $firstOf = [];
+    $chosenInLine = [];
+    foreach ($offer['units'] as $k => $slot) {
+        $u = $in['units'][$k] ?? null;
+        $itemId = $slot['item'];
+        if ($itemId === null) {
+            $wanted = is_array($u) && isset($u['item']) && is_string($u['item']) ? $u['item'] : '';
+            $available = $slot['available'] ?? [];
+            $error = null;
+            if ($wanted === '') {
+                if (count($available) === 1) {
+                    $itemId = $available[0];
+                } else {
+                    $error = $available ? 'required' : 'unavailable';
+                }
+            } elseif (!in_array($wanted, $slot['choices'] ?? [], true)) {
+                $error = 'invalid';
+            } elseif (!in_array($wanted, $available, true)) {
+                $error = 'unavailable';
+            } elseif (!empty($slot['distinct']) && isset($chosenInLine[$slot['line']][$wanted])) {
+                $error = 'duplicate';
+            } else {
+                $itemId = $wanted;
+            }
+            if ($error !== null) {
+                $errors[] = ['u.' . $k . '.@item', $error, -1, $k];
+                $units[$k] = ['item' => $wanted, 'options' => [], 'fields' => []];
+                continue;
+            }
+            $chosenInLine[$slot['line']][$itemId] = true;
+        }
+        $item = $items[$itemId];
+        if (!isset($firstOf[$item['id']])) {
+            $firstOf[$item['id']] = $k;
+        }
+        $k0 = $firstOf[$item['id']];
+        $choice = ['item' => $item['id'], 'options' => [], 'fields' => []];
+        $ok = true;
+        foreach ($item['groups'] as $gi => $g) {
+            if (empty($g['perUnit']) && $k !== $k0) {
+                // shared group: one value for every unit of this item (resolved on its first unit)
+                $first = $units[$k0] ?? null;
+                if ($first !== null && isset($first['options'][$g['id']])) {
+                    $choice['options'][$g['id']] = $first['options'][$g['id']];
+                }
+                if ($first !== null && isset($first['fields'][$g['id']])) {
+                    $choice['fields'][$g['id']] = $first['fields'][$g['id']];
+                }
+                continue;
+            }
+            $src = !empty($g['perUnit']) ? $u : ($in['units'][$k0] ?? null);
+            $key = !empty($g['perUnit']) ? 'u.' . $k . '.' . $g['id'] : 's.' . $item['id'] . '.' . $g['id'];
+            $r = cod_resolve_group($g, $item, is_array($src) ? $src : null, !empty($g['perUnit']) ? $slot['rules'] : null);
+            if (isset($r['error'])) {
+                $ok = false;
+                $errors[] = [$key, $r['error'], $gi, !empty($g['perUnit']) ? $k : -1];
+                continue;
+            }
+            if (isset($r['value'])) {
+                $choice['options'][$g['id']] = $r['value'];
+            }
+            if (isset($r['field'])) {
+                $choice['fields'][$g['id']] = $r['field'];
+            }
+        }
+        $units[$k] = $choice;
+        if ($ok) {
+            $snaps[] = cod_unit_snapshot($item, $choice, !empty($slot['free']));
+        }
+    }
+
+    // order extras whose scope holds the offer (others ignored)
+    $extras = [];
+    foreach ($spec['extras'] as $xi => $x) {
+        if ($x['scope'] !== 'all' && !in_array($offer['id'], (array)$x['scope'], true)) {
+            continue;
+        }
+        $value = isset($in['extras'][$x['id']]) && is_string($in['extras'][$x['id']]) ? $in['extras'][$x['id']] : '';
+        $r = cod_resolve_group($x, null, ['o' => [$x['id'] => $value], 'f' => [$x['id'] => $value]], null);
+        if (isset($r['error'])) {
+            $errors[] = ['x.' . $x['id'], $r['error'], 1000 + $xi, -1];
+        } elseif (isset($r['value'])) {
+            $extras[$x['id']] = $r['value'];
+        } elseif (isset($r['field'])) {
+            $extras[$x['id']] = $r['field'];
+        }
+    }
+
+    // bump: a catalog item collects its options (perUnit ignored, no rules); they never add money
+    $bump = !empty($in['bump']) && cod_bump_offered($spec, $offer['id']);
+    $bumpChoice = null;
+    $bumpUnit = null;
+    $bumpItemId = $bump ? ($spec['bump']['item'] ?? null) : null;
+    if ($bumpItemId !== null && isset($items[$bumpItemId])) {
+        $bumpItem = $items[$bumpItemId];
+        $bumpChoice = ['item' => $bumpItem['id'], 'options' => [], 'fields' => []];
+        $ok = true;
+        foreach ($bumpItem['groups'] as $gi => $g) {
+            $g['perUnit'] = true;
+            $r = cod_resolve_group($g, $bumpItem, $in['b'] ?? null, null);
+            if (isset($r['error'])) {
+                $ok = false;
+                $errors[] = ['b.' . $g['id'], $r['error'], 2000 + $gi, -1];
+                continue;
+            }
+            if (isset($r['value'])) {
+                $bumpChoice['options'][$g['id']] = $r['value'];
+            }
+            if (isset($r['field'])) {
+                $bumpChoice['fields'][$g['id']] = $r['field'];
+            }
+        }
+        if ($ok) {
+            $bumpUnit = cod_unit_snapshot($bumpItem, $bumpChoice, true);
+            unset($bumpUnit['free']);
+        }
+    }
+    return ['units' => $units, 'snaps' => $snaps, 'extras' => $extras, 'bump' => $bump, 'bumpChoice' => $bumpChoice, 'bumpUnit' => $bumpUnit, 'errors' => $errors];
+}
+
+/**
+ * Surcharges of a resolved selection in cents (= selectionDeltas): options and fields per paid unit
+ * (a shared field once per item), choice-line differences, order extras. Also the reason rows.
+ */
+function cod_deltas(array $spec, array $offer, array $sel): array
+{
+    $items = [];
+    foreach ($spec['items'] as $it) {
+        $items[$it['id']] = $it;
+    }
+    $total = 0;
+    $reasons = [];
+    $add = function (string $key, string $label, int $c) use (&$total, &$reasons) {
+        if ($c <= 0) {
+            return;
+        }
+        $total += $c;
+        if (isset($reasons[$key])) {
+            $reasons[$key]['count']++;
+            $reasons[$key]['cents'] += $c;
+        } else {
+            $reasons[$key] = ['label' => $label, 'count' => 1, 'cents' => $c];
+        }
+    };
+    $shared = [];
+    foreach ($offer['units'] as $k => $slot) {
+        if (!empty($slot['free'])) {
+            continue;
+        }
+        $unit = $sel['units'][$k] ?? null;
+        $id = $slot['item'] ?? ($unit['item'] ?? '');
+        if ($unit === null || !isset($items[$id])) {
+            continue;
+        }
+        $it = $items[$id];
+        foreach ($it['groups'] as $g) {
+            if ($g['kind'] === 'choice') {
+                $o = cod_find($g['options'], $unit['options'][$g['id']] ?? null);
+                if ($o !== null && (int)$o['delta'] > 0) {
+                    $add('o:' . $it['id'] . ':' . $g['id'] . ':' . $o['id'], $o['label'], (int)$o['delta']);
+                }
+            } elseif ($g['kind'] === 'matrix') {
+                $key = $unit['options'][$g['id']] ?? '';
+                $combo = $key !== '' ? cod_parse_cell_key($key) : null;
+                $res = $combo !== null ? cod_resolve_combo($g, $combo, $it) : null;
+                if ($res === null || $res['delta'] <= 0) {
+                    continue;
+                }
+                if ($res['fromCell']) {
+                    $labels = [];
+                    foreach ($res['values'] as $x) {
+                        $labels[] = $x['value']['label'];
+                    }
+                    $add('m:' . $it['id'] . ':' . $g['id'] . ':' . $res['key'], implode('/', $labels), $res['delta']);
+                } else {
+                    foreach ($res['values'] as $x) {
+                        if ((int)$x['value']['delta'] > 0) {
+                            $add('m:' . $it['id'] . ':' . $g['id'] . ':' . $x['dim']['id'] . '=' . $x['value']['id'], $x['value']['label'], (int)$x['value']['delta']);
+                        }
+                    }
+                }
+            } elseif ((int)$g['delta'] > 0 && ($unit['fields'][$g['id']] ?? '') !== '') {
+                if (!empty($g['perUnit'])) {
+                    $add('f:' . $it['id'] . ':' . $g['id'], $g['name'], (int)$g['delta']);
+                } elseif (!isset($shared[$it['id'] . ':' . $g['id']])) {
+                    $shared[$it['id'] . ':' . $g['id']] = true;
+                    $add('f:' . $it['id'] . ':' . $g['id'], $g['name'], (int)$g['delta']);
+                }
+            }
+        }
+    }
+    // choice lines "difference": pricier items cost their difference (sorted chosen − sorted base)
+    foreach ($offer['diff'] as $l) {
+        $declared = $l['declared'];
+        if (!$declared) {
+            continue;
+        }
+        $base = !empty($l['distinct']) ? array_slice($declared, 0, (int)$l['qty']) : array_fill(0, (int)$l['qty'], $declared[0]);
+        $chosen = [];
+        foreach ($offer['units'] as $k => $slot) {
+            if ($slot['line'] !== $l['line']) {
+                continue;
+            }
+            $id = $sel['units'][$k]['item'] ?? '';
+            if (isset($items[$id])) {
+                $chosen[] = ['k' => $k, 'it' => $items[$id], 'price' => (int)$items[$id]['price']];
+            }
+        }
+        usort($chosen, function ($a, $b) {
+            return $a['price'] - $b['price'] ?: $a['k'] - $b['k'];
+        });
+        foreach ($chosen as $i => $c) {
+            $b = $base[$i] ?? $base[count($base) - 1];
+            $short = (string)($c['it']['short'] ?? $c['it']['name']);
+            $add('s:' . $l['line'] . ':' . $c['it']['id'], $short, max(0, $c['price'] - $b));
+        }
+    }
+    // order extras in scope: once per order
+    foreach ($spec['extras'] as $x) {
+        if ($x['scope'] !== 'all' && !in_array($offer['id'], (array)$x['scope'], true)) {
+            continue;
+        }
+        $value = $sel['extras'][$x['id']] ?? '';
+        if ($value === '') {
+            continue;
+        }
+        $c = 0;
+        if ($x['kind'] === 'choice') {
+            $o = cod_find($x['options'], $value);
+            $c = $o !== null ? (int)$o['delta'] : 0;
+        } elseif ((int)$x['delta'] > 0) {
+            $c = (int)$x['delta'];
+        }
+        $add('x:' . $x['id'], $x['name'], $c);
+    }
+    return ['total' => $total, 'reasons' => array_values($reasons)];
+}
+
+/** v2 error key → the v1 control name ("u.1.color" → "v.1.color", "s.main.color" → "v.color"). */
+function cod_v1_key(string $key): ?string
+{
+    if (preg_match('/^u\.(\d{1,2})\.([A-Za-z0-9_-]{2,40})$/', $key, $m)) {
+        return 'v.' . $m[1] . '.' . $m[2];
+    }
+    if (preg_match('/^s\.[a-z0-9-]+\.([A-Za-z0-9_-]{2,40})$/', $key, $m)) {
+        return 'v.' . $m[1];
+    }
+    return null;
+}
+
+/** v1 compat record of one unit: { groupName: label, …, fieldName: value } (+ "Article"); repeated names kept apart. */
+function cod_compat_record(array $spec, array $item, array $choice): array
+{
+    $rec = [];
+    $seen = [];
+    $put = function (string $name, string $value) use (&$rec, &$seen) {
+        $seen[$name] = ($seen[$name] ?? 0) + 1;
+        $rec[$seen[$name] > 1 ? $name . ' (' . $seen[$name] . ')' : $name] = $value;
+    };
+    if (!empty($spec['multi'])) {
+        $put('Article', $item['name']);
+    }
+    foreach ($item['groups'] as $g) {
+        if ($g['kind'] === 'choice') {
+            $o = cod_find($g['options'], $choice['options'][$g['id']] ?? null);
+            if ($o !== null) {
+                $put($g['name'], $o['label']);
+            }
+        } elseif ($g['kind'] === 'matrix') {
+            $key = $choice['options'][$g['id']] ?? '';
+            $combo = $key !== '' ? cod_parse_cell_key($key) : null;
+            $res = $combo !== null ? cod_resolve_combo($g, $combo, $item) : null;
+            foreach ($res['values'] ?? [] as $x) {
+                $put($x['dim']['name'], $x['value']['label']);
+            }
+        } elseif (($choice['fields'][$g['id']] ?? '') !== '') {
+            $put($g['name'], $choice['fields'][$g['id']]);
+        }
+    }
+    return $rec;
+}
+
+/** Field rules of the exported form (= validateOrder in the app), prices from the embedded data, in cents. */
 function cod_validate(array $p, array $spec): array
 {
     $fields = [];
     $form = $spec['form'];
-    $bundle = null;
-    foreach ($spec['bundles'] as $b) {
-        if ($b['id'] === $p['bundleId']) {
-            $bundle = $b;
-            break;
-        }
-    }
-    if ($bundle === null) {
+    $v2 = $p['v'] === 2;
+    $in = cod_selection_input($p);
+    $offer = cod_find($spec['offers'], $in['offerId']);
+    if ($offer === null) {
         $fields['bundleId'] = 'invalid';
+    } elseif (!empty($offer['soldOut'])) {
+        $fields['bundleId'] = 'unavailable';
     }
-    $units = [];
-    if ($bundle !== null) {
-        $v = cod_variants($spec, (int)$bundle['qty'], $p['variants']);
-        if (isset($v['errors'])) {
-            $fields = array_merge($fields, $v['errors']);
-        } else {
-            $units = $v['units'];
+    $sel = null;
+    if ($offer !== null && !isset($fields['bundleId'])) {
+        $sel = cod_resolve_selection($spec, $offer, $in);
+        $errs = $sel['errors'];
+        if (!$v2) {
+            // v1 order: group-major, like v1 resolveVariants (stable)
+            $ix = array_keys($errs);
+            usort($ix, function ($a, $b) use ($errs) {
+                return $errs[$a][2] - $errs[$b][2] ?: ($errs[$a][3] - $errs[$b][3] ?: $a - $b);
+            });
+            $sorted = [];
+            foreach ($ix as $i) {
+                $sorted[] = $errs[$i];
+            }
+            $errs = $sorted;
+        }
+        foreach ($errs as $e) {
+            if ($v2) {
+                if (!isset($fields[$e[0]])) {
+                    $fields[$e[0]] = $e[1];
+                }
+            } else {
+                $key = cod_v1_key($e[0]);
+                if ($key !== null) {
+                    if (!isset($fields[$key])) {
+                        $fields[$key] = $e[1];
+                    }
+                } elseif (!isset($fields['bundleId'])) {
+                    $fields['bundleId'] = 'invalid';
+                }
+            }
         }
     }
+
     $name = cod_valid_name($p['name']);
     if ($name === null) {
         $fields['name'] = cod_clean($p['name'], 80) !== '' ? 'invalid' : 'required';
@@ -954,15 +1989,82 @@ function cod_validate(array $p, array $spec): array
         }
     }
     $note = $form['note'] === 'hidden' ? null : (cod_clean($p['note'], 300) ?: null);
-    if ($fields || $bundle === null || $name === null || $phone === null) {
+    if ($fields || $offer === null || $sel === null || $name === null || $phone === null) {
         return [null, $fields];
     }
-    $bump = $p['bump'] && !empty($spec['bump']);
+
+    $deltas = cod_deltas($spec, $offer, $sel);
+    $bumpCents = $sel['bump'] ? (int)$spec['bump']['price'] : 0;
+    if ($bumpCents <= 0) {
+        // a bump at 0 is not recorded (= the app: items.bump only when it adds money)
+        $sel['bump'] = false;
+        $sel['bumpUnit'] = null;
+    }
+    $shipping = !empty($offer['freeDelivery']) ? 0 : (int)$spec['shippingFee'];
+    $subtotal = (int)$offer['price'] + $deltas['total'] + $bumpCents;
+    if ($v2 && $subtotal + $shipping !== (int)$p['st']) {
+        cod_log('parity mismatch on offer ' . $offer['id'] . ': shown ' . $p['st'] . ', server ' . ($subtotal + $shipping) . ' (server total wins)');
+    }
+
+    // stored extras (= OrderItems.extras) and v1 compat records
+    $extras = [];
+    foreach ($spec['extras'] as $x) {
+        $value = $sel['extras'][$x['id']] ?? '';
+        if ($value === '') {
+            continue;
+        }
+        if ($x['kind'] === 'choice') {
+            $o = cod_find($x['options'], $value);
+            if ($o !== null) {
+                $e = ['name' => $x['name'], 'value' => $o['label']];
+                if (isset($o['code'])) {
+                    $e['code'] = $o['code'];
+                }
+                if ((int)$o['delta'] > 0) {
+                    $e['delta'] = (int)$o['delta'];
+                }
+                $extras[] = $e;
+            }
+        } else {
+            $e = ['name' => $x['name'], 'value' => $value, 'typed' => true];
+            if ((int)$x['delta'] > 0) {
+                $e['delta'] = (int)$x['delta'];
+            }
+            $extras[] = $e;
+        }
+    }
+    $items = [];
+    foreach ($spec['items'] as $it) {
+        $items[$it['id']] = $it;
+    }
+    $anyGroups = false;
+    foreach ($offer['units'] as $k => $slot) {
+        $id = $sel['units'][$k]['item'] ?? ($slot['item'] ?? '');
+        if (isset($items[$id]) && $items[$id]['groups']) {
+            $anyGroups = true;
+        }
+    }
+    $variants = [];
+    if (!empty($spec['multi']) || $anyGroups) {
+        foreach ($sel['units'] as $u) {
+            $variants[] = cod_compat_record($spec, $items[$u['item']], $u);
+        }
+    }
+
     return [[
-        'bundle' => $bundle,
-        'units' => $units,
-        'bump' => $bump,
-        'total' => (float)($bump ? $bundle['totalWithBump'] : $bundle['total']),
+        'offer' => $offer,
+        'units' => $sel['snaps'],
+        'variants' => $variants,
+        'extras' => $extras,
+        'bump' => $sel['bump'],
+        'bumpUnit' => $sel['bumpUnit'],
+        'price' => (int)$offer['price'],
+        'deltas' => $deltas['total'],
+        'reasons' => $deltas['reasons'],
+        'bumpCents' => $bumpCents,
+        'shipping' => $shipping,
+        'subtotal' => $subtotal,
+        'total' => $subtotal + $shipping,
         'name' => $name,
         'phone' => $phone,
         'city' => $city,
@@ -970,6 +2072,90 @@ function cod_validate(array $p, array $spec): array
         'email' => $email,
         'note' => $note,
     ], []];
+}
+
+/** Variante text of a validated order (warehouse rendering, ≤ 1000 characters, "voir <id>" when capped). */
+function cod_order_text(array $spec, array $o, string $orderId): string
+{
+    $extras = [];
+    foreach ($o['extras'] as $x) {
+        $extras[] = $x;
+    }
+    return cod_units_text($o['units'], !empty($spec['multi']), $o['offer']['gift'] ?? null, $o['bumpUnit'], $extras, $orderId);
+}
+
+/**
+ * Optional Sheets columns (= src/lib/sheets/row.ts): "SKU" (`cell sku ?? item sku ?? short`, counted,
+ * free and bump included), "Articles" (physical pieces), "Livraison" (delivery charged), "Prix pack".
+ */
+function cod_sheet_extras(array $spec, array $o): array
+{
+    $tokens = [];
+    $pieces = [];
+    foreach ($o['units'] as $u) {
+        $pieces[] = [$u, ''];
+    }
+    if ($o['bump']) {
+        $pieces[] = [$o['bumpUnit'], (string)$spec['bump']['title']];
+    }
+    foreach ($pieces as $piece) {
+        list($u, $title) = $piece;
+        if ($u !== null) {
+            $raw = (string)($u['sku'] ?? '');
+            if ($raw === '') {
+                $raw = (string)($u['short'] ?? '');
+            }
+            if ($raw === '') {
+                $raw = (string)$u['label'];
+            }
+            if ($raw === '') {
+                $raw = (string)$spec['product'];
+            }
+        } else {
+            $raw = $title;
+        }
+        $t = (string)preg_replace('/[×\s]+/u', '-', cod_sheet_text($raw, 60));
+        if ($t !== '') {
+            $tokens[$t] = ($tokens[$t] ?? 0) + 1;
+        }
+    }
+    $sku = [];
+    foreach ($tokens as $t => $n) {
+        $sku[] = $t . '×' . $n;
+    }
+    return [
+        'sku' => cod_sheet_text(implode(' ', $sku), 500),
+        'articles' => count($pieces),
+        'delivery' => cod_money($o['shipping']),
+        'packPrice' => cod_money($o['price']),
+    ];
+}
+
+/**
+ * = cleanText in src/lib/sheets/format.ts: controls → space, whitespace collapsed, leading formula
+ * triggers dropped, capped (UTF-16 units, like String.prototype.slice).
+ */
+function cod_sheet_text($v, int $max): string
+{
+    $s = is_scalar($v) ? (string)$v : '';
+    $s = (string)preg_replace('/[\x{0000}-\x{001F}\x{007F}-\x{009F}\x{2028}\x{2029}]/u', ' ', $s);
+    $s = cod_js_trim((string)preg_replace('/' . COD_JS_SPACE . '+/u', ' ', $s));
+    $s = (string)preg_replace('/^(?:[=+\-@\x{FF1D}\x{FF0B}\x{FF0D}\x{FF20}]|' . COD_JS_SPACE . ')+/u', '', $s);
+    if (cod_u16len($s) <= $max) {
+        return $s;
+    }
+    $out = '';
+    $n = 0;
+    foreach (preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY) as $ch) {
+        $w = strlen($ch) === 4 ? 2 : 1;
+        if ($n + $w > $max) {
+            // a surrogate pair cut in half by slice(): JavaScript keeps the lone high surrogate; we drop it
+            break;
+        }
+        $out .= $ch;
+        $n += $w;
+    }
+    return $out;
 }
 
 /** "CMD-7K3Q9X" (no ambiguous characters). */
@@ -1020,12 +2206,8 @@ function cod_handle_order(array $spec): array
     // honeypot: bots get a success-looking answer and nothing is stored
     $website = $raw['website'] ?? '';
     if (is_string($website) && trim($website) !== '') {
-        $total = (float)$spec['price'];
-        foreach ($spec['bundles'] as $b) {
-            if (isset($raw['bundleId']) && $b['id'] === $raw['bundleId']) {
-                $total = (float)$b['total'];
-            }
-        }
+        $offer = cod_find($spec['offers'], $raw['bundleId'] ?? null);
+        $total = cod_money($offer !== null ? $offer['from'] : $spec['leadPrice']);
         return ['status' => 200, 'body' => ['ok' => true, 'orderId' => cod_order_id(), 'total' => $total, 'currency' => $currency]];
     }
 
@@ -1118,8 +2300,21 @@ function cod_handle_order(array $spec): array
 
     $now = time();
     $id = cod_order_id();
-    $bundle = $o['bundle'];
-    $product = $spec['product'] . ' — ' . $bundle['sheetLabel'] . ($o['bump'] ? ' + ' . $spec['bump']['title'] : '');
+    $offer = $o['offer'];
+    $product = $spec['product'] . ' — ' . $offer['sheetLabel'] . ($o['bump'] ? ' + ' . $spec['bump']['title'] : '');
+    $variantText = cod_order_text($spec, $o, $id);
+    $total = cod_money($o['total']);
+    $extras = [];
+    foreach ($o['extras'] as $x) {
+        if (isset($x['delta'])) {
+            $x['delta'] = cod_money($x['delta']);
+        }
+        $extras[] = $x;
+    }
+    $reasons = [];
+    foreach ($o['reasons'] as $r) {
+        $reasons[] = ['label' => $r['label'], 'count' => $r['count'], 'amount' => cod_money($r['cents'])];
+    }
     $noteParts = array_filter([
         $score >= COD_REVIEW_SCORE ? '[À vérifier]' : '',
         (string)$o['note'],
@@ -1138,12 +2333,22 @@ function cod_handle_order(array $spec): array
         'note' => $o['note'],
         'email' => $o['email'],
         'product' => $product,
-        'bundle_id' => $bundle['id'],
-        'qty' => (int)$bundle['qty'],
-        'variants' => $o['units'],
-        'variant_text' => cod_variant_text($o['units']),
+        'bundle_id' => $offer['id'],
+        'bundle_label' => $offer['sheetLabel'],
+        'qty' => count($offer['units']),
+        'variants' => $o['variants'],
+        'units' => $o['units'],
+        'extras' => $extras,
+        'gift' => $offer['gift'],
+        'variant_text' => $variantText,
+        'sheet_extras' => cod_sheet_extras($spec, $o),
         'bump' => $o['bump'] ? $spec['bump']['title'] : null,
-        'total' => $o['total'],
+        'bump_unit' => $o['bumpUnit'],
+        'price' => cod_money($o['price']),
+        'deltas' => cod_money($o['deltas']),
+        'reasons' => $reasons,
+        'shipping' => cod_money($o['shipping']),
+        'total' => $total,
         'currency' => $currency,
         'locale' => $p['locale'] !== '' ? $p['locale'] : $spec['locale'],
         'utm' => (object)$p['utm'],
@@ -1172,7 +2377,7 @@ function cod_handle_order(array $spec): array
     }
     // the order is stored: a failing marker must not turn it into an error the shopper would retry
     try {
-        cod_store_put($env, 'idem', $p['idem'], ['o' => $id, 't' => $o['total']], 3 * 86400);
+        cod_store_put($env, 'idem', $p['idem'], ['o' => $id, 't' => $total], 3 * 86400);
         cod_store_put($env, 'phones', $phoneKey, ['o' => $id], COD_DUPLICATE_WINDOW);
     } catch (Throwable $e) {
         cod_log('markers ' . $id . ': ' . $e->getMessage());
@@ -1180,7 +2385,7 @@ function cod_handle_order(array $spec): array
 
     return [
         'status' => 200,
-        'body' => ['ok' => true, 'orderId' => $id, 'total' => $o['total'], 'currency' => $currency],
+        'body' => ['ok' => true, 'orderId' => $id, 'total' => $total, 'currency' => $currency],
         'after' => true,
         'order' => $order,
     ];
@@ -1287,6 +2492,7 @@ function cod_sync(array $env, int $limit): int
                 @file_put_contents($tabFile, (string)json_encode(['sheet' => $sheetId, 'title' => $tab], JSON_UNESCAPED_UNICODE), LOCK_EX);
             }
             $existing = $retried ? gs_find_rows($sa, $cache, $sheetId, $tab) : [];
+            $cols = cod_sheet_columns($sa, $cache, $sheetId, $tab, $tabFile);
             $rows = [];
             $written = [];
             foreach ($batch as $file => $o) {
@@ -1294,7 +2500,7 @@ function cod_sync(array $env, int $limit): int
                 if (isset($existing[$o['id']])) {
                     continue;
                 }
-                $rows[] = gs_order_row([
+                $row = gs_order_row([
                     'id' => $o['id'],
                     'created_at' => (int)$o['created_at'],
                     'status' => 'new',
@@ -1310,6 +2516,9 @@ function cod_sync(array $env, int $limit): int
                     'source' => $o['source'],
                     'tz' => (string)($config['timezone'] ?? 'Africa/Casablanca'),
                 ]);
+                // Variante: the whole order text (≤ 1000 characters), not gs_order_row's 200
+                $row[8] = cod_sheet_text((string)$o['variant_text'], COD_TEXT_MAX);
+                $rows[] = cod_wide_row($row, $cols, is_array($o['sheet_extras'] ?? null) ? $o['sheet_extras'] : null);
             }
             gs_append_rows($sa, $cache, $sheetId, $tab, $rows);
             foreach ($written as $file) {
@@ -1319,6 +2528,8 @@ function cod_sync(array $env, int $limit): int
         } catch (Throwable $e) {
             if ($e instanceof GsException && ($e->status === 400 || $e->status === 404)) {
                 @unlink($tabFile); // tab renamed or deleted: look it up again next time
+            } else {
+                cod_forget_columns($tabFile); // a failed write: read the optional headers again next time
             }
             cod_log('sheets: ' . ($e instanceof GsException ? '' : get_class($e) . ': ') . $e->getMessage());
             foreach ($batch as $file => $o) {
@@ -1332,6 +2543,67 @@ function cod_sync(array $env, int $limit): int
         flock($lock, LOCK_UN);
         fclose($lock);
     }
+}
+
+/** "sku" | "articles" | "delivery" | "packPrice" → 0-based column, from the headers after column M. */
+function cod_extra_columns(array $cells): array
+{
+    $names = ['sku' => 'sku', 'articles' => 'articles', 'livraison' => 'delivery', 'prix pack' => 'packPrice'];
+    $out = [];
+    foreach (array_values($cells) as $i => $v) {
+        $key = is_scalar($v) ? (string)$v : '';
+        $key = cod_js_trim((string)preg_replace('/' . COD_JS_SPACE . '+/u', ' ', $key));
+        $key = function_exists('mb_strtolower') ? mb_strtolower($key, 'UTF-8') : strtolower($key);
+        if (isset($names[$key]) && !isset($out[$names[$key]])) {
+            $out[$names[$key]] = 13 + $i;
+        }
+    }
+    return $out;
+}
+
+/** The optional columns of the tab, read once per 10 min (cached in data/sheet-tab.json). */
+function cod_sheet_columns(array $sa, string $cache, string $sheetId, string $tab, string $tabFile): array
+{
+    $info = json_decode((string)@file_get_contents($tabFile), true);
+    if (is_array($info) && isset($info['cols'], $info['cols_at']) && is_array($info['cols']) && time() - (int)$info['cols_at'] < 600) {
+        return $info['cols'];
+    }
+    $path = '/' . rawurlencode($sheetId) . '/values/' . rawurlencode(gs_a1($tab, 'N1:AZ1'));
+    $r = gs_api($sa, $cache, 'GET', $path, null, 2);
+    $cols = cod_extra_columns(is_array($r['values'][0] ?? null) ? $r['values'][0] : []);
+    $info = is_array($info) ? $info : ['sheet' => $sheetId, 'title' => $tab];
+    $info['cols'] = (object)$cols;
+    $info['cols_at'] = time();
+    @file_put_contents($tabFile, (string)json_encode($info, JSON_UNESCAPED_UNICODE), LOCK_EX);
+    return $cols;
+}
+
+function cod_forget_columns(string $tabFile): void
+{
+    $info = json_decode((string)@file_get_contents($tabFile), true);
+    if (is_array($info) && isset($info['cols_at'])) {
+        unset($info['cols'], $info['cols_at']);
+        @file_put_contents($tabFile, (string)json_encode($info, JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
+}
+
+/** The 13 contract cells, then null after column M except the optional columns the tab has (nulls are skipped). */
+function cod_wide_row(array $row, array $cols, ?array $values): array
+{
+    if (!$cols || $values === null) {
+        return $row;
+    }
+    $width = max(13, max($cols) + 1);
+    for ($i = count($row); $i < $width; $i++) {
+        $row[$i] = null;
+    }
+    foreach ($cols as $name => $c) {
+        if (array_key_exists($name, $values)) {
+            $row[(int)$c] = $values[$name];
+        }
+    }
+    ksort($row);
+    return array_values($row);
 }
 
 /** GET ?sync=1: push queued orders now. Public, so rate limited per IP; answers a count only. */

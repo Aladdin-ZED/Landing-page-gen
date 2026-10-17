@@ -3,10 +3,19 @@
  * Admin edits it, the generator produces it, the renderer turns it into HTML,
  * the exporter zips that HTML. Every field is validated before render/publish.
  *
+ * Version 2 (docs/OFFERS.md): a page sells ITEMS (`items`, 1–8; items[0] is the lead item, the
+ * upgraded v1 product is the item "main"), OFFERS are lines of items (`offers.bundles`, key kept),
+ * option groups are choice / matrix / field groups. `PageDoc` upgrades every v1 document and repairs
+ * what existing data can break (src/lib/page/upgrade.ts) before validating, so every read
+ * (`PageDoc.safeParse`, `validateDoc`) of a draft, a published version or an export accepts v1 JSON.
+ * Writes are always v2; version rows keep their v1 JSON forever.
+ *
  * Shared, framework-free (safe in browser, server and web workers).
  */
 import { z } from "zod";
 import { PIXEL_ID_RE, PIXEL_LIMIT, type PixelPlatform } from "../pixels/ids";
+import { cellKey } from "./options";
+import { upgradeDoc } from "./upgrade";
 
 /* ------------------------------------------------------------------ */
 /* Primitives                                                          */
@@ -25,15 +34,39 @@ export const MARKETS = ["MA", "FR", "BE", "ES", "DE", "IT", "NL", "PT", "INTL"] 
 export const Market = z.enum(MARKETS);
 export type Market = z.infer<typeof Market>;
 
-/** Short id helper for sections/bundles (url-safe, 4-40 chars). */
-export const Id = z.string().regex(/^[a-zA-Z0-9_-]{2,40}$/);
+/** Short id of sections, offers, lines, groups and options (url-safe, 2–40 chars). */
+export const ID_RE = /^[a-zA-Z0-9_-]{2,40}$/;
+export const Id = z.string().regex(ID_RE);
 
-export const Money = z.number().nonnegative().max(10_000_000);
+/** Item ids: short, lowercase, no "." or ":" (separators in keys). The upgraded v1 product is "main". */
+export const ITEM_ID_RE = /^[a-z0-9][a-z0-9-]{1,23}$/;
+export const ItemId = z.string().regex(ITEM_ID_RE);
+export const MAIN_ITEM_ID = "main";
+
+/** True when an amount has at most 2 decimals (integer cents). */
+export const isWholeCents = (m: number) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6;
+
+/** An amount in the page currency: ≥ 0, ≤ 10 000 000, at most 2 decimals (pricing works in integer cents). */
+export const Money = z.number().nonnegative().max(10_000_000).refine(isWholeCents, { error: "2 decimals max" });
+
+/** Price difference of an option, a combination or a field: 0–100 000 (never negative: discounts belong to offers). */
+export const Delta = Money.max(100_000);
 
 /** Inline text: plain text with a tiny safe markup: *emphasis* and **strong**. Never HTML. */
 export const InlineText = z.string().max(400);
 /** Block text: InlineText rules + line breaks + "- " bullet lines. Never HTML. */
 export const BlockText = z.string().max(4000);
+
+/** Crop of a photo, 0..1 of its width / height (an item cut out of a group photo). CSS only. */
+export const CropBox = z
+  .object({
+    x: z.number().min(0).max(0.95),
+    y: z.number().min(0).max(0.95),
+    w: z.number().min(0.05).max(1),
+    h: z.number().min(0.05).max(1),
+  })
+  .refine((b) => b.x + b.w <= 1.0001 && b.y + b.h <= 1.0001, { error: "The crop leaves the photo." });
+export type CropBox = z.infer<typeof CropBox>;
 
 /** Reference to an uploaded asset (image/video). Resolved to URLs by RenderContext.asset(). */
 export const AssetRef = z.object({
@@ -42,11 +75,13 @@ export const AssetRef = z.object({
   /** focal point for object-position, 0..1 */
   fx: z.number().min(0).max(1).optional(),
   fy: z.number().min(0).max(1).optional(),
+  /** crop of the photo (an item cut out of a group photo); rendered with CSS only */
+  box: CropBox.optional(),
 });
 export type AssetRef = z.infer<typeof AssetRef>;
 
 /* ------------------------------------------------------------------ */
-/* Product                                                             */
+/* Product (the story of the page)                                     */
 /* ------------------------------------------------------------------ */
 
 export const PRODUCT_CATEGORIES = [
@@ -82,23 +117,130 @@ export const PRODUCT_CATEGORIES = [
 export const ProductCategory = z.enum(PRODUCT_CATEGORIES);
 export type ProductCategory = z.infer<typeof ProductCategory>;
 
-export const VariantOption = z.object({
+/* ------------------------------------------------------------------ */
+/* Option groups (§D)                                                  */
+/* ------------------------------------------------------------------ */
+
+/** Warehouse code (Latin): Sheets, CSV and order.php print it instead of the label ("NR" for "نوار"). */
+export const WAREHOUSE_CODE_RE = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,19}$/;
+
+export const Choice = z.object({
   id: Id,
   label: z.string().min(1).max(40),
   swatch: Hex.optional(),
   image: AssetRef.optional(),
   soldOut: z.boolean().default(false),
+  /** warehouse code (Latin): Sheets, CSV and order.php print it instead of the label */
+  code: z.string().regex(WAREHOUSE_CODE_RE).optional(),
+  /** surcharge per unit when chosen ("XL +20"). Never negative: discounts belong to offers. */
+  delta: Delta.optional(),
 });
+export type Choice = z.infer<typeof Choice>;
 
-export const VariantGroup = z.object({
+const GroupBase = {
   id: Id,
   name: z.string().min(1).max(40), // "Couleur", "Taille", "اللون"
-  kind: z.enum(["swatch", "text", "image"]).default("text"),
-  options: z.array(VariantOption).min(1).max(24),
-  /** true → customer picks an option per unit in multi-unit bundles */
+  /** true: one value per unit of this item · false: one value shared by every unit of this item in the order */
   perUnit: z.boolean().default(true),
-});
+};
 
+export const CHOICE_KINDS = ["swatch", "text", "image"] as const;
+export type ChoiceKind = (typeof CHOICE_KINDS)[number];
+
+export const ChoiceGroup = z.object({
+  ...GroupBase,
+  kind: z.enum(CHOICE_KINDS),
+  options: z.array(Choice).min(1).max(40),
+  /** "select": a native dropdown (long lists, e.g. 30 shoe sizes); "auto": dots / tiles / chips by kind */
+  display: z.enum(["auto", "select"]).default("auto"),
+});
+export type ChoiceGroup = z.infer<typeof ChoiceGroup>;
+
+export const MatrixDim = z.object({
+  id: Id,
+  name: z.string().min(1).max(40),
+  kind: z.enum(CHOICE_KINDS).default("text"),
+  /** value.soldOut = every combination with it is out */
+  values: z.array(Choice).min(1).max(24),
+});
+export type MatrixDim = z.infer<typeof MatrixDim>;
+
+export const CELL_STATES = ["in", "out", "none"] as const;
+export type CellState = (typeof CELL_STATES)[number];
+
+export const MatrixCell = z.object({
+  /** the combination(s) this exception applies to; a dim missing from v is a wildcard (1..dims.length entries) */
+  v: z.record(Id, Id),
+  /** out = épuisé · none = not made (never shown as épuisé) */
+  state: z.enum(CELL_STATES).default("in"),
+  image: AssetRef.optional(),
+  /** replaces Σ value deltas */
+  delta: Delta.optional(),
+  /** replaces item.sku */
+  sku: z.string().max(60).optional(),
+});
+export type MatrixCell = z.infer<typeof MatrixCell>;
+
+export const MATRIX_MAX_COMBINATIONS = 240;
+
+export const MatrixGroup = z.object({
+  ...GroupBase,
+  kind: z.literal("matrix"),
+  dims: z.array(MatrixDim).min(2).max(3),
+  /** only exceptions; every other combination exists, in stock */
+  cells: z.array(MatrixCell).max(240).default([]),
+  /** "combined": one picker of the valid combinations ("Noir · M"); "linked": one selector per dim; "auto": combined when ≤ 8 valid */
+  display: z.enum(["auto", "linked", "combined"]).default("auto"),
+});
+export type MatrixGroup = z.infer<typeof MatrixGroup>;
+
+export const FIELD_CHARSETS = ["any", "letters", "latin", "digits"] as const;
+export type FieldCharset = (typeof FIELD_CHARSETS)[number];
+
+export const FieldGroup = z.object({
+  ...GroupBase,
+  kind: z.literal("field"),
+  input: z.enum(["text", "number"]).default("text"),
+  required: z.boolean().default(true),
+  /** code points */
+  maxLength: z.number().int().min(1).max(60).default(24),
+  min: z.number().int().min(0).max(1_000_000).optional(),
+  max: z.number().int().min(0).max(1_000_000).optional(),
+  charset: z.enum(FIELD_CHARSETS).default("any"),
+  placeholder: z.string().max(40).optional(),
+  help: z.string().max(90).optional(),
+  /** only when required = false ("gravure +30") */
+  delta: Delta.optional(),
+});
+export type FieldGroup = z.infer<typeof FieldGroup>;
+
+export const OptionGroup = z.discriminatedUnion("kind", [ChoiceGroup, MatrixGroup, FieldGroup]);
+export type OptionGroup = z.infer<typeof OptionGroup>;
+
+export const isChoiceGroup = (g: { kind: string }): g is ChoiceGroup => g.kind === "swatch" || g.kind === "text" || g.kind === "image";
+export const isMatrixGroup = (g: { kind: string }): g is MatrixGroup => g.kind === "matrix";
+export const isFieldGroup = (g: { kind: string }): g is FieldGroup => g.kind === "field";
+
+/** v1 name of a choice option. @deprecated one release: use Choice. */
+export const VariantOption = Choice;
+export type VariantOption = Choice;
+/**
+ * v1 option group (product.variants): a choice group whose kind defaults to "text".
+ * @deprecated one release: use ChoiceGroup (items[].groups).
+ */
+export const VariantGroup = z.preprocess(
+  (g) => (g && typeof g === "object" && !Array.isArray(g) && (g as { kind?: unknown }).kind === undefined ? { ...g, kind: "text" } : g),
+  ChoiceGroup,
+);
+export type VariantGroup = ChoiceGroup;
+
+/* ------------------------------------------------------------------ */
+/* Product & items                                                     */
+/* ------------------------------------------------------------------ */
+
+const Rating = z.object({ value: z.number().min(1).max(5), count: z.number().int().min(1).max(1_000_000) });
+
+/** The page's story: name, words, photos, rating. Prices and options live on the items (§B). */
 export const Product = z.object({
   name: z.string().min(1).max(120),
   tagline: InlineText.optional(),
@@ -107,71 +249,212 @@ export const Product = z.object({
   images: z.array(AssetRef).max(30).default([]),
   /** transparent background cutout of the product (hero stage) */
   cutout: AssetRef.optional(),
-  price: Money,
-  /** genuine previous unit price, shown struck-through only if set */
-  compareAt: Money.optional(),
-  sku: z.string().max(60).optional(),
-  variants: z.array(VariantGroup).max(3).default([]),
   /** real aggregated rating — never invent */
-  rating: z
-    .object({ value: z.number().min(1).max(5), count: z.number().int().min(1).max(1_000_000) })
-    .optional(),
+  rating: Rating.optional(),
 });
 export type Product = z.infer<typeof Product>;
 
+/**
+ * The v1 product (story + price, compare-at, SKU and options): what the generate wizard still sends.
+ * @deprecated one release: the wizard sends items (Phase 1, GN).
+ */
+export const LegacyProduct = Product.extend({
+  price: Money,
+  compareAt: Money.optional(),
+  sku: z.string().max(60).optional(),
+  variants: z.array(VariantGroup).max(4).default([]),
+});
+export type LegacyProduct = z.infer<typeof LegacyProduct>;
+
+export const Item = z.object({
+  id: ItemId,
+  /** shown on cards, unit heads, summaries. Required (non-empty) when the page has 2+ items; on a single-item page "" = product name */
+  name: z.string().max(120).default(""),
+  /** Sheets / WhatsApp / receipts name; default = name */
+  short: z.string().max(40).optional(),
+  /** the item's photos: own photos, crops of a group photo (box), and the uncropped group photos it appears in */
+  images: z.array(AssetRef).max(8).default([]),
+  cutout: AssetRef.optional(),
+  sku: z.string().max(60).optional(),
+  /** reference unit price: one unit bought alone. Base of the automatic reference and of savings. */
+  price: Money,
+  /** genuine previous unit price, struck where a single unit price is shown */
+  compareAt: Money.optional(),
+  groups: z.array(OptionGroup).max(4).default([]),
+  /** whole item unavailable: choice lines skip it, offers with a fixed line on it are unavailable */
+  soldOut: z.boolean().default(false),
+});
+export type Item = z.infer<typeof Item>;
+
 /* ------------------------------------------------------------------ */
-/* Offers / bundles                                                    */
+/* Offers (§C)                                                         */
 /* ------------------------------------------------------------------ */
 
-export const BUNDLE_CARD_STYLES = ["stack", "tiers", "ticket", "pills", "visual"] as const;
+/** A choice group id, or "<matrixGroupId>.<dimId>". */
+export const RULE_KEY_RE = /^[A-Za-z0-9_-]{2,40}(\.[A-Za-z0-9_-]{2,40})?$/;
+export const RuleKey = z.string().regex(RULE_KEY_RE);
 
-export const Bundle = z.object({
+export const LineRule = z.union([
+  /** fixed: static chip, filled by the server */
+  z.object({ lock: Id }).strict(),
+  /** subset; preset ∈ allow = initial value */
+  z.object({ allow: z.array(Id).min(1).max(40), preset: Id.optional() }).strict(),
+  /** initial value only */
+  z.object({ preset: Id }).strict(),
+]);
+export type LineRule = z.infer<typeof LineRule>;
+
+export const FixedPick = z.object({ item: ItemId }).strict();
+export const ChoicePick = z
+  .object({
+    /** the customer chooses, per unit */
+    choice: z.array(ItemId).min(2).max(8),
+    /** "2 différents au choix" */
+    distinct: z.boolean().default(false),
+    /** "difference": pricier items cost their difference (§C.3) */
+    surcharge: z.enum(["none", "difference"]).default("none"),
+  })
+  .strict();
+export type FixedPick = z.infer<typeof FixedPick>;
+export type ChoicePick = z.infer<typeof ChoicePick>;
+
+export const OfferLine = z.object({
+  /** "l1", stable for memory keys */
   id: Id,
   qty: z.number().int().min(1).max(20),
-  /** e.g. "Pack Duo" / "عرض الثنائي" — optional, falls back to "x2" */
+  pick: z.union([FixedPick, ChoicePick]),
+  /** a catalog item given for free (BOGO, "+ a free mini"); never carries surcharges */
+  free: z.boolean().default(false),
+  /** unit head override ("Votre 2e parfum", "Votre cadeau") */
+  label: z.string().max(40).optional(),
+  /** fixed-item lines only: lock / restrict / preset the item's options on this line; ≤ 3 keys */
+  rules: z.record(RuleKey, LineRule).optional(),
+});
+export type OfferLine = z.infer<typeof OfferLine>;
+
+export const isFixedPick = (p: OfferLine["pick"]): p is FixedPick => "item" in p;
+export const isChoicePick = (p: OfferLine["pick"]): p is ChoicePick => "choice" in p;
+
+export const VISUAL_ARRANGES = ["auto", "row", "overlap", "grid"] as const;
+export const OfferVisual = z.discriminatedUnion("mode", [
+  /** composed from the lines' item photos (§E.6) */
+  z.object({ mode: z.literal("auto") }),
+  z.object({
+    mode: z.literal("custom"),
+    /** the owner's photos: a group shot, group shot + 3rd item… */
+    images: z.array(AssetRef).min(1).max(4),
+    arrange: z.enum(VISUAL_ARRANGES).default("auto"),
+  }),
+]);
+export type OfferVisual = z.infer<typeof OfferVisual>;
+
+export const BADGES = ["none", "popular", "best", "custom"] as const;
+
+export const Offer = z.object({
+  id: Id,
+  /** segment / tab label (pills, teasers): ≤ 14; default automatic (§C.4) */
+  short: z.string().max(14).optional(),
+  lines: z.array(OfferLine).min(1).max(6),
+  /** else an automatic name (§C.4) */
   title: z.string().max(60).optional(),
   subtitle: z.string().max(90).optional(),
-  /** total price for the bundle */
+  /** card bullets (stack, visual, pills panel) */
+  perks: z.array(z.string().min(1).max(40)).max(3).default(() => []),
+  /** total price of the offer's units (before surcharges, bump, extras and delivery) */
   price: Money,
-  /** genuine reference total. Default (when absent) = product.price * qty */
+  /** genuine reference total; absent = automatic reference (§C.3); never invented */
   compareAt: Money.optional(),
-  badge: z.enum(["none", "popular", "best", "custom"]).default("none"),
+  badge: z.enum(BADGES).default("none"),
   badgeText: z.string().max(28).optional(),
-  freeShipping: z.boolean().default(true),
+  /** no delivery fee for this offer (real; only meaningful when shippingFee > 0) */
+  freeShipping: z.boolean().default(false),
+  /** non-catalog gift (text + optional photo): card, summary, AND the order (§G.3) */
   gift: z.object({ label: z.string().min(1).max(60), image: AssetRef.optional() }).optional(),
-  image: AssetRef.optional(),
+  visual: OfferVisual.default(() => ({ mode: "auto" as const })),
   preselected: z.boolean().default(false),
+  soldOut: z.boolean().default(false),
 });
-export type Bundle = z.infer<typeof Bundle>;
+export type Offer = z.infer<typeof Offer>;
+/** @deprecated one release: an offer (`offers.bundles` keeps its v1 key). */
+export const Bundle = Offer;
+/** @deprecated one release: use Offer. */
+export type Bundle = Offer;
+
+/* ------------------------------------------------------------------ */
+/* Offer layouts (§E.1)                                                */
+/* ------------------------------------------------------------------ */
+
+/** UI "Offer layout" (= v1 BUNDLE_CARD_STYLES). */
+export const OFFER_PICKERS = ["stack", "tiers", "ticket", "pills", "visual"] as const;
+export type OfferPicker = (typeof OFFER_PICKERS)[number];
+/** @deprecated one release: use OFFER_PICKERS. */
+export const BUNDLE_CARD_STYLES = OFFER_PICKERS;
+/** UI "Personalization layout" */
+export const OFFER_FILLS = ["auto", "inline", "rows", "steps", "box"] as const;
+export type OfferFill = (typeof OFFER_FILLS)[number];
+/** UI "Selected style" */
+export const OFFER_SELECTIONS = ["soft", "solid", "outline"] as const;
+export type OfferSelection = (typeof OFFER_SELECTIONS)[number];
+export const OFFER_MEDIA = ["auto", "none", "thumb", "large"] as const;
+export type OfferMedia = (typeof OFFER_MEDIA)[number];
+export const OFFER_DENSITIES = ["comfortable", "compact"] as const;
+export type OfferDensity = (typeof OFFER_DENSITIES)[number];
+
+export const OfferDisplay = z.object({
+  picker: z.enum(OFFER_PICKERS).default("stack"),
+  fill: z.enum(OFFER_FILLS).default("auto"),
+  selection: z.enum(OFFER_SELECTIONS).default("soft"),
+  media: z.enum(OFFER_MEDIA).default("auto"),
+  density: z.enum(OFFER_DENSITIES).default("comfortable"),
+});
+export type OfferDisplay = z.infer<typeof OfferDisplay>;
+export const DEFAULT_OFFER_DISPLAY: OfferDisplay = { picker: "stack", fill: "auto", selection: "soft", media: "auto", density: "comfortable" };
+
+/** Which offers an extra applies to: every offer, or these offer ids. */
+const Scope = z.union([z.literal("all"), z.array(Id).min(1).max(8)]).default("all");
+export const ExtraGroup = z.discriminatedUnion("kind", [ChoiceGroup.extend({ scope: Scope }), FieldGroup.extend({ scope: Scope })]);
+export type ExtraGroup = z.infer<typeof ExtraGroup>;
+
+export const OrderBump = z.object({
+  enabled: z.boolean().default(false),
+  title: z.string().max(80),
+  description: z.string().max(160).optional(),
+  price: Money,
+  image: AssetRef.optional(),
+  /** the bump is a catalog item (qty 1): title/image default from it, its options are collected, SKU/contents include it */
+  item: ItemId.optional(),
+  /** shown only with these offers (absent = all) */
+  offers: z.array(Id).min(1).max(8).optional(),
+});
+export type OrderBump = z.infer<typeof OrderBump>;
+
+export const Upsell = z.object({
+  enabled: z.boolean().default(false),
+  title: z.string().max(80),
+  description: z.string().max(240).optional(),
+  price: Money,
+  compareAt: Money.optional(),
+  image: AssetRef.optional(),
+  /** offer window on thank-you page, minutes */
+  windowMinutes: z.number().int().min(1).max(120).default(10),
+  /** the upsell is a catalog item ("options à confirmer" in the order text) */
+  item: ItemId.optional(),
+});
+export type Upsell = z.infer<typeof Upsell>;
 
 export const Offers = z.object({
-  bundles: z.array(Bundle).min(1).max(5),
-  cardStyle: z.enum(BUNDLE_CARD_STYLES).default("stack"),
+  /** the page's offers (key kept from v1, D3) */
+  bundles: z.array(Offer).min(1).max(8),
+  /** §E (replaces v1 cardStyle) */
+  display: OfferDisplay.default(() => ({ ...DEFAULT_OFFER_DISPLAY })),
+  /** order-level choices (gift wrap, card message), once per order; perUnit ignored */
+  extras: z.array(ExtraGroup).max(4).default(() => []),
   showPerUnit: z.boolean().default(true),
   showSavings: z.enum(["amount", "percent", "both", "none"]).default("both"),
-  /** delivery fee added to every order (0 = free) */
+  /** delivery fee added to every order whose offer is not free-delivery (0 = free) */
   shippingFee: Money.default(0),
-  orderBump: z
-    .object({
-      enabled: z.boolean().default(false),
-      title: z.string().max(80),
-      description: z.string().max(160).optional(),
-      price: Money,
-      image: AssetRef.optional(),
-    })
-    .optional(),
-  upsell: z
-    .object({
-      enabled: z.boolean().default(false),
-      title: z.string().max(80),
-      description: z.string().max(240).optional(),
-      price: Money,
-      compareAt: Money.optional(),
-      image: AssetRef.optional(),
-      /** offer window on thank-you page, minutes */
-      windowMinutes: z.number().int().min(1).max(120).default(10),
-    })
-    .optional(),
+  orderBump: OrderBump.optional(),
+  upsell: Upsell.optional(),
   urgency: z
     .object({
       /** ISO datetime set by admin. Countdown hides itself after it passes. Never auto-resets. */
@@ -179,7 +462,7 @@ export const Offers = z.object({
       /** real stock number typed by admin */
       stockLeft: z.number().int().min(0).max(100_000).optional(),
     })
-    .default({}),
+    .default(() => ({})),
 });
 export type Offers = z.infer<typeof Offers>;
 
@@ -324,6 +607,10 @@ export const Tracking = z.object({
   tiktokPixelId: pixelIds("tiktok"),
   snapPixelId: pixelIds("snap"),
   ga4Id: pixelIds("ga4"),
+  /** "No pixel on this page" (organic / test). Repair drops it when any id is set. */
+  none: z.literal(true).optional(),
+  /** "Pixels copied from {page}" until the owner keeps or edits them */
+  copiedFrom: z.string().max(120).optional(),
 });
 export type Tracking = z.infer<typeof Tracking>;
 
@@ -342,22 +629,216 @@ export const ThankYou = z.object({
 });
 
 /* ------------------------------------------------------------------ */
+/* Limits and refinements (§B.1, §C.1, §D.1, §J.1)                     */
+/* ------------------------------------------------------------------ */
+
+export const LIMITS = {
+  items: 8,
+  itemPhotos: 8,
+  groupsPerItem: 4,
+  fieldsPerItem: 2,
+  matrixPerItem: 1,
+  choiceOptions: 40,
+  matrixValues: 24,
+  matrixCombinations: MATRIX_MAX_COMBINATIONS,
+  matrixCells: 240,
+  /** Σ choice options + matrix dim values on a page */
+  pageOptions: 200,
+  /** Σ matrix cells on a page */
+  pageCells: 300,
+  /** option / value / cell photos on a page (publish cap `page_too_large`, checklist error) */
+  pagePhotos: 48,
+  offers: 8,
+  linesPerOffer: 6,
+  unitsPerOffer: 20,
+  rulesPerLine: 3,
+  extras: 4,
+  perks: 3,
+  customVisualPhotos: 4,
+} as const;
+
+type Ctx = z.RefinementCtx;
+const issue = (c: Ctx, path: (string | number)[], message: string) => c.addIssue({ code: "custom", message, path });
+
+/** Choice options + matrix values (with their photos) of one group list. */
+function countOptions(groups: readonly OptionGroup[]): { options: number; cells: number; photos: number } {
+  let options = 0;
+  let cells = 0;
+  let photos = 0;
+  for (const g of groups) {
+    if (isChoiceGroup(g)) {
+      options += g.options.length;
+      photos += g.options.filter((o) => o.image).length;
+    } else if (isMatrixGroup(g)) {
+      for (const d of g.dims) {
+        options += d.values.length;
+        photos += d.values.filter((o) => o.image).length;
+      }
+      cells += g.cells.length;
+      photos += g.cells.filter((x) => x.image).length;
+    }
+  }
+  return { options, cells, photos };
+}
+
+/** Option / value / cell photos of a page (each becomes a <picture> template): §F.9 page cap. */
+export function optionPhotoCount(doc: { items: readonly Item[]; offers: { extras: readonly ExtraGroup[] } }): number {
+  let n = 0;
+  for (const it of doc.items) n += countOptions(it.groups).photos;
+  for (const x of doc.offers.extras) if (isChoiceGroup(x)) n += x.options.filter((o) => o.image).length;
+  return n;
+}
+
+function uniqueIds(c: Ctx, ids: readonly string[], path: (string | number)[], what: string): void {
+  const seen = new Set<string>();
+  ids.forEach((id, i) => {
+    if (seen.has(id)) issue(c, [...path, i, "id"], `Duplicate ${what} id "${id}".`);
+    seen.add(id);
+  });
+}
+
+function groupIssues(c: Ctx, g: OptionGroup | ExtraGroup, path: (string | number)[]): void {
+  if (isChoiceGroup(g)) {
+    uniqueIds(c, g.options.map((o) => o.id), [...path, "options"], "option");
+    return;
+  }
+  if (isFieldGroup(g)) {
+    if (g.required && g.delta !== undefined && g.delta > 0) issue(c, [...path, "delta"], "A required field can't add a price; include it in the offer price or make it optional.");
+    if (g.min !== undefined && g.max !== undefined && g.min > g.max) issue(c, [...path, "max"], "The maximum is below the minimum.");
+    return;
+  }
+  // matrix
+  uniqueIds(c, g.dims.map((d) => d.id), [...path, "dims"], "dimension");
+  g.dims.forEach((d, i) => uniqueIds(c, d.values.map((v) => v.id), [...path, "dims", i, "values"], "value"));
+  const combos = g.dims.reduce((n, d) => n * d.values.length, 1);
+  if (combos > MATRIX_MAX_COMBINATIONS) issue(c, [...path, "dims"], `${combos} combinations: at most ${MATRIX_MAX_COMBINATIONS}.`);
+  const dims = new Map(g.dims.map((d) => [d.id, new Set(d.values.map((v) => v.id))]));
+  const keys = new Set<string>();
+  g.cells.forEach((cell, i) => {
+    const entries = Object.entries(cell.v);
+    if (entries.length < 1 || entries.length > g.dims.length) issue(c, [...path, "cells", i, "v"], "A combination names 1 value per dimension at most.");
+    for (const [dim, value] of entries) {
+      const values = dims.get(dim);
+      if (!values) issue(c, [...path, "cells", i, "v", dim], `Unknown dimension "${dim}".`);
+      else if (!values.has(value)) issue(c, [...path, "cells", i, "v", dim], `Unknown value "${value}".`);
+    }
+    const key = cellKey(cell.v);
+    if (keys.has(key)) issue(c, [...path, "cells", i, "v"], `Combination "${key}" is listed twice.`);
+    keys.add(key);
+  });
+}
+
+/** Hard rules for v2-only constructs; everything v1 data can break is repaired by upgradeDoc (§I.1). */
+function docIssues(d: z.output<typeof PageDocBase>, c: Ctx): void {
+  const items = d.items;
+  const byId = new Map<string, Item>();
+  items.forEach((it, i) => {
+    if (byId.has(it.id)) issue(c, ["items", i, "id"], `Duplicate item id "${it.id}".`);
+    byId.set(it.id, it);
+    if (items.length > 1 && !it.name.trim()) issue(c, ["items", i, "name"], "Name every product when the page sells more than one.");
+    uniqueIds(c, it.groups.map((g) => g.id), ["items", i, "groups"], "group");
+    if (it.groups.filter(isFieldGroup).length > LIMITS.fieldsPerItem) issue(c, ["items", i, "groups"], `At most ${LIMITS.fieldsPerItem} custom fields per product.`);
+    if (it.groups.filter(isMatrixGroup).length > LIMITS.matrixPerItem) issue(c, ["items", i, "groups"], "At most one combined option per product.");
+    it.groups.forEach((g, gi) => groupIssues(c, g, ["items", i, "groups", gi]));
+  });
+
+  // page caps (photos are a publish cap: page_too_large)
+  let options = 0;
+  let cells = 0;
+  for (const it of items) {
+    const n = countOptions(it.groups);
+    options += n.options;
+    cells += n.cells;
+  }
+  for (const x of d.offers.extras) if (isChoiceGroup(x)) options += x.options.length;
+  if (options > LIMITS.pageOptions) issue(c, ["items"], `${options} options on the page: at most ${LIMITS.pageOptions}.`);
+  if (cells > LIMITS.pageCells) issue(c, ["items"], `${cells} combination exceptions on the page: at most ${LIMITS.pageCells}.`);
+
+  const offers = d.offers.bundles;
+  const offerIds = new Set(offers.map((o) => o.id));
+  uniqueIds(c, offers.map((o) => o.id), ["offers", "bundles"], "offer");
+  if (offers.filter((o) => o.preselected).length > 1) issue(c, ["offers", "bundles"], "Only one offer can be selected first.");
+  offers.forEach((o, oi) => {
+    const at = ["offers", "bundles", oi];
+    uniqueIds(c, o.lines.map((l) => l.id), [...at, "lines"], "line");
+    const units = o.lines.reduce((n, l) => n + l.qty, 0);
+    if (units > LIMITS.unitsPerOffer) issue(c, [...at, "lines"], `${units} pieces: an offer holds at most ${LIMITS.unitsPerOffer}.`);
+    if (!o.lines.some((l) => !l.free)) issue(c, [...at, "lines"], "An offer needs at least one paid line.");
+    o.lines.forEach((l, li) => {
+      const lat = [...at, "lines", li];
+      if (isFixedPick(l.pick)) {
+        const item = byId.get(l.pick.item);
+        if (!item) issue(c, [...lat, "pick", "item"], `Unknown product "${l.pick.item}".`);
+        if (l.rules && item) ruleIssues(c, item, l.rules, [...lat, "rules"]);
+      } else {
+        const choice = l.pick.choice;
+        if (new Set(choice).size !== choice.length) issue(c, [...lat, "pick", "choice"], "A product is listed twice in the choice.");
+        for (const id of choice) if (!byId.has(id)) issue(c, [...lat, "pick", "choice"], `Unknown product "${id}".`);
+        if (l.pick.distinct && l.qty > choice.length) issue(c, [...lat, "qty"], "More different pieces than products to choose from.");
+        if (l.rules && Object.keys(l.rules).length) issue(c, [...lat, "rules"], "Option rules apply to fixed products only.");
+      }
+    });
+  });
+
+  const bump = d.offers.orderBump;
+  if (bump?.item && !byId.has(bump.item)) issue(c, ["offers", "orderBump", "item"], `Unknown product "${bump.item}".`);
+  for (const id of bump?.offers ?? []) if (!offerIds.has(id)) issue(c, ["offers", "orderBump", "offers"], `Unknown offer "${id}".`);
+  const upsell = d.offers.upsell;
+  if (upsell?.item && !byId.has(upsell.item)) issue(c, ["offers", "upsell", "item"], `Unknown product "${upsell.item}".`);
+  uniqueIds(c, d.offers.extras.map((x) => x.id), ["offers", "extras"], "extra");
+  d.offers.extras.forEach((x, xi) => {
+    groupIssues(c, x, ["offers", "extras", xi]);
+    if (x.scope !== "all") for (const id of x.scope) if (!offerIds.has(id)) issue(c, ["offers", "extras", xi, "scope"], `Unknown offer "${id}".`);
+  });
+}
+
+function ruleIssues(c: Ctx, item: Item, rules: Record<string, LineRule>, path: (string | number)[]): void {
+  const keys = Object.keys(rules);
+  if (keys.length > LIMITS.rulesPerLine) issue(c, path, `At most ${LIMITS.rulesPerLine} option rules per line.`);
+  for (const key of keys) {
+    const rule = rules[key]!;
+    const [gid, dimId] = key.split(".");
+    const g = item.groups.find((x) => x.id === gid);
+    let values: Choice[] | null = null;
+    if (g && isChoiceGroup(g) && dimId === undefined) values = g.perUnit ? g.options : null;
+    else if (g && isMatrixGroup(g) && dimId !== undefined) values = g.perUnit ? (g.dims.find((dd) => dd.id === dimId)?.values ?? null) : null;
+    if (!values) {
+      issue(c, [...path, key], g && !g.perUnit ? "Rules can't target an option shared by every piece." : `"${key}" is not an option of this product.`);
+      continue;
+    }
+    const ids = new Set(values.map((v) => v.id));
+    const named = "lock" in rule ? [rule.lock] : [...("allow" in rule ? rule.allow : []), ...(rule.preset ? [rule.preset] : [])];
+    for (const id of named) if (!ids.has(id)) issue(c, [...path, key], `Unknown option "${id}".`);
+    if ("allow" in rule && rule.preset && !rule.allow.includes(rule.preset)) issue(c, [...path, key, "preset"], "The preset must be one of the allowed options.");
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* PageDoc                                                             */
 /* ------------------------------------------------------------------ */
 
-export const PageDoc = z.object({
-  v: z.literal(1),
+const PageDocBase = z.object({
+  v: z.literal(2),
   locale: Locale,
   market: Market,
   currency: z.string().regex(/^[A-Z]{3}$/),
+  /** the story (name, words, photos, rating) */
   product: Product,
+  /** what the page sells (items[0] = lead item) */
+  items: z.array(Item).min(1).max(LIMITS.items),
   offers: Offers,
   form: FormConfig,
   theme: ThemeSpec,
   sections: z.array(SectionInstance).max(60),
-  seo: Seo.default({ noindex: false }),
-  tracking: Tracking.default({}),
-  thankYou: ThankYou.default({ showTimeline: true }),
+  seo: Seo.default(() => ({ noindex: false })),
+  tracking: Tracking.default(() => ({})),
+  thankYou: ThankYou.default(() => ({ showTimeline: true })),
 });
-export type PageDoc = z.infer<typeof PageDoc>;
-export type PageDocInput = z.input<typeof PageDoc>;
+
+/** The v2 document (no upgrade): what writes produce. */
+export const PageDocObject = PageDocBase.superRefine(docIssues);
+
+/** Every read: v1 → v2 upgrade + deterministic repairs (src/lib/page/upgrade.ts), then PageDocObject. */
+export const PageDoc = z.preprocess(upgradeDoc, PageDocObject);
+export type PageDoc = z.infer<typeof PageDocObject>;
+export type PageDocInput = z.input<typeof PageDocObject>;

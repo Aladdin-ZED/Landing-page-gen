@@ -24,8 +24,11 @@ import { renderPageBody } from "@/landing/page";
 import type { PageLinks, RenderMode } from "@/landing/types";
 import type { PageDoc } from "@/lib/page/schema";
 import { trackingFlags } from "@/lib/pixels/tracking";
+import { pageCapIssues, runtimeConfigOf, type BlockingIssue } from "./caps";
 import { turnstileKeyFor } from "./config";
 import { buildLandingCsp, originOf } from "./csp";
+
+export type { BlockingIssue } from "./caps";
 
 export interface RenderHtmlOptions {
   mode: "live" | "export";
@@ -50,6 +53,11 @@ export interface RenderHtmlOptions {
   qa?: boolean;
   /** add upgrade-insecure-requests (live only); default: production */
   upgradeInsecureRequests?: boolean;
+  /**
+   * publish version id, embedded as #lp-config `ver` (docs/OFFERS.md §G.1: the order API prices against
+   * the version the shopper saw). Live publishes only; previews and exports leave it out.
+   */
+  ver?: string;
 }
 
 export interface LegalHtmlOptions {
@@ -83,6 +91,13 @@ export interface RenderedHtml {
   etag: string;
   /** sections left out because their render threw */
   issues: RenderIssue[];
+  /**
+   * issues that stop a publish (`page_too_large`: page caps, ./caps.ts) — landing pages only; the
+   * publisher refuses them, the builder checklist shows them as errors
+   */
+  blocking: BlockingIssue[];
+  /** runtime contract embedded in the document (its #lp-config `v`); undefined without runtime config */
+  runtimeV?: number;
   /** font files the document references, as "fonts/<family>/<file>.woff2" (exports copy them into the zip) */
   fonts: string[];
 }
@@ -258,7 +273,9 @@ function finish(html: string, input: FinishInput, issues: RenderIssue[]): Render
   if (style.length && process.env.NODE_ENV !== "production") {
     console.warn(`[render] style attributes must only set custom properties: ${style.slice(0, 5).join(" | ")}`);
   }
-  return { html, csp, etag: sha256(html).digest("hex"), issues, fonts };
+  const cfg = input.page === "legal" ? null : runtimeConfigOf(html);
+  const blocking = input.page === "landing" ? pageCapIssues(input.doc, html) : [];
+  return { html, csp, etag: sha256(html).digest("hex"), issues, blocking, ...(cfg?.v ? { runtimeV: cfg.v } : {}), fonts };
 }
 
 function finishPage(html: string, doc: PageDoc, opts: RenderHtmlOptions, page: "landing" | "thanks", issues: RenderIssue[]): RenderedHtml {
@@ -287,6 +304,7 @@ function documentProps(doc: PageDoc, ctx: LandingRenderContext, opts: RenderHtml
     runtimeMode: opts.runtimeMode,
     turnstileSiteKey: opts.turnstileSiteKey,
     qa: opts.qa,
+    ver: opts.mode === "live" ? opts.ver : undefined,
   };
 }
 

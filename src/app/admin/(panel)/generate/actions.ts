@@ -5,14 +5,14 @@
  *
  * The documents come from the browser (the generator is pure and runs client-side): each one is
  * validated and repaired with validateDoc, size-capped, and must only reference assets that exist.
- * New pages start with the store pixels (Settings → Pixels) for every platform the doc leaves empty —
- * unless the wizard sends `pixels: "chosen"`: then its Ad tracking choices already hold the store
- * pixels the owner kept, and a platform it left empty (every pixel unticked) stays empty.
+ * Pixels belong to pages (docs/OFFERS.md §A): the docs carry the wizard's "Ad tracking for this page"
+ * answer (the page's pixels, or `tracking.none`) and the page is created with exactly that — the save
+ * never adds store pixels. The v1 flag `pixels: "chosen"` is accepted and ignored (one release).
  */
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { adminAction, fail, type ActionResult } from "@/lib/admin-data/action";
-import { docChecksum, slugify, uniqueSlug, type StorePixels } from "@/lib/admin-data/pages";
+import { docChecksum, slugify, uniqueSlug } from "@/lib/admin-data/pages";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db/client";
 import { newId, newPublicKey } from "@/lib/db/ids";
@@ -20,8 +20,6 @@ import { pages, pageVersions } from "@/lib/db/schema";
 import { getAssetsByIds } from "@/lib/media";
 import { Archetype, type PageDoc } from "@/lib/page/schema";
 import { validateDoc } from "@/lib/page/validate";
-import { mergeStorePixels } from "@/lib/pixels/tracking";
-import { getSetting } from "@/lib/settings";
 import { collectAssetIds } from "@/landing/context";
 
 /** A generated document is ~30–60 KB of JSON; anything far beyond that is not from the generator. */
@@ -35,7 +33,7 @@ const Input = z
       .array(z.object({ archetype: Archetype, label: z.string().trim().min(1).max(40), doc: z.unknown() }))
       .min(1)
       .max(3),
-    /** "chosen": the docs carry the wizard's Ad tracking choices — no store-pixel fill */
+    /** @deprecated v1 flag ("the docs carry the wizard's pixel choices"): accepted and ignored, one release */
     pixels: z.literal("chosen").optional(),
   })
   .refine((i) => i.chosen < i.directions.length, { error: "Pick one of the directions." });
@@ -62,18 +60,16 @@ const slugBase = (name: string, category: string) => (slugify(name) !== "page" ?
 
 export async function createFromDirectionsAction(input: CreateFromDirectionsInput): Promise<ActionResult<{ id: string; slug: string }>> {
   return adminAction("pages.write", async ({ actor }) => {
-    const { name, chosen, directions, pixels } = Input.parse(input);
+    const { name, chosen, directions } = Input.parse(input);
 
-    // the stored setting is schema-validated (same Tracking schema as the doc); the wizard's own
-    // pixel choices stand as they are (unticking every pixel of a platform must stick)
-    const storePixels: StorePixels | null = pixels === "chosen" ? null : await getSetting("pixels");
+    // each doc keeps the tracking the wizard answered (pixels or "No pixel"): nothing is added here
     const docs: { label: string; doc: PageDoc }[] = [];
     for (const d of directions) {
       if (JSON.stringify(d.doc ?? null).length > MAX_DOC_CHARS) fail("This direction is too large to save.");
       const { doc, issues } = validateDoc(d.doc);
       if (!doc) return fail(`This direction can't be saved: ${issues.find((i) => i.level === "error")?.message ?? "invalid page"}.`);
       if (doc.theme.archetype !== d.archetype) fail("The directions changed while saving — generate again.");
-      docs.push({ label: d.label, doc: storePixels ? { ...doc, tracking: mergeStorePixels(doc.tracking, storePixels, "fill") } : doc });
+      docs.push({ label: d.label, doc });
     }
 
     // photos are uploaded before generating: a missing asset means it was deleted meanwhile

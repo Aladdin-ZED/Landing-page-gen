@@ -461,6 +461,13 @@ html[data-ty-state="filled"] .lp-ty__row--opts:has(> dd:empty) {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* an extra's surcharge: "+15 DH" */
+.lp-ty__row--opts .lp-vsum__d {
+  color: var(--sec-ink-soft);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
 .lp-ty__row--opts .lp-vsum__dot {
   flex: none;
   inline-size: 0.72em;

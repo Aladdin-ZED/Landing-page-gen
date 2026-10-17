@@ -7,17 +7,20 @@
  *           hero, footer and floating bars stay put; sections the admin added keep their place
  *           relative to their neighbors), then re-flows backgrounds and transitions.
  *   copy    re-picks wording alternatives from the copy library for every text the generator
- *           owns (headlines, benefits, FAQ…). Product facts, prices and offers are kept.
+ *           owns (headlines, benefits, FAQ…). Product facts, prices and offers are kept; only the
+ *           titles of ×N packs on single-item pages are re-worded ("Pack Duo").
  *   all     layout → design → copy.
  *
  * Pure & deterministic per seed. Always returns a valid document (the input on failure).
  */
 import { libraryCopy } from "@/lib/ai/copy-library";
+import { isLegacyOffer, offerUnits } from "@/lib/page/catalog";
 import { PageDoc, type PageDoc as PageDocT, type SectionInstance } from "@/lib/page/schema";
 import { validateDoc } from "@/lib/page/validate";
 import { getSection } from "@/landing/registry";
 import { factsFromDescription } from "./directions";
 import { garmentDetails, modestBigWord } from "./garment";
+import { formVariantOf, safeSelection } from "./offers";
 import { glueDeep, glueEmphasis } from "./glue";
 import { isGarment, moodFit, productKeywords, readMood, type MoodReading } from "./mood";
 import { LAYOUT_TYPES, TEMPLATE_COUNT, calmBands, chooseVariant, finishPlan, templateOrder, type PlanContext } from "./plan";
@@ -92,8 +95,10 @@ function remixDesign(doc: PageDocT, seed: number): PageDocT {
     return { ...s, variant: chooseVariant(s.type, ctx, ":remix") };
   });
   // one scrolling band in the page body (a single-variant section keeps its own)
-  const sections = calmBands(rechosen, ctx);
-  return { ...next, sections: reflow(next, sections, deriveSeed(seed, "flow")) };
+  const sections = reflow(next, calmBands(rechosen, ctx), deriveSeed(seed, "flow"));
+  // a new bold order form never gets a solid selection (accent on accent, §E.3)
+  const display = safeSelection(doc.offers.display, formVariantOf({ sections }));
+  return { ...next, sections, ...(display !== doc.offers.display ? { offers: { ...doc.offers, display } } : {}) };
 }
 
 function remixLayout(doc: PageDocT, seed: number): PageDocT {
@@ -183,7 +188,10 @@ function remixCopy(doc: PageDocT, seed: number): PageDocT {
     offers: {
       ...doc.offers,
       bundles: doc.offers.bundles.map((b) => {
-        const t = b.qty >= 1 && b.qty <= 3 ? bundleText[b.qty - 1] : undefined;
+        // titles are rewritten only on ×N packs of a single-item page ("Pack Duo"); every other
+        // offer (several items, choices, gifts, color packs) keeps the owner's words
+        const qty = doc.items.length === 1 && isLegacyOffer(doc, b) ? offerUnits(b) : 0;
+        const t = qty >= 1 && qty <= 3 ? bundleText[qty - 1] : undefined;
         return t ? { ...b, title: t.title, subtitle: t.subtitle } : b;
       }),
     },

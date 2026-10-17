@@ -1,3 +1,5 @@
+@import "../../offers/visual.css";
+
 /* ==========================================================================
    Offer showcase — stacked (bento) · tickets (wallet passes) · shelf (display window)
    Every pack is one link (a[data-bundle-card]); the runtime moves [data-selected].
@@ -438,4 +440,66 @@
   .lp-ofr__card:active {
     scale: none;
   }
+}
+
+/* --- Offers v2: composed visuals in the wells, short names where the quantity stood, "Dès" ---- */
+.lp-ofr__from {
+  font-family: var(--lp-font-body);
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 0.8;
+  vertical-align: 0.2em;
+}
+
+.lp-ofr__times--word {
+  max-inline-size: 100%;
+  font-family: var(--lp-font-body);
+  font-size: max(0.5em, 1rem);
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: 0;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.lp-stk__media > .lp-stk__ov {
+  --host-r: 1.25;
+  grid-area: 1 / 1 / -1 / -1;
+  align-self: center;
+  inline-size: 84%;
+}
+
+.lp-pass__thumb--ov > .lp-ov-host {
+  --host-r: 1;
+  position: absolute;
+  inset: 0;
+}
+
+/* shelf: a composition stands on the podium as one landscape group, no tile of its own */
+.lp-shf .lp-shf__stage[data-ov][data-look] .lp-shf__group {
+  aspect-ratio: 1.5 / 1;
+}
+
+.lp-shf .lp-shf__stage[data-ov] .lp-shf__tile {
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.lp-shf__tile--ov > .lp-ov-host {
+  --host-r: 1.5;
+  position: absolute;
+  inset: 0;
+  place-items: end center;
+}
+
+.lp-pass__thumb--ov {
+  align-self: center;
+  aspect-ratio: 1;
+  overflow: visible;
+  box-shadow: none;
+}
+
+.lp-shf .lp-shf__stage[data-ov] .lp-shf__tile::after {
+  content: none;
 }

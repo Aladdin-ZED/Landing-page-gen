@@ -15,6 +15,7 @@
  */
 import type { ReactElement } from "react";
 import { z } from "zod";
+import { everyOfferFree } from "@/lib/page/pricing";
 import type { Archetype } from "@/lib/page/schema";
 import {
   Countdown,
@@ -116,7 +117,7 @@ const fields: FieldSpec[] = [
 
 /** Free delivery is only claimed when no fee is added and every pack ships free. */
 function freeDelivery(offers: RenderContext["offers"]): boolean {
-  return (offers.shippingFee ?? 0) === 0 && offers.bundles.every((b) => b.freeShipping);
+  return everyOfferFree({ offers });
 }
 
 interface Msg {

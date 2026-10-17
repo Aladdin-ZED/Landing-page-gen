@@ -1,6 +1,7 @@
 /**
- * Cloudflare Turnstile for the order form — active only when config.turnstileSiteKey is set, never
- * in previews.
+ * Cloudflare Turnstile for the order form (optional chunk "turnstile", docs/OFFERS.md §F.9: emitted
+ * only when the page embeds a site key) — active only when config.turnstileSiteKey is set, never in
+ * previews. The form gets it from the chunk registry: c.fx.turnstile(c, form).
  *
  *  - Lazy: api.js is loaded on the first interaction with the form (focus, typing, tap), so visitors
  *    who never touch the form never contact Cloudflare.
@@ -16,7 +17,7 @@ import type { Ctx, W } from "./core";
 import { report } from "./core";
 
 /** config.strings key of the "complete the verification above" message (filled by the renderer). */
-export const CAPTCHA_STRING = "form.errCaptcha";
+export { CAPTCHA_STRING } from "./strings";
 
 const API_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 /** Tokens are valid 300 s; a token older than this is renewed instead of sent. */

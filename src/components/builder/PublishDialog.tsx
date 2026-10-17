@@ -2,11 +2,17 @@
 /**
  * Publish with a pre-flight checklist: blocking errors (fix first), warnings (honesty & quality),
  * an explicit confirmation when example reviews/numbers remain, then a calm success state.
+ *
+ * Pixels (docs/OFFERS.md §A.4): PX's "Pixels that will fire" block sits under the checklist with
+ * the draft's and the live version's tracking; when it reports that the page sends no ad events
+ * (`onNeedsConfirm(true)`), the publish button reads "Publish without pixels" — that click is the
+ * explicit confirmation. Its "Add pixel" opens the page's pixels (SEO & tracking).
  */
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUpRight, Check, CircleAlert, Copy, Globe, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { PublishPixelsBlock } from "@/components/admin/pixels/publish-block";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -33,10 +39,14 @@ export function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const [serverIssues, setServerIssues] = useState<{ path: string; message: string; sectionId?: string }[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  /** PX block: publishing now means publishing without any ad pixel */
+  const [noPixels, setNoPixels] = useState(false);
+  const liveDoc = useEditor((s) => s.liveDoc);
 
   // checked only while the dialog is open (validating every section on each keystroke is wasted
   // work); the last result stays on screen while the dialog fades out
-  const live = useMemo<Checklist | null>(() => (open ? buildChecklist(doc, storeHealth) : null), [open, doc, storeHealth]);
+  const isPublished = page.status === "published";
+  const live = useMemo<Checklist | null>(() => (open ? buildChecklist(doc, storeHealth, undefined, { library: null, health: {}, live: isPublished }) : null), [open, doc, storeHealth, isPublished]);
   const [kept, setKept] = useState<Checklist>(NOTHING);
   if (live && live !== kept) setKept(live);
   const list = live ?? kept;
@@ -174,6 +184,7 @@ export function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                 ) : null}
                 <CheckGroup title="Fix before publishing" items={list.errors} tone="error" onFix={goFix} />
                 <CheckGroup title="Worth a look" items={list.warnings} tone="warning" onFix={goFix} />
+                <PublishPixelsBlock pageId={page.id} draft={doc.tracking} live={isPublished ? (liveDoc?.tracking ?? null) : null} onNeedsConfirm={setNoPixels} onAddPixel={() => goFix({ tab: "seo" })} />
                 {serverIssues.length ? (
                   <div className="mt-4 rounded-xl bg-destructive/8 p-3 text-[12px] text-destructive">
                     {serverIssues.slice(0, 6).map((i, k) => (
@@ -208,7 +219,7 @@ export function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                   </Button>
                   <Button onClick={() => void run()} disabled={blocked || phase === "publishing"} aria-busy={phase === "publishing"} variant="brand" className="min-w-32">
                     {phase === "publishing" ? <LoaderCircle className="animate-spin" /> : <Globe />}
-                    {phase === "publishing" ? "Publishing…" : list.errors.length ? `${list.errors.length} to fix` : "Publish now"}
+                    {phase === "publishing" ? "Publishing…" : list.errors.length ? `${list.errors.length} to fix` : noPixels ? "Publish without pixels" : "Publish now"}
                   </Button>
                 </div>
               </div>

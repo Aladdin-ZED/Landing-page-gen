@@ -189,10 +189,41 @@ export interface CommonCopy {
   sticky: { label: string[]; note: string[] };
   whatsapp: { label: string[]; message: string[] };
   bundles: [{ title: string; subtitle: string }, { title: string; subtitle: string }, { title: string; subtitle: string }];
+  /**
+   * Names of the offers the generator suggests on multi-item pages and the offer presets (Offers v2,
+   * docs/OFFERS.md §H.1): titles ≤ 60, subtitles ≤ 90, shorts (segment labels) ≤ 14. `{n}` = a
+   * count. No item names (the card's contents line shows them, and they follow renames), no prices.
+   */
+  offers: OfferCopy;
   seo: { title: string[]; description: string[] };
   thankYou: { title: string[]; message: string[] };
   /** market phrases for the {where} slot */
   where: { MA: string; other: string };
+}
+
+/** One suggested offer's words (see CommonCopy.offers). */
+export interface OfferWords {
+  title: string;
+  subtitle: string;
+  /** segment label when the automatic one would repeat another offer's ("×3" for a color pack) */
+  short?: string;
+}
+
+export interface OfferCopy {
+  /** one piece among 2+ products */
+  choice: OfferWords;
+  /** {n} pieces among 2+ products */
+  anyN: OfferWords;
+  /** two different products together */
+  duo: OfferWords;
+  /** three different products together */
+  trio: OfferWords;
+  /** every product of the page */
+  set: OfferWords;
+  /** one bought, one free */
+  bogo: OfferWords;
+  /** one piece in each of {n} colors */
+  colors: OfferWords;
 }
 
 export interface LocaleLibrary {

@@ -173,7 +173,7 @@ export async function duplicateVersionAsPage(id: string, actor: Actor): Promise<
   const { doc } = validateDoc(v.doc);
   if (!doc) return null;
   const created = await createPageFromDoc(
-    { name: `${v.pageName} (${KIND_LABEL[v.kind]} copy)`, doc, versionLabel: `Copied from “${v.pageName}” · ${KIND_LABEL[v.kind]} of ${shortDate(v.createdAt)}` },
+    { name: `${v.pageName} (${KIND_LABEL[v.kind]} copy)`, doc, versionLabel: `Copied from “${v.pageName}” · ${KIND_LABEL[v.kind]} of ${shortDate(v.createdAt)}`, copiedFrom: v.pageName },
     actor,
   );
   await audit("page.version_duplicated", { userId: actor.id, target: created.id, meta: { versionId: id, from: v.pageId }, ip: actor.ip });

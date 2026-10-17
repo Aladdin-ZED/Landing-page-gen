@@ -1,6 +1,7 @@
 /**
- * Product options (Product.variants) — presets, the color dictionary and the pure helpers shared by
- * the generate wizard, the builder's Product panel and the checks. Framework-free.
+ * Item options (items[].groups: choice, matrix and field groups) — presets, the color dictionary and
+ * the pure helpers shared by the generate wizard, the builder's Product panel and the checks.
+ * Framework-free. The v1 names (VariantGroup = a choice group) are kept for the v1 editors.
  *
  *   presetName("size", "ar")                 "المقاس" — group names in the page's language
  *   presetValues("shoe", "fr")               "35" … "46" — quick-fill values
@@ -15,14 +16,18 @@
  * palette, not from photos, not from the AI reading.
  */
 import { hexToOklab, inOrangeBand, toOklch } from "@/lib/theme/color";
-import type { Locale, Product } from "./schema";
+import type { Choice, ChoiceGroup, ChoiceKind, Locale, MatrixDim, MatrixGroup, OptionGroup } from "./schema";
 
-export type VariantGroup = Product["variants"][number];
-export type VariantOption = VariantGroup["options"][number];
-export type VariantKind = VariantGroup["kind"];
+/** A choice group (v1 "variant group": swatch / text / image options). */
+export type VariantGroup = ChoiceGroup;
+export type VariantOption = Choice;
+export type VariantKind = ChoiceKind;
 
-/** Schema limits (src/lib/page/schema.ts). */
-export const MAX_VARIANT_GROUPS = 3;
+const isChoice = (g: { kind: string }): g is ChoiceGroup => g.kind === "swatch" || g.kind === "text" || g.kind === "image";
+const isMatrix = (g: { kind: string }): g is MatrixGroup => g.kind === "matrix";
+
+/** Schema limits (src/lib/page/schema.ts). Options: the editor's own cap for choice groups (schema: 40). */
+export const MAX_VARIANT_GROUPS = 4;
 export const MAX_VARIANT_OPTIONS = 24;
 export const MAX_VARIANT_LABEL = 40;
 
@@ -98,8 +103,11 @@ export function variantId(prefix: "g" | "o", taken: Iterable<string> = []): stri
   }
 }
 
-/** Every group and option id of a list (new ids must avoid them). */
-export const variantIds = (groups: readonly VariantGroup[]) => groups.flatMap((g) => [g.id, ...g.options.map((o) => o.id)]);
+/** Every group, option, dim and value id of a list (new ids must avoid them). */
+export const variantIds = (groups: readonly OptionGroup[]): string[] =>
+  groups.flatMap((g) =>
+    isChoice(g) ? [g.id, ...g.options.map((o) => o.id)] : isMatrix(g) ? [g.id, ...g.dims.flatMap((d) => [d.id, ...d.values.map((v) => v.id)])] : [g.id],
+  );
 
 /* ------------------------------------------------------------------ */
 /* Presets                                                             */
@@ -191,7 +199,7 @@ const PRESET_BY_NAME: ReadonlyMap<string, VariantPreset> = (() => {
  * The preset an existing group corresponds to: its name in any supported language, else what its
  * options look like (swatches → color, XS…XXL → size, 35…46 → shoe size), else "custom".
  */
-export function inferPreset(group: Pick<VariantGroup, "name" | "kind" | "options">): VariantPreset {
+export function inferPreset(group: { name: string; kind: string; options: readonly { label: string }[] }): VariantPreset {
   const byName = PRESET_BY_NAME.get(normalizeLabel(group.name));
   if (byName && byName !== "custom") return byName;
   if (group.kind === "swatch") return "color";
@@ -475,8 +483,42 @@ export interface VariantIssue {
   message: string;
 }
 
-/** Inline checks of an option list (admin English). */
-export function variantIssues(groups: readonly VariantGroup[]): VariantIssue[] {
+/** Inline checks of one list of options (a choice group's options or a matrix dim's values). */
+function optionIssues(groupId: string, kind: string, list: readonly Choice[], out: VariantIssue[]): void {
+  const seen = new Set<string>();
+  for (const o of list) {
+    const label = cleanLabel(o.label);
+    if (!label) {
+      out.push({ groupId, optionId: o.id, level: "error", message: "An option has no name." });
+      continue;
+    }
+    const k = normalizeLabel(label);
+    if (seen.has(k)) out.push({ groupId, optionId: o.id, level: "error", message: `“${label}” is listed twice.` });
+    seen.add(k);
+  }
+}
+
+/** Swatch / photo completeness of one list of options. */
+function lookIssues(groupId: string, kind: string, list: readonly Choice[], out: VariantIssue[]): void {
+  if (kind === "swatch") {
+    const missing = list.filter((o) => !o.swatch).map((o) => cleanLabel(o.label));
+    if (missing.length) out.push({ groupId, level: "warn", message: `${listOf(missing)} ${missing.length === 1 ? "has" : "have"} no color yet — shown as text.` });
+  }
+  if (kind === "image") {
+    const missing = list.filter((o) => !o.image).map((o) => cleanLabel(o.label));
+    if (missing.length) out.push({ groupId, level: "warn", message: `${listOf(missing)} ${missing.length === 1 ? "has" : "have"} no photo yet — shown as text.` });
+  }
+}
+
+/** Some combination of the matrix can be ordered (a value not sold out in every dim, no exception closing all of them). */
+function matrixOpen(g: MatrixGroup): boolean {
+  let combos: Record<string, string>[] = [{}];
+  for (const d of g.dims) combos = combos.flatMap((c) => d.values.filter((v) => !v.soldOut).map((v) => ({ ...c, [d.id]: v.id })));
+  return combos.some((c) => !g.cells.some((cell) => cell.state !== "in" && Object.entries(cell.v).every(([k, v]) => c[k] === v)));
+}
+
+/** Inline checks of an option list (admin English): choice, combined (matrix) and custom field groups. */
+export function variantIssues(groups: readonly OptionGroup[]): VariantIssue[] {
   const out: VariantIssue[] = [];
   const names = new Map<string, string>();
   for (const g of groups) {
@@ -487,25 +529,21 @@ export function variantIssues(groups: readonly VariantGroup[]): VariantIssue[] {
       if (names.has(k)) out.push({ groupId: g.id, level: "warn", message: `Two groups are called “${name}”.` });
       names.set(k, g.id);
     }
-    const seen = new Set<string>();
-    for (const o of g.options) {
-      const label = cleanLabel(o.label);
-      if (!label) {
-        out.push({ groupId: g.id, optionId: o.id, level: "error", message: "An option has no name." });
-        continue;
+    if (isChoice(g)) {
+      optionIssues(g.id, g.kind, g.options, out);
+      if (g.options.length && g.options.every((o) => o.soldOut)) out.push({ groupId: g.id, level: "error", message: "Every option is sold out — nobody could place an order." });
+      lookIssues(g.id, g.kind, g.options, out);
+    } else if (isMatrix(g)) {
+      for (const d of g.dims) {
+        if (!cleanLabel(d.name)) out.push({ groupId: g.id, level: "error", message: "Name every dimension of the combined option." });
+        optionIssues(g.id, d.kind, d.values, out);
+        lookIssues(g.id, d.kind, d.values, out);
       }
-      const k = normalizeLabel(label);
-      if (seen.has(k)) out.push({ groupId: g.id, optionId: o.id, level: "error", message: `“${label}” is listed twice.` });
-      seen.add(k);
-    }
-    if (g.options.length && g.options.every((o) => o.soldOut)) out.push({ groupId: g.id, level: "error", message: "Every option is sold out — nobody could place an order." });
-    if (g.kind === "swatch") {
-      const missing = g.options.filter((o) => !o.swatch).map((o) => cleanLabel(o.label));
-      if (missing.length) out.push({ groupId: g.id, level: "warn", message: `${listOf(missing)} ${missing.length === 1 ? "has" : "have"} no color yet — shown as text.` });
-    }
-    if (g.kind === "image") {
-      const missing = g.options.filter((o) => !o.image).map((o) => cleanLabel(o.label));
-      if (missing.length) out.push({ groupId: g.id, level: "warn", message: `${listOf(missing)} ${missing.length === 1 ? "has" : "have"} no photo yet — shown as text.` });
+      const combos = g.dims.reduce((n, d) => n * d.values.length, 1);
+      if (combos > 240) out.push({ groupId: g.id, level: "error", message: `${combos} combinations: at most 240.` });
+      if (!matrixOpen(g)) out.push({ groupId: g.id, level: "error", message: "Every combination is sold out or not made — nobody could place an order." });
+    } else if (g.required && (g.delta ?? 0) > 0) {
+      out.push({ groupId: g.id, level: "error", message: "A required field can't add a price; include it in the offer price or make it optional." });
     }
   }
   return out;
@@ -517,28 +555,49 @@ function listOf(labels: string[]): string {
   return `${q.slice(0, 2).join(", ")} and ${q.length - 2} more`;
 }
 
+/** Labels cleaned, empty and repeated options dropped, the list capped (same objects when nothing changed). */
+function cleanOptions(list: readonly Choice[], max: number): Choice[] {
+  const seen = new Set<string>();
+  const options: Choice[] = [];
+  for (const o of list) {
+    const label = cleanLabel(o.label);
+    const k = normalizeLabel(label);
+    if (!label || seen.has(k) || options.length >= max) continue;
+    seen.add(k);
+    options.push(label === o.label ? o : { ...o, label });
+  }
+  return options;
+}
+
+const sameList = <T,>(a: readonly T[], b: readonly T[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
 /**
  * The option groups as they reach the page: labels and names cleaned, empty and repeated options
  * dropped, empty groups dropped, schema limits applied. A list the editor produced passes unchanged.
  */
-export function cleanVariants(groups: readonly VariantGroup[] | null | undefined): VariantGroup[] {
-  const out: VariantGroup[] = [];
+export function cleanVariants<G extends OptionGroup>(groups: readonly G[] | null | undefined): G[] {
+  const out: G[] = [];
   for (const g of groups ?? []) {
     if (out.length >= MAX_VARIANT_GROUPS) break;
     const name = cleanLabel(g.name);
     if (!name) continue;
-    const seen = new Set<string>();
-    const options: VariantOption[] = [];
-    for (const o of g.options) {
-      const label = cleanLabel(o.label);
-      const k = normalizeLabel(label);
-      if (!label || seen.has(k) || options.length >= MAX_VARIANT_OPTIONS) continue;
-      seen.add(k);
-      options.push(label === o.label ? o : { ...o, label });
+    if (isChoice(g)) {
+      const options = cleanOptions(g.options, MAX_VARIANT_OPTIONS);
+      if (!options.length) continue;
+      out.push(name === g.name && sameList(options, g.options) ? g : ({ ...g, name, options } as G));
+    } else if (isMatrix(g)) {
+      const dims: MatrixDim[] = [];
+      for (const d of g.dims) {
+        const values = cleanOptions(d.values, 24);
+        const dname = cleanLabel(d.name);
+        if (!values.length || !dname) continue;
+        dims.push(dname === d.name && sameList(values, d.values) ? d : { ...d, name: dname, values });
+      }
+      if (dims.length < 2) continue;
+      out.push(name === g.name && sameList(dims, g.dims) ? g : ({ ...g, name, dims } as G));
+    } else {
+      out.push(name === g.name ? g : ({ ...g, name } as G));
     }
-    if (!options.length) continue;
-    const same = name === g.name && options.length === g.options.length && options.every((o, i) => o === g.options[i]);
-    out.push(same ? g : { ...g, name, options });
   }
   return out;
 }
@@ -550,8 +609,8 @@ export function cleanVariants(groups: readonly VariantGroup[] | null | undefined
  * when nothing is linked, or when that group starts empty (text groups: sizes are chosen, never
  * preselected).
  */
-export function leadPhotoId(groups: readonly VariantGroup[] | null | undefined): string | null {
-  const g = (groups ?? []).find((x) => x.options.some((o) => o.image));
+export function leadPhotoId(groups: readonly OptionGroup[] | null | undefined): string | null {
+  const g = (groups ?? []).filter(isChoice).find((x) => x.options.some((o) => o.image));
   if (!g) return null;
   const available = g.options.filter((o) => !o.soldOut);
   const first = g.kind !== "text" || available.length === 1 ? available[0] : undefined;
@@ -564,15 +623,16 @@ export function leadPhotoId(groups: readonly VariantGroup[] | null | undefined):
  * a quick-fill value ("50 ml" → "50 مل"). Anything the owner wrote differently stays as written;
  * ids, swatches, photos and stock never change. A renaming that would repeat a label is skipped.
  */
-export function relocalizeVariants(groups: readonly VariantGroup[], from: Locale, to: Locale): VariantGroup[] {
-  if (from === to) return groups as VariantGroup[];
+export function relocalizeVariants<G extends OptionGroup>(groups: readonly G[], from: Locale, to: Locale): G[] {
+  if (from === to) return groups as G[];
   let changed = false;
-  const next = groups.map((g) => {
-    const preset = inferPreset(g);
-    const name = preset !== "custom" && normalizeLabel(g.name) === normalizeLabel(presetName(preset, from)) ? presetName(preset, to) : g.name;
-    const color = preset === "color" || g.kind === "swatch";
-    const used = new Set(g.options.map((o) => normalizeLabel(o.label)));
-    const options = g.options.map((o) => {
+  /** One named option list re-worded (a choice group, or a matrix dim). Ids, codes, swatches, photos and stock never change. */
+  const reword = (name: string, kind: string, list: readonly Choice[]) => {
+    const preset = inferPreset({ name, kind, options: list });
+    const nextName = preset !== "custom" && normalizeLabel(name) === normalizeLabel(presetName(preset, from)) ? presetName(preset, to) : name;
+    const color = preset === "color" || kind === "swatch";
+    const used = new Set(list.map((o) => normalizeLabel(o.label)));
+    const options = list.map((o) => {
       let label = o.label;
       const entry = color ? colorByName(o.label) : null;
       if (entry && normalizeLabel(o.label) === normalizeLabel(colorLabel(entry, from))) label = colorLabel(entry, to);
@@ -584,22 +644,66 @@ export function relocalizeVariants(groups: readonly VariantGroup[], from: Locale
       used.add(normalizeLabel(label));
       return { ...o, label, ...(o.image ? { image: { ...o.image, alt: label } } : {}) };
     });
-    if (name === g.name && options.every((o, i) => o === g.options[i])) return g;
-    changed = true;
-    return { ...g, name, options };
+    return { name: nextName, options, same: nextName === name && options.every((o, i) => o === list[i]) };
+  };
+  const next = groups.map((g) => {
+    if (isChoice(g)) {
+      const r = reword(g.name, g.kind, g.options);
+      if (r.same) return g;
+      changed = true;
+      return { ...g, name: r.name, options: r.options } as G;
+    }
+    if (isMatrix(g)) {
+      let touched = false;
+      const dims = g.dims.map((d) => {
+        const r = reword(d.name, d.kind, d.values);
+        if (r.same) return d;
+        touched = true;
+        return { ...d, name: r.name, values: r.options };
+      });
+      if (!touched) return g;
+      changed = true;
+      return { ...g, dims } as G;
+    }
+    return g; // field names are the owner's own words
   });
-  return changed ? next : (groups as VariantGroup[]);
+  return changed ? next : (groups as G[]);
 }
 
-/** The groups without links to a photo that left the page (`ids` = asset ids still available). */
-export function keepLinkedPhotos(groups: readonly VariantGroup[], available: ReadonlySet<string>): VariantGroup[] {
+/** The groups without links to a photo that left the page (`available` = asset ids still available). */
+export function keepLinkedPhotos<G extends OptionGroup>(groups: readonly G[], available: ReadonlySet<string>): G[] {
   let changed = false;
+  const strip = (list: readonly Choice[]) =>
+    list.some((o) => o.image && !available.has(o.image.id)) ? list.map((o) => (o.image && !available.has(o.image.id) ? withoutImage(o) : o)) : null;
   const next = groups.map((g) => {
-    if (!g.options.some((o) => o.image && !available.has(o.image.id))) return g;
-    changed = true;
-    return { ...g, options: g.options.map((o) => (o.image && !available.has(o.image.id) ? withoutImage(o) : o)) };
+    if (isChoice(g)) {
+      const options = strip(g.options);
+      if (!options) return g;
+      changed = true;
+      return { ...g, options } as G;
+    }
+    if (isMatrix(g)) {
+      let touched = false;
+      const dims = g.dims.map((d) => {
+        const values = strip(d.values);
+        if (!values) return d;
+        touched = true;
+        return { ...d, values };
+      });
+      const cells = g.cells.map((c) => {
+        if (!c.image || available.has(c.image.id)) return c;
+        touched = true;
+        const { image: _drop, ...rest } = c;
+        void _drop;
+        return rest;
+      });
+      if (!touched) return g;
+      changed = true;
+      return { ...g, dims, cells } as G;
+    }
+    return g;
   });
-  return changed ? next : (groups as VariantGroup[]);
+  return changed ? next : (groups as G[]);
 }
 
 function withoutImage(o: VariantOption): VariantOption {

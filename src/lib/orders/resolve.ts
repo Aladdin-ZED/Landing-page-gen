@@ -4,11 +4,16 @@ import "server-only";
  *  - live pages: pages.publicKey, page published, its publishedVersionId
  *  - exports:    exports.publicKey, not revoked, the version baked into the export
  * Version documents are immutable, so parsed docs are cached by version id.
+ *
+ * orderVersion(target, payload) — which published version an order is validated against
+ * (docs/OFFERS.md §G.2): the version the shopper saw while it was replaced less than 72 h ago, else
+ * the current one with `fallback` (the validation then answers "stale" on any mismatch).
  */
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { exportsTable, pages, pageVersions } from "@/lib/db/schema";
-import { PageDoc } from "@/lib/page/schema";
+import type { PageDoc } from "@/lib/page/schema";
+import { chooseOrderVersion, orderDocOf } from "./versions";
 
 export const PAGE_KEY_RE = /^[a-zA-Z0-9_-]{8,80}$/;
 
@@ -54,14 +59,47 @@ export async function versionDoc(versionId: string): Promise<PageDoc | null> {
   }
   const [row] = await db.select({ doc: pageVersions.doc }).from(pageVersions).where(eq(pageVersions.id, versionId)).limit(1);
   if (!row) return null;
-  const parsed = PageDoc.safeParse(row.doc);
-  if (!parsed.success) {
-    console.error(`[orders] page version ${versionId} has an invalid document`);
-    return null;
-  }
-  docs.set(versionId, parsed.data);
+  const doc = await orderDocOf(row.doc, versionId);
+  if (!doc) return null;
+  docs.set(versionId, doc);
   while (docs.size > DOC_CACHE_MAX) docs.delete(docs.keys().next().value!);
-  return parsed.data;
+  return doc;
+}
+
+export { STALE_WINDOW_MS } from "./versions";
+
+export interface OrderVersion {
+  versionId: string;
+  doc: PageDoc;
+  /** the current version, used although the shopper may have seen another one: mismatches answer "stale" */
+  fallback: boolean;
+}
+
+/**
+ * The version an order is validated against (§G.2, rule in ./versions.ts chooseOrderVersion): an
+ * export's pinned version; on live pages the version the shopper's tab was rendered from while it was
+ * replaced less than 72 h ago, else the current one with `fallback`. A database error falls back to the
+ * current version without `fallback` (v1 behaviour).
+ */
+export async function orderVersion(target: PageTarget, payload: { v?: unknown; ver?: unknown }, now = Date.now()): Promise<OrderVersion> {
+  const current: OrderVersion = { versionId: target.versionId, doc: target.doc, fallback: false };
+  if (target.kind === "export") return current;
+  if (payload.v === 2 && payload.ver === target.versionId) return current;
+  try {
+    const rows = await db
+      .select({ id: pageVersions.id, createdAt: pageVersions.createdAt, runtimeV: pageVersions.runtimeV })
+      .from(pageVersions)
+      .where(and(eq(pageVersions.pageId, target.pageId), eq(pageVersions.kind, "publish")))
+      .orderBy(desc(pageVersions.createdAt))
+      .limit(200);
+    const choice = chooseOrderVersion(target.versionId, rows, payload, now);
+    if (choice.versionId === target.versionId) return { ...current, fallback: choice.fallback };
+    const doc = await versionDoc(choice.versionId);
+    return doc ? { versionId: choice.versionId, doc, fallback: false } : { ...current, fallback: true };
+  } catch (err) {
+    console.error("[orders] version lookup failed, using the current version:", err instanceof Error ? err.message : "unknown error");
+    return current;
+  }
 }
 
 async function lookup(pageKey: string): Promise<Omit<PageTarget, "doc"> | null> {

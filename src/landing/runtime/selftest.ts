@@ -6,13 +6,12 @@
  * sticky buy bar's show rule (only after the hero CTA has been scrolled past).
  */
 import { webcrypto } from "node:crypto";
-import { bundleMath, orderTotals } from "../../lib/page/pricing";
-import { Offers, Product } from "../../lib/page/schema";
+import { effectiveFree, emptySelection, offersMath, orderTotals, toCents } from "../../lib/page/pricing";
+import { Item, Offers, Product } from "../../lib/page/schema";
 import { createT, pluralForms } from "../i18n";
-import type { LandingRuntimeConfig, RuntimeBundle } from "./config";
 import type { Ctx } from "./core";
 import { randomId, uuid } from "./ids";
-import { computeTotals, formatMoney } from "./money";
+import { computeTotals, emptySel, formatMoney } from "./money";
 import { NUM_RUN, formatNum, numStyle, toAsciiDigits } from "./numbers";
 import { normalizePhone } from "./phone";
 import { headerOffset } from "./scroll";
@@ -115,7 +114,9 @@ eq("money NaN → 0", formatMoney(Number.NaN, EUR_FR), "0,00" + nb + "€");
 eq("money bad locale falls back", formatMoney(5, { locale: "!!", symbol: "", position: "after", decimals: 0 }), "5");
 
 /* ---------------- totals vs pricing.ts ---------------- */
-const product = Product.parse({ name: "Huile d'argan", price: 199 });
+const product = Product.parse({ name: "Huile d'argan" });
+const items = [Item.parse({ id: "main", price: 199 })];
+const one = (qty: number) => [{ id: "l1", qty, pick: { item: "main" } }];
 const offerVariants = [
   { shippingFee: 0, bump: true },
   { shippingFee: 25, bump: true },
@@ -124,38 +125,42 @@ const offerVariants = [
 for (const v of offerVariants) {
   const offers = Offers.parse({
     bundles: [
-      { id: "b1", qty: 1, price: 199 },
-      { id: "b2", qty: 2, price: 349, badge: "popular", compareAt: 398 },
-      { id: "b3", qty: 3, price: 479.9, title: "Pack Famille" },
+      { id: "b1", lines: one(1), price: 199 },
+      { id: "b2", lines: one(2), price: 349, badge: "popular", compareAt: 398 },
+      { id: "b3", lines: one(3), price: 479.9, title: "Pack Famille" },
     ],
     shippingFee: v.shippingFee,
     orderBump: { enabled: v.bump, title: "Pochette", price: 49.5 },
   });
-  // what the renderer embeds: bundleMath per bundle, bump only when enabled
-  const bundles: RuntimeBundle[] = offers.bundles.map((b) => {
-    const m = bundleMath(b, product.price);
-    return { ...m, label: `x${b.qty}` };
-  });
-  const cfg: Pick<LandingRuntimeConfig, "bundles" | "bump" | "shippingFee"> = {
-    bundles,
-    shippingFee: offers.shippingFee,
-    bump: offers.orderBump && offers.orderBump.enabled ? { price: offers.orderBump.price, title: offers.orderBump.title } : undefined,
+  const doc = { product, items, offers };
+  // what the renderer embeds (config v2, cents): offerMath per offer, effective-free delivery, bump only when enabled
+  const math = offersMath(doc);
+  const cfg: Parameters<typeof computeTotals>[0] = {
+    items: [{ id: "main", name: "", short: "", price: 19900, contentId: "pk", groups: [] }],
+    bundles: offers.bundles.map((b, i) => ({
+      id: b.id,
+      label: `x${math[i]!.units}`,
+      short: `×${math[i]!.units}`,
+      price: math[i]!.price,
+      from: math[i]!.from,
+      reference: math[i]!.displayReference,
+      savings: math[i]!.savings,
+      savingsPct: math[i]!.savingsPct,
+      free: effectiveFree(doc, b),
+      units: b.lines.flatMap((l, line) => Array.from({ length: l.qty }, () => ({ line, item: "main" }))),
+    })),
+    extras: [],
+    shippingFee: toCents(offers.shippingFee),
+    bump: offers.orderBump && offers.orderBump.enabled ? { price: toCents(offers.orderBump.price) } : undefined,
   };
   for (const b of offers.bundles)
     for (const withBump of [false, true]) {
-      const ref = orderTotals(product, offers, b.id, withBump)!;
-      const got = computeTotals(cfg, b.id, withBump)!;
+      const ref = orderTotals(doc, emptySelection(b.id, withBump))!;
+      const got = computeTotals(cfg, emptySel(b.id, withBump))!;
       const label = `totals ${b.id} ship=${v.shippingFee} bumpEnabled=${v.bump} withBump=${withBump}`;
-      eq(label, [got.bundle, got.bump, got.shipping, got.subtotal, got.total, got.qty], [
-        ref.bundle.total,
-        ref.bump,
-        ref.shipping,
-        ref.subtotal,
-        ref.total,
-        ref.bundle.qty,
-      ]);
+      eq(label, [got.price, got.bump, got.shipping, got.subtotal, got.total, got.units], [ref.offer.price, ref.bump, ref.shipping, ref.subtotal, ref.total, ref.offer.units]);
     }
-  eq(`totals unknown bundle (ship=${v.shippingFee})`, computeTotals(cfg, "nope", false), orderTotals(product, offers, "nope", false));
+  eq(`totals unknown bundle (ship=${v.shippingFee})`, computeTotals(cfg, emptySel("nope")), orderTotals(doc, emptySelection("nope")));
 }
 
 /* ---------------- ids ---------------- */
@@ -285,3 +290,6 @@ if (failures.length) {
   console.error(`✗ ${failures.length} failed, ${pass} passed\n  - ${failures.join("\n  - ")}`);
   process.exitCode = 1;
 } else console.log(`✓ runtime selftest: all ${pass} checks passed`);
+
+// runtime ↔ server parity in cents (totals, reasons, allocation, order text, payloads): npm test runs it too
+void import("./selftest-parity");

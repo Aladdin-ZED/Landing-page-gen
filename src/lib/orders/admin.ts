@@ -2,7 +2,11 @@ import "server-only";
 /**
  * Admin-side order queries & mutations (call after requireUser() with the right permission):
  * orders list/detail, status updates (mirrored to the sheet), sheet re-sync, abandoned leads,
- * blocklist, per-page order stats and a streamed CSV export.
+ * blocklist, per-page order stats and streamed CSV exports (orders, abandoned leads).
+ *
+ * CSV (docs/OFFERS.md §G.4): "Variante" is the warehouse order text the Sheet gets (codes, short
+ * names, [OFFERT] / [AJOUT] / [UPSELL], « typed values », "|| Commande : …"); "Options (+)" lists
+ * what added money ("XL ×2 (+40); Emballage cadeau (+15)") and "SKU" is the Sheets SKU cell.
  */
 import { and, count, desc, eq, gte, inArray, isNull, like, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { audit } from "@/lib/audit";
@@ -11,7 +15,9 @@ import { newId } from "@/lib/db/ids";
 import { blocklist, leads, orders, pages } from "@/lib/db/schema";
 import { normalizePhone, toAsciiDigits } from "@/lib/markets/phone";
 import { cleanText, explain, pushOrderStatus, serviceAccountEmail, syncPendingOrders, type SyncResult } from "@/lib/sheets";
-import { ORDER_STATUSES, variantText, type OrderStatus } from "./contract";
+import { skuCell, variantCell } from "@/lib/sheets/row";
+import type { OrderItems } from "@/lib/db/schema";
+import { ORDER_STATUSES, type OrderStatus } from "./contract";
 
 export type OrderRecord = typeof orders.$inferSelect;
 export type LeadRecord = typeof leads.$inferSelect;
@@ -256,8 +262,7 @@ export interface LeadFilters {
   q?: string;
 }
 
-export async function listLeads(filters: LeadFilters = {}, pagination?: Pagination): Promise<Paged<LeadRecord & { pageName: string | null }>> {
-  const { page, pageSize, offset } = paging(pagination);
+function leadWhere(filters: LeadFilters): SQL | undefined {
   const w: SQL[] = [];
   if (filters.abandonedOnly ?? true) w.push(isNull(leads.convertedOrderId));
   if (filters.pageId) w.push(eq(leads.pageId, filters.pageId));
@@ -268,7 +273,12 @@ export async function listLeads(filters: LeadFilters = {}, pagination?: Paginati
     const digits = toAsciiDigits(q).replace(/[^0-9]/g, "").replace(/^0+/, "");
     w.push(or(like(leads.name, `%${likeEscape(q)}%`), ...(digits.length >= 4 ? [like(leads.phone, `%${digits}%`)] : []))!);
   }
-  const where = w.length ? and(...w) : undefined;
+  return w.length ? and(...w) : undefined;
+}
+
+export async function listLeads(filters: LeadFilters = {}, pagination?: Pagination): Promise<Paged<LeadRecord & { pageName: string | null }>> {
+  const { page, pageSize, offset } = paging(pagination);
+  const where = leadWhere(filters);
   const [rows, [t]] = await Promise.all([
     db
       .select({ lead: leads, pageName: pages.name })
@@ -341,9 +351,20 @@ export async function unblock(id: string, actor: Actor): Promise<boolean> {
 /* ------------------------------------------------------------------ */
 
 const CSV_HEADER = [
-  "Order", "Date (UTC)", "Status", "Name", "Phone", "City", "Address", "Product", "Pack", "Options", "Qty", "Subtotal",
+  "Order", "Date (UTC)", "Status", "Name", "Phone", "City", "Address", "Product", "Pack", "Variante", "Qty", "Subtotal",
   "Shipping", "Total", "Currency", "Note", "Email", "Page", "Source", "UTM source", "UTM campaign", "Risk", "Flags",
+  "Options (+)", "SKU",
 ];
+
+const plainMoney = (n: number) => String(Math.round(n * 100) / 100);
+
+/** "Options (+)": what added money to the order, one entry per reason ("XL ×2 (+40); Emballage cadeau (+15)"). */
+export function surchargesText(items: OrderItems | null | undefined): string {
+  return (items?.reasons ?? [])
+    .filter((r) => r.amount > 0)
+    .map((r) => `${cleanText(r.label, 60)}${r.count > 1 ? ` ×${r.count}` : ""} (+${plainMoney(r.amount)})`)
+    .join("; ");
+}
 
 /** RFC 4180 field, formula-injection safe (Excel/Sheets): leading = + - @ tab CR get a ' prefix. */
 function csvField(v: unknown): string {
@@ -392,7 +413,7 @@ export function ordersCsv(filters: OrderFilters = {}): ReadableStream<Uint8Array
               o.address,
               o.productName,
               o.items.bundleLabel,
-              variantText(o.items.variants),
+              variantCell(o),
               o.qty,
               o.subtotal,
               o.shipping,
@@ -406,12 +427,71 @@ export function ordersCsv(filters: OrderFilters = {}): ReadableStream<Uint8Array
               o.utm?.campaign,
               o.riskScore,
               (o.flags ?? []).join(" "),
+              surchargesText(o.items),
+              skuCell(o),
             ]
               .map(csvField)
               .join(",") + "\r\n";
         }
         controller.enqueue(enc.encode(chunk));
         const last = rows[rows.length - 1]!.order;
+        cursor = { createdAt: last.createdAt, id: last.id };
+      } catch (err) {
+        controller.error(err);
+      }
+    },
+  });
+}
+
+const LEADS_CSV_HEADER = ["Date (UTC)", "Name", "Phone", "City", "Page", "Pack", "Selection", "UTM source", "UTM campaign", "Order"];
+
+/** Streamed CSV of the leads matching `filters` (abandoned only by default), newest first. */
+export function leadsCsv(filters: LeadFilters = {}): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  const where = leadWhere(filters);
+  let cursor: { createdAt: Date; id: string } | null = null;
+  let started = false;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        if (!started) {
+          started = true;
+          controller.enqueue(enc.encode(`﻿${LEADS_CSV_HEADER.join(",")}\r\n`));
+          return;
+        }
+        const c = cursor;
+        const after = c ? or(lt(leads.createdAt, c.createdAt), and(eq(leads.createdAt, c.createdAt), lt(leads.id, c.id))) : undefined;
+        const rows = await db
+          .select({ lead: leads, pageName: pages.name })
+          .from(leads)
+          .leftJoin(pages, eq(pages.id, leads.pageId))
+          .where(and(where, after))
+          .orderBy(desc(leads.createdAt), desc(leads.id))
+          .limit(500);
+        if (!rows.length) {
+          controller.close();
+          return;
+        }
+        let chunk = "";
+        for (const { lead: l, pageName } of rows) {
+          chunk +=
+            [
+              l.createdAt.toISOString().replace("T", " ").slice(0, 19),
+              l.name,
+              l.phone,
+              l.city,
+              pageName,
+              l.bundleId,
+              l.selection,
+              l.utm?.source,
+              l.utm?.campaign,
+              l.convertedOrderId,
+            ]
+              .map(csvField)
+              .join(",") + "\r\n";
+        }
+        controller.enqueue(enc.encode(chunk));
+        const last = rows[rows.length - 1]!.lead;
         cursor = { createdAt: last.createdAt, id: last.id };
       } catch (err) {
         controller.error(err);

@@ -4,7 +4,8 @@
  * the "×2 −10% · ×3 −20%" pack teaser and the glass callout with its leader line.
  */
 import type { ReactElement, ReactNode } from "react";
-import { bundleMath } from "@/lib/page/pricing";
+import { everyOfferFree, fromCents } from "@/lib/page/pricing";
+import { defaultOfferView, offerViews } from "../../offers/model";
 import type { Archetype } from "@/lib/page/schema";
 import { ARCHETYPE_DEFS } from "@/lib/theme/archetypes";
 import { fontData } from "@/lib/theme/fonts";
@@ -46,6 +47,10 @@ export interface PackSaving {
   bundleId: string;
   qty: number;
   pct: number;
+  /** teaser label: "×2" for one item ×n, else the offer's short name ("Duo", "2 au choix") — never "×2" for a duo */
+  label: string;
+  /** one item ×n (a "×n" teaser is honest) */
+  sameItem: boolean;
 }
 
 /**
@@ -54,10 +59,9 @@ export interface PackSaving {
  */
 export function packSavings(ctx: RenderContext): PackSaving[] {
   const all: PackSaving[] = [];
-  for (const b of ctx.offers.bundles) {
-    if (b.qty < 2) continue;
-    const m = bundleMath(b, ctx.product.price);
-    if (m.showReference && m.savingsPct >= 1) all.push({ bundleId: b.id, qty: b.qty, pct: m.savingsPct });
+  for (const v of offerViews(ctx)) {
+    if (v.qty < 2 || v.soldOut) continue;
+    if (v.math.showReference && v.math.savingsPct >= 1) all.push({ bundleId: v.id, qty: v.qty, pct: v.math.savingsPct, label: v.sameItem ? `×${ctx.num(v.qty)}` : v.short, sameItem: v.sameItem });
   }
   if (all.length <= 2) return all.sort((a, b) => a.qty - b.qty);
   const byQty = [...all].sort((a, b) => a.qty - b.qty);
@@ -68,7 +72,7 @@ export function packSavings(ctx: RenderContext): PackSaving[] {
 
 /** Free delivery is only claimed when it is true for every pack and no fee is added. */
 export function freeShipping(ctx: RenderContext): boolean {
-  return (ctx.offers.shippingFee ?? 0) === 0 && ctx.offers.bundles.every((b) => b.freeShipping);
+  return everyOfferFree(ctx.doc);
 }
 
 export function heroTrust(ctx: RenderContext, data: HeroData, max = 3): TrustItem[] {
@@ -254,12 +258,26 @@ export function HeroLead({ ctx, data, className, delay = 120 }: AtomProps & { de
   );
 }
 
+/**
+ * The hero price: the lead item's unit price on single-item pages; on multi-item pages the default
+ * offer (docs/OFFERS.md §B.2) — its `from` price ("À partir de" when the choices can cost more) and
+ * its struck reference when the saving is real.
+ */
+export function heroPrice(ctx: RenderContext): { amount: number; compareAt?: number; from: boolean } {
+  if (ctx.items.length < 2) return { amount: ctx.lead.price, compareAt: ctx.lead.compareAt, from: false };
+  const v = defaultOfferView(ctx);
+  if (!v) return { amount: ctx.lead.price, compareAt: ctx.lead.compareAt, from: false };
+  return { amount: fromCents(v.math.from), compareAt: v.math.showReference ? fromCents(v.math.displayReference) : undefined, from: v.variable };
+}
+
 export function HeroPrice({ ctx, className, size = "l", savings = true }: { ctx: RenderContext; className?: string; size?: "m" | "l" | "xl"; savings?: boolean }) {
+  const hp = heroPrice(ctx);
   return (
     <Price
       ctx={ctx}
-      amount={ctx.product.price}
-      compareAt={ctx.product.compareAt}
+      amount={hp.amount}
+      compareAt={hp.compareAt}
+      from={hp.from}
       size={size}
       showSavings={savings}
       className={cx("lp-hero__price", className)}

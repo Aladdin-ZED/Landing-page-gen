@@ -1,5 +1,7 @@
 @import "./pv.css";
+@import "../../offers/visual.css";
 @import "./packs.css";
+@import "./units.css";
 
 /* ==========================================================================
    Order form — card · split · minimal · bold
@@ -168,22 +170,22 @@
 /* a step is done when none of its required controls is invalid (hidden unit rows don't count):
    the disc takes the accent, the numeral shrinks away, the tick draws in */
 @supports selector(:has(a)) {
-  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) {
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden]), .lp-unit, .lp-ushared:not([hidden]), .lp-uextra:not([hidden])) :invalid)) {
     --of-done: 1;
   }
 
-  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__no {
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden]), .lp-unit, .lp-ushared:not([hidden]), .lp-uextra:not([hidden])) :invalid)) .lp-of__no {
     background: var(--sec-accent);
     color: var(--sec-accent-ink);
     box-shadow: 0 0 0 4px var(--mx-tint-2);
   }
 
-  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) :is(.lp-of__no-1, .lp-of__no-2) {
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden]), .lp-unit, .lp-ushared:not([hidden]), .lp-uextra:not([hidden])) :invalid)) :is(.lp-of__no-1, .lp-of__no-2) {
     opacity: 0;
     scale: 0.4;
   }
 
-  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden])) :invalid)) .lp-of__tick {
+  .lp-of__step:not(:has(:is(.lp-of__fields, .lp-vars > .lp-vg, .lp-vrow:not([hidden]), .lp-unit, .lp-ushared:not([hidden]), .lp-uextra:not([hidden])) :invalid)) .lp-of__tick {
     stroke-dashoffset: 0;
   }
 }
@@ -1490,7 +1492,9 @@
 
   .lp-of__show-pv {
     --pv-r: 1.1rem;
-    inline-size: min(76%, 22rem);
+    /* the composed visual's well (offers/visual.css): landscape on the 5:4 stage */
+    --host-r: 1.3;
+    inline-size: min(84%, 26rem);
     margin-block-end: 3rem;
   }
 

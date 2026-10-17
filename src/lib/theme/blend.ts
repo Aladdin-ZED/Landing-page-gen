@@ -298,6 +298,11 @@ export const SECTION_MIXES: readonly MixPair[] = [
   // palette's own base color, so buildPalette() can see it before the depth tokens exist
   mixPair("~shadow", "sec-bg", "srgb", 0.02, 0.6),
   mixPair("~shadow", "sec-card", "srgb", 0.02, 0.6),
+  // Offers v2 (docs/OFFERS.md §E.3, §E.6): the "solid" selected style on the bold slab is an ink fill whose
+  // chips are the card washed over the ink (16%); monogram tiles and the "+" / "ou" chips lay accent
+  // tints on the chip tone
+  mixPair("sec-card", "sec-ink", "both", 0.1, 0.3),
+  mixPair("sec-accent", "sec-chip", "oklab", 0.02, 0.3),
   // product stage tones and their lit / floor blends
   mixPair("mx-stage", "#ffffff", "oklab", 0.14, 0.9),
   mixPair("mx-stage-lo", "sec-ink", "oklab", 0.84, 0.92),

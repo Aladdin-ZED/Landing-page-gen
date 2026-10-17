@@ -19,6 +19,7 @@ import {
   mysqlTable,
   primaryKey,
   text,
+  tinyint,
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
@@ -138,6 +139,8 @@ export const pageVersions = mysqlTable(
     thumbnailAssetId: varchar("thumbnail_asset_id", { length: 64 }),
     starred: boolean("starred").notNull().default(false),
     checksum: char("checksum", { length: 64 }).notNull(),
+    /** runtime contract embedded in the published HTML (1: v1 config + payloads; 2: Offers v2). Rows before 0003 = 1. */
+    runtimeV: tinyint("runtime_v").notNull().default(1),
     createdBy: varchar("created_by", { length: 26 }),
     createdAt: createdAt(),
   },
@@ -212,14 +215,49 @@ export const mediaChunks = mysqlTable(
 /* commerce                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One physical piece of an order (docs/OFFERS.md §G.3). Snapshot at order time: names, labels and
+ * codes as the page showed them. `value` / `code` / field names are printable text (owner labels
+ * sanitized, a numeric value prefixed by its group name: "Pointure 42"); matrix = one entry,
+ * dims in order ("Noir/M").
+ */
+export interface OrderUnit {
+  /** item id at order time */
+  item: string;
+  /** item name snapshot ("" on single-item pages) */
+  label: string;
+  /** item short name (warehouse name) */
+  short?: string;
+  sku?: string;
+  free?: true;
+  options: { name: string; value: string; code?: string; delta?: number }[];
+  fields?: { name: string; value: string; delta?: number }[];
+}
+
+/** orders.items JSON. v1 rows have no `v` (read them through orderUnits() in src/lib/orders/text.ts). */
 export interface OrderItems {
+  /** absent = v1 row */
+  v?: 2;
   bundleId: string;
+  /** offerSheetLabel (v1 format for v1-shaped offers) */
   bundleLabel: string;
+  /** units incl. free (bump not included) */
   qty: number;
+  /** fromCents(round((price + deltas) / qty)): v1 meaning kept */
   unitPrice: number;
-  variants: Record<string, string>[]; // per unit: groupName → optionLabel
-  bump?: { title: string; price: number };
-  upsell?: { title: string; price: number };
+  /** v1 compat: per unit { groupName: value, …, fieldName: value } (+ "Article": label on multi-item pages) */
+  variants: Record<string, string>[];
+  units?: OrderUnit[];
+  /** order extras; `typed` = a typed value (printed in « »), `code` = warehouse code of a choice */
+  extras?: { name: string; value: string; code?: string; typed?: true; delta?: number }[];
+  /** offer.gift snapshot (non-catalog) */
+  gift?: { label: string };
+  /** offer base price, Σ surcharges */
+  price?: number;
+  deltas?: number;
+  reasons?: { label: string; count: number; amount: number }[];
+  bump?: { title: string; price: number; unit?: OrderUnit };
+  upsell?: { title: string; price: number; item?: string; confirmOptions?: true };
 }
 
 export const orders = mysqlTable(
@@ -283,6 +321,8 @@ export const leads = mysqlTable(
     name: varchar("name", { length: 120 }),
     city: varchar("city", { length: 120 }),
     bundleId: varchar("bundle_id", { length: 40 }),
+    /** warehouse units text of the resolvable part of the lead's selection (src/lib/orders/text.ts) */
+    selection: varchar("selection", { length: 400 }),
     utm: jsonText<Record<string, string>>("utm"),
     convertedOrderId: varchar("converted_order_id", { length: 20 }),
     createdAt: createdAt(),

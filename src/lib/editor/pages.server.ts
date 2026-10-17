@@ -330,22 +330,25 @@ export async function createVersion(
 /**
  * Make a version the draft again. The current draft is kept as an autosave labelled "Before
  * restore" (when it differs from the newest version) so a restore can always be undone.
+ * The page keeps its CURRENT pixels (`tracking`) unless `pixels: true` ("Also restore its pixels",
+ * docs/OFFERS.md §A.4): an old version must never silently swap the ads' pixels.
  */
 export async function restoreVersion(
   user: SessionUser,
-  input: { pageId: string; versionId: string; baseUpdatedAt: number },
+  input: { pageId: string; versionId: string; baseUpdatedAt: number; pixels?: boolean },
 ): Promise<{ doc: PageDocT; updatedAt: number; versions: VersionSummary[]; assets: Record<string, EditorAsset> }> {
   const [row, v] = await Promise.all([pageRow(input.pageId), versionRow(input.pageId, input.versionId)]);
   if (!row || !v) throw new EditorError("not_found", "This version no longer exists.");
   if (row.updatedAt.getTime() !== input.baseUpdatedAt) {
     throw new EditorError("conflict", "This page was changed somewhere else.", { serverUpdatedAt: row.updatedAt.getTime() });
   }
-  const { doc } = validateDoc(v.doc);
-  if (!doc) throw new EditorError("invalid", "This version cannot be restored: its content is damaged.");
+  const { doc: restored } = validateDoc(v.doc);
+  if (!restored) throw new EditorError("invalid", "This version cannot be restored: its content is damaged.");
 
   const now = new Date(Math.max(Date.now(), input.baseUpdatedAt + 1));
   const created: VersionSummary[] = [];
   const current = validateDoc(row.draft).doc;
+  const doc: PageDocT = input.pixels || !current ? restored : { ...restored, tracking: current.tracking };
   if (current) {
     const [latest] = await db.select({ checksum: pageVersions.checksum }).from(pageVersions).where(eq(pageVersions.pageId, input.pageId)).orderBy(desc(pageVersions.createdAt)).limit(1);
     if (latest?.checksum !== checksumOf(current)) {
@@ -389,7 +392,7 @@ export async function duplicateAsPage(user: SessionUser, input: { pageId: string
   }
   const { doc } = validateDoc(source);
   if (!doc) throw new EditorError("invalid", "This content is damaged and cannot be duplicated.");
-  return createPageFromDoc({ name: input.name ?? `${row.name} (copy)`, doc, versionLabel }, { id: user.id });
+  return createPageFromDoc({ name: input.name ?? `${row.name} (copy)`, doc, versionLabel, copiedFrom: row.name }, { id: user.id });
 }
 
 /* ------------------------------------------------------------------ */

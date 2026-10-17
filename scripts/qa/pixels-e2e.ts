@@ -8,6 +8,8 @@
  * names, parameters (value = server total, MAD, quantity), once-only, hashed advanced matching
  * (E.164 +212), Purchase event ids = order id = the server payload builder's event_id, no CSP
  * violation (vendor beacons included), nothing loaded in preview mode, no Purchase on reload.
+ * Per-page pixels (docs/OFFERS.md §A.5): the preview HTML carries no pixel id, no pixel config and no
+ * pixels chunk; the live HTML fires exactly the page's own ids (another page's ids never appear).
  *
  *   npx tsx scripts/qa/pixels-e2e.ts      (exit code 1 on failure)
  */
@@ -17,10 +19,10 @@ import { createServer } from "node:http";
 import { join, normalize, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { liveLinks } from "@/landing/context";
-import { OrderPayload } from "@/lib/orders/contract";
+import { parseOrderPayload } from "@/lib/orders/contract";
 import { purchaseConversion } from "@/lib/orders/conversions-core";
 import { fixtureAssets, getFixture } from "@/lib/page/fixtures";
-import { orderTotals } from "@/lib/page/pricing";
+import { emptySelection, fromCents, orderTotals } from "@/lib/page/pricing";
 import { validateDoc } from "@/lib/page/validate";
 import { PIXEL_EVENTS } from "@/lib/pixels/ids";
 import { renderLandingHtml, renderThankYouHtml } from "@/lib/render/core";
@@ -31,6 +33,8 @@ const META = ["111111111111111", "222222222222222"];
 const TIKTOK = ["CTESTPIXEL0000000001", "CTESTPIXEL0000000002"];
 const SNAP = "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
 const GA4 = "G-TEST1234";
+const OTHER_META = "333333333333333";
+const OTHER_TIKTOK = "CTESTPIXEL0000000099";
 const ORDER_ID = "CMD-PX0001";
 const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
 
@@ -93,9 +97,12 @@ async function main() {
   const landing = await renderLandingHtml(doc, opts);
   const thanks = await renderThankYouHtml(doc, opts);
   const preview = await renderLandingHtml(doc, { ...opts, runtimeMode: "preview" as const });
+  // another page of the same store with its own pixels (library has both): per-page isolation
+  const otherDoc = validateDoc({ ...fx.doc, tracking: { metaPixelId: [OTHER_META], tiktokPixelId: [OTHER_TIKTOK] } }).doc!;
+  const other = await renderLandingHtml(otherDoc, { ...opts, pageKey: "pk_e2e_other" });
   const orders: Record<string, unknown>[] = [];
   let serverTotal = 0;
-  const contentId = doc.product.sku || opts.pageKey;
+  const contentId = doc.items[0]!.sku || opts.pageKey;
 
   server.on("request", (req, res) => {
     const url = new URL(req.url ?? "/", origin);
@@ -107,7 +114,7 @@ async function main() {
           const p = JSON.parse(body) as { bundleId: string; bump: boolean };
           orders.push(JSON.parse(body) as Record<string, unknown>);
           // the server's own total (prices recomputed from the document, like the real API)
-          serverTotal = orderTotals(doc.product, doc.offers, p.bundleId, p.bump)?.total ?? 0;
+          serverTotal = fromCents(orderTotals(doc, emptySelection(p.bundleId, p.bump))?.total ?? 0);
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ ok: true, orderId: ORDER_ID, total: serverTotal, currency: "MAD" }));
         } else res.writeHead(204).end();
@@ -197,6 +204,17 @@ async function main() {
     const pv = await page.evaluate(() => ({ fbq: typeof (window as unknown as { fbq?: unknown }).fbq, ttq: typeof (window as unknown as { ttq?: unknown }).ttq, cfg: JSON.parse(document.getElementById("lp-config")!.textContent!).pixels }));
     check(vendorHits.length === 0 && pv.fbq === "undefined" && pv.ttq === "undefined" && JSON.stringify(pv.cfg) === "{}", "preview mode: no pixel config, no vendor request", { pv, vendorHits });
     check(!/facebook|tiktok|snapchat|google/.test(preview.csp), "preview CSP allows no pixel host", preview.csp);
+    check(![...META, ...TIKTOK, SNAP, GA4].some((id) => preview.html.includes(id)), "preview HTML carries no pixel id");
+    check(!/<script[^>]+src="[^"]*pixels[^"]*"/i.test(preview.html), "preview HTML loads no pixels chunk");
+
+    /* ---------- live: exactly the page's own ids ---------- */
+    const liveCfg = JSON.parse(/<script[^>]*id="lp-config"[^>]*>([\s\S]*?)<\/script>/.exec(landing.html)?.[1] ?? "{}") as { pixels?: unknown };
+    check(JSON.stringify(liveCfg.pixels) === JSON.stringify({ meta: META, tiktok: TIKTOK, snap: [SNAP], ga4: [GA4] }), "live config fires exactly the page's pixels", liveCfg.pixels);
+    const quoted = (html: string, id: string) => html.includes(`"${id}"`);
+    check(
+      ![OTHER_META, OTHER_TIKTOK].some((id) => quoted(landing.html, id) || quoted(thanks.html, id)) && ![...META, ...TIKTOK].some((id) => quoted(other.html, id)),
+      "another page's pixels never appear (and this page's never appear on it)",
+    );
 
     /* ---------- CSP of the live page: exactly the configured platforms ---------- */
     for (const h of ["https://connect.facebook.net", "https://analytics.tiktok.com", "https://sc-static.net", "https://*.googletagmanager.com"])
@@ -210,7 +228,7 @@ async function main() {
     await page.waitForTimeout(300);
     let log = await readLog(page);
     const fbq = of(log, "fbq");
-    const t0 = orderTotals(doc.product, doc.offers, (doc.offers.bundles.find((b) => b.preselected) ?? doc.offers.bundles[0]!).id, false);
+    const t0 = orderTotals(doc, emptySelection((doc.offers.bundles.find((b) => b.preselected) ?? doc.offers.bundles[0]!).id));
     const viewParams = fbq.find((c) => c[0] === "track" && c[1] === "ViewContent")?.[2] as Record<string, unknown> | undefined;
     check(
       JSON.stringify(fbq.slice(0, 4).map((c) => c.slice(0, 2))) === JSON.stringify([["init", META[0]], ["init", META[1]], ["track", "PageView"], ["track", "ViewContent"]]),
@@ -342,13 +360,18 @@ async function main() {
     await collectCsp();
 
     /* ---------- server payload builder: same event id, value, hashes ---------- */
-    const payload = OrderPayload.parse(orders[0]);
+    // the runtime posts payload v2 (units, ver, st) on v2 pages, v1 otherwise
+    const parsed = parseOrderPayload(orders[0]);
+    if (!parsed.ok) throw new Error(`order payload refused: ${JSON.stringify(parsed.fields)}`);
+    const payload = parsed.data;
     const conv = purchaseConversion({
       orderId: ORDER_ID,
       createdAt: new Date(),
       payload,
       order: {
-        totals: orderTotals(doc.product, doc.offers, payload.bundleId, payload.bump)!,
+        totals: orderTotals(doc, emptySelection(payload.bundleId, payload.bump))!,
+        offer: doc.offers.bundles.find((b) => b.id === payload.bundleId)!,
+        selection: emptySelection(payload.bundleId, payload.bump),
         items: { qty },
         phone: { e164: payload.phone, country: "MA" },
         email: null,

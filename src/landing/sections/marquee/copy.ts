@@ -4,6 +4,7 @@
  * paying — free delivery only when every pack really ships free). The product's short name may lead
  * the loop. The generator replaces the words with product-specific copy; these are the fallback.
  */
+import { everyOfferFree } from "@/lib/page/pricing";
 import type { Locale, Offers, Product, ProductCategory } from "@/lib/page/schema";
 import { garmentOf } from "../garment";
 
@@ -116,7 +117,7 @@ export function shortName(name: string): string {
 
 /** Free delivery is only claimed when no fee is added and every pack ships free. */
 export function shipsFree(offers: Offers): boolean {
-  return (offers.shippingFee ?? 0) === 0 && offers.bundles.every((b) => b.freeShipping);
+  return everyOfferFree({ offers });
 }
 
 /** Deterministic Fisher–Yates with the defaults rng. */

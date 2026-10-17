@@ -60,7 +60,7 @@ export default defineSection({
     },
   ],
   schema,
-  defaults: ({ locale, product, rng }) => specsDefaults({ locale, product, rng }),
+  defaults: ({ locale, product, items, rng }) => specsDefaults({ locale, product, item: items[0]!, rng }),
   fields: [
     {
       kind: "group",

@@ -20,8 +20,10 @@ import type { ReactElement, ReactNode } from "react";
 import { legalChrome, legalLang, legalNav } from "../legal";
 import { brandName, cx, Icon, pad2, Picture, Price, RichText, SkipLink, type IconName } from "../primitives";
 import type { RenderContext } from "../types";
-import { bundleLabel, whatsappNumber } from "@/lib/render/config";
-import { defaultBundleId, orderTotals } from "@/lib/page/pricing";
+import { offerLabel, whatsappNumber } from "@/lib/render/config";
+import { offerWord } from "../sections/orderForm/copy";
+import { offerCustomImage } from "@/lib/page/catalog";
+import { defaultBundleId, emptySelection, fromCents, orderTotals } from "@/lib/page/pricing";
 import type { PageDoc, SectionBg } from "@/lib/page/schema";
 import { getArchetype } from "@/lib/theme";
 
@@ -36,6 +38,8 @@ export interface ThankYouProps {
 interface TyCopy {
   next: string;
   yourOrder: string;
+  /** the offer row's label: a noun (the form's "Choisissez votre offre" reads as an instruction here) */
+  offer: string;
   options: string;
   hints: [string, string, string, string];
 }
@@ -44,18 +48,21 @@ const COPY: Record<"ar" | "fr" | "en", TyCopy> = {
   fr: {
     next: "Et maintenant ?",
     yourOrder: "Votre commande",
+    offer: "Votre offre",
     options: "Vos choix",
     hints: ["C'est enregistré.", "Nous vous appelons pour confirmer l'adresse.", "Votre colis part avec le livreur.", "Vérifiez, puis payez en espèces."],
   },
   ar: {
     next: "شنو غادي يوقع دابا؟",
     yourOrder: "الطلب ديالك",
+    offer: "العرض ديالك",
     options: "اختياراتك",
     hints: ["الطلب تسجل.", "كنعيطو ليك باش نأكدو العنوان.", "الكولي كيخرج مع شركة التوصيل.", "عاين المنتوج، من بعد خلص كاش."],
   },
   en: {
     next: "What happens next",
     yourOrder: "Your order",
+    offer: "Your offer",
     options: "Your choices",
     hints: ["It's registered.", "We call you to confirm the address.", "Your parcel leaves with the courier.", "Check it, then pay in cash."],
   },
@@ -131,10 +138,19 @@ function Timeline({ ctx, copy }: { ctx: RenderContext; copy: TyCopy }): ReactEle
 
 function Summary({ doc, ctx, copy }: { doc: PageDoc; ctx: RenderContext; copy: TyCopy }): ReactElement {
   const { product, offers } = doc;
-  const id = defaultBundleId(offers);
+  const id = defaultBundleId(offers, doc.items);
   const bundle = offers.bundles.find((b) => b.id === id) ?? offers.bundles[0]!;
-  const totals = orderTotals(product, offers, bundle.id, false);
-  const image = ctx.asset(bundle.image ?? product.cutout ?? product.images[0]);
+  const cents = orderTotals(doc, emptySelection(bundle.id));
+  const totals = cents ? { total: fromCents(cents.total) } : null;
+  const image = ctx.asset(offerCustomImage(bundle) ?? product.cutout ?? product.images[0]);
+  // the options row: something to say beyond the offer label (options, several items, gifts, a bump
+  // item, page extras such as a gift wrap)
+  const details =
+    doc.items.some((it) => it.groups.length > 0) ||
+    offers.extras.length > 0 ||
+    doc.items.length > 1 ||
+    offers.bundles.some((b) => !!b.gift || b.lines.some((l) => l.free)) ||
+    !!(offers.orderBump?.enabled && offers.orderBump.item);
   return (
     <aside className="lp-ty__card lp-ty__summary" aria-labelledby="lp-ty-summary" data-reveal="rise" data-delay="80">
       <p className="lp-ty__card-kicker">{copy.yourOrder}</p>
@@ -148,14 +164,15 @@ function Summary({ doc, ctx, copy }: { doc: PageDoc; ctx: RenderContext; copy: T
       </div>
       <dl className="lp-ty__rows">
         <div className="lp-ty__row" data-need-order="">
-          <dt>{ctx.t("form.choosePack")}</dt>
-          <dd data-ty="items">{bundleLabel(ctx, bundle)}</dd>
+          <dt>{copy.offer}</dt>
+          <dd data-ty="items">{offerLabel(ctx, bundle)}</dd>
         </div>
-        {product.variants.some((g) => g.options.length > 0) ? (
-          // filled by the runtime from the order just placed; hidden while empty (no JS, or no record)
+        {details ? (
+          // filled by the runtime from the order just placed (item names, dots, fields in « », "Offert",
+          // "Cadeau : …" — docs/OFFERS.md §G.8); hidden while empty (no JS, or no record)
           <div className="lp-ty__row lp-ty__row--opts" data-need-order="">
             <dt>{copy.options}</dt>
-            <dd className="lp-vsum" data-ty="options" />
+            <dd className="lp-vsum" data-ty="options" data-free={offerWord(ctx.locale, "free")} data-gift={offerWord(ctx.locale, "gift", {})} />
           </div>
         ) : null}
         <div className="lp-ty__row lp-ty__row--total" data-need-order="">

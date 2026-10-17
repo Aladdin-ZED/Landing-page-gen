@@ -36,6 +36,8 @@ import { StatusChip } from "../common/status-chip";
 import { RelativeTime } from "../common/time";
 import { compact } from "../lib/format";
 import { PAGE_STATUS_META } from "../lib/status";
+import { LivePixelChips } from "./page-pixels";
+import type { LivePagePixels } from "@/app/admin/(panel)/settings/pixels/actions";
 
 export type PageAction = "edit" | "preview" | "publish" | "unpublish" | "home" | "home-auto" | "duplicate" | "export" | "archive" | "restore" | "delete" | "copy-link";
 
@@ -74,8 +76,11 @@ export function PageCard({
   busy,
   onAction,
   style,
+  livePixels,
 }: {
   page: PageListItem;
+  /** what the live version fires (live pages; undefined while loading) */
+  livePixels?: { live: LivePagePixels | undefined; labels: Record<string, string> };
   assets: PreviewAssets;
   store?: StoreInfo;
   liveUrl: string;
@@ -171,6 +176,7 @@ export function PageCard({
               <span className="truncate font-mono">/{page.slug}</span>
               <CopyButton value={liveUrl} label="Copy page link" toastMessage="Page link copied" size="icon-xs" className="-my-1 text-muted-foreground" />
             </div>
+            {live && livePixels ? <LivePixelChips live={livePixels.live} labels={livePixels.labels} className="mt-1" /> : null}
           </div>
           <PageMenu page={page} can={can} onAction={onAction} liveUrl={liveUrl} />
         </div>

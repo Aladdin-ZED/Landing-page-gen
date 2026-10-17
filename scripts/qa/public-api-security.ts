@@ -150,8 +150,10 @@ async function database() {
   const exportTarget: PageTarget = { ...target, kind: "export", exportId: id(), exportMode: "connected", allowedOrigins: ["https://shop.example"], source: "export" };
 
   const bundle = doc.offers.bundles[0]!;
-  const variants = Array.from({ length: bundle.qty }, () =>
-    Object.fromEntries(doc.product.variants.map((g) => [g.id, (g.options.find((o) => !o.soldOut) ?? g.options[0]!).id])),
+  const { offerUnits } = await import("@/lib/page/catalog");
+  const { isChoiceGroup } = await import("@/lib/page/schema");
+  const variants = Array.from({ length: offerUnits(bundle) }, () =>
+    Object.fromEntries(doc.items[0]!.groups.filter(isChoiceGroup).map((g) => [g.id, (g.options.find((o) => !o.soldOut) ?? g.options[0]!).id])),
   );
   const market = getMarket(doc.market);
   const city = market.cities?.[0]?.value ?? "Casablanca";

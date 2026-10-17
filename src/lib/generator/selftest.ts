@@ -19,12 +19,29 @@
  *   - product options (a wizard draft: colors linked to photos + sizes) and the chosen ad pixels
  *     reach every direction unchanged, with the order form that shows the pickers and the first
  *     color's photo leading the page;
- * plus bundle pricing, library copy coverage and the AI copy guard. Exits 1 on any failure.
+ *   - offers (docs/OFFERS.md §E.5, §H.1): every direction's offer layout follows its archetype's rule
+ *     (picker, selection, density; never the bold order form with a solid selection, remixes
+ *     included); suggestOffers on 1–8 items is honest (price below the pieces bought alone, falling
+ *     with size, charm-rounded from the owner's prices, never a compare-at, free delivery off), ≤ 8,
+ *     valid; duo pages get one / duo / trio, single items ×1 / ×2 / ×3, matrix products per-piece
+ *     fills and a color pack; the wizard's items, offers, look and tracking answer reach every
+ *     direction verbatim; presets, the admin offer sentence, remix titles;
+ * plus library copy coverage and the AI copy guard. Exits 1 on any failure.
  */
 import { libraryCopy, FAMILIES, familyOf } from "@/lib/ai/copy-library";
 import { mergeAiCopy } from "@/lib/ai/guard";
 import type { AiCopy } from "@/lib/ai/copy-schema";
-import { PRODUCT_CATEGORIES, type Locale, type Market, type PageDoc, type ProductCategory } from "@/lib/page/schema";
+import {
+  PRODUCT_CATEGORIES,
+  type Archetype,
+  type Locale,
+  type Market,
+  type OfferDensity,
+  type OfferPicker,
+  type OfferSelection,
+  type PageDoc,
+  type ProductCategory,
+} from "@/lib/page/schema";
 import {
   cleanVariants,
   colorPalette,
@@ -39,15 +56,22 @@ import {
   swatchFor,
   type VariantGroup,
 } from "@/lib/page/variant-presets";
-import { bundleMath } from "@/lib/page/pricing";
+import { expandUnits, groupPhotos, offerAvailable, offerSignature, offerUnits } from "@/lib/page/catalog";
+import { fillStats, resolveDisplay } from "@/lib/page/display";
+import { getFixture } from "@/lib/page/fixtures";
+import { OFFER_PRESETS, ownPhoto, presetOffer, suggestOffers } from "@/lib/page/offer-presets";
+import { offerContents, offerSentence } from "@/lib/page/offer-text";
+import { bundleMath, offerMath } from "@/lib/page/pricing";
 import { validateDoc } from "@/lib/page/validate";
 import { createRenderContext, isRealStoreName, liveAssetResolver, PREVIEW_LINKS, shortProductName } from "@/landing/context";
 import { getSection } from "@/landing/registry";
 import { SETTINGS, StoreSettings } from "@/lib/settings/schemas";
 import { CALM_ARCHETYPES, parseColor, toOklch, type ExtractedPalette } from "@/lib/theme";
-import { generateDirections, readMood, remixDoc, suggestBundles, type Direction, type GenerateInput } from "./index";
+import { buildDirection, generateDirections, readMood, remixDoc, suggestBundles, type Direction, type GenerateInput } from "./index";
+import { offerTextsFor, pickOfferDisplay, safeSelection } from "./offers";
+import { rngFor } from "./rng";
 import { CALM_LIMITS, colorDistance, isOrange, orangeBlend, orangeMixes, orangeTokens, withoutOrange } from "./theme";
-import { ThemeSpec } from "@/lib/page/schema";
+import { PageDocObject, ThemeSpec, type AssetRef } from "@/lib/page/schema";
 import { themeTones } from "./tones";
 import { glueDeep, glueEmphasis } from "./glue";
 
@@ -211,6 +235,51 @@ function checkNoOrange(doc: PageDoc, where: string) {
   check(blends.length === 0, `${where}: ${blends.length} orange blend(s): ${blends.slice(0, 2).join(" | ")}`);
 }
 
+/**
+ * §E.5 — the offer layout each archetype gives (the spec's table, independent of offers.ts):
+ * single-item pickers (70 / 30), image-led picker, selected style, density.
+ */
+const SPEC_LOOK: Record<Archetype, { single: OfferPicker[]; led: OfferPicker; selection: OfferSelection; density: OfferDensity }> = {
+  maison: { single: ["tiers", "pills"], led: "visual", selection: "outline", density: "comfortable" },
+  apothecary: { single: ["stack", "tiers"], led: "stack", selection: "soft", density: "comfortable" },
+  souk: { single: ["ticket", "visual"], led: "visual", selection: "solid", density: "comfortable" },
+  playground: { single: ["visual", "ticket"], led: "visual", selection: "soft", density: "comfortable" },
+  kinetic: { single: ["tiers", "stack"], led: "visual", selection: "outline", density: "compact" },
+  circuit: { single: ["tiers", "pills"], led: "stack", selection: "outline", density: "compact" },
+  hearth: { single: ["stack", "visual"], led: "visual", selection: "soft", density: "comfortable" },
+  bloom: { single: ["visual", "stack"], led: "visual", selection: "soft", density: "comfortable" },
+  field: { single: ["stack", "visual"], led: "stack", selection: "soft", density: "comfortable" },
+  editorial: { single: ["pills", "tiers"], led: "visual", selection: "outline", density: "comfortable" },
+  garage: { single: ["ticket", "tiers"], led: "stack", selection: "outline", density: "compact" },
+};
+
+/** Image-led offer set (§E.5): an offer with 2+ distinct items, a choice line, or a custom visual. */
+const imageLedSet = (offers: PageDoc["offers"]["bundles"]) =>
+  offers.some((o) => o.visual.mode === "custom" || o.lines.some((l) => "choice" in l.pick) || new Set(o.lines.map((l) => ("item" in l.pick ? l.pick.item : ""))).size >= 2);
+
+/** Never the bold order form (cards on an accent slab) with a solid selection (§E.3). */
+function checkNoBoldSolid(doc: PageDoc, where: string) {
+  const form = doc.sections.find((x) => x.type === "orderForm" && !x.hidden);
+  check(!(form?.variant === "bold" && doc.offers.display.selection === "solid"), `${where}: bold order form with a solid selection`);
+}
+
+/** The generated offer layout follows the archetype rule of §E.5 (an owner's "Look" is checked by the caller). */
+function checkOfferDisplay(doc: PageDoc, where: string) {
+  const d = doc.offers.display;
+  const look = SPEC_LOOK[doc.theme.archetype];
+  const n = doc.offers.bundles.length;
+  const led = imageLedSet(doc.offers.bundles);
+  check(d.fill === "auto" && d.media === "auto", `${where}: offer fill/media ${d.fill}/${d.media} (generator leaves both "auto")`);
+  if (n <= 1) check(d.picker === "stack", `${where}: one offer shown as ${d.picker}`);
+  else if (n >= 5) check(led && n <= 6 ? d.picker === "visual" : d.picker === "stack" && d.density === "compact", `${where}: ${n} offers shown as ${d.picker}/${d.density}`);
+  else check(led ? d.picker === look.led : look.single.includes(d.picker), `${where}: picker ${d.picker} for a ${led ? "image-led" : "single-item"} set (want ${led ? look.led : look.single.join(" / ")})`);
+  check(d.picker !== "pills" || n <= 4, `${where}: segments with ${n} offers`);
+  if (!(n >= 5 && !(led && n <= 6))) check(d.density === look.density, `${where}: density ${d.density}, want ${look.density}`);
+  const form = doc.sections.find((x) => x.type === "orderForm" && !x.hidden);
+  check(d.selection === (form?.variant === "bold" && look.selection === "solid" ? "soft" : look.selection), `${where}: selection ${d.selection}, want ${look.selection}${form?.variant === "bold" ? " (bold form)" : ""}`);
+  checkNoBoldSolid(doc, where);
+}
+
 const signature = (doc: PageDoc) =>
   [doc.theme.archetype, doc.theme.fonts.display, ...doc.sections.map((s) => `${s.type}:${s.variant}:${s.bg}`)].join("|");
 
@@ -266,10 +335,11 @@ for (const [n, s] of SETUPS.entries()) {
     checkRhythm(d.doc, where);
     checkDirection(d.doc, where);
     checkNoOrange(d.doc, where);
+    checkOfferDisplay(d.doc, where);
     // bundles: genuine per-unit savings, popular ×2, best ×3
     const b = d.doc.offers.bundles;
     if (b.length === 3) {
-      const m = b.map((x) => bundleMath(x, d.doc.product.price));
+      const m = b.map((x) => bundleMath(d.doc, x));
       check(m[1]!.perUnit < m[0]!.perUnit && m[2]!.perUnit < m[1]!.perUnit, `${where}: per-unit prices do not decrease (${b.map((x) => x.price)})`);
       check(b[1]!.badge === "popular" && b[2]!.badge === "best", `${where}: badges wrong`);
     }
@@ -278,7 +348,7 @@ for (const [n, s] of SETUPS.entries()) {
       const r = remixDoc(d.doc, { seed: 7 + n, scope });
       const v = validateDoc(r);
       check(v.issues.length === 0, `${where}: remix ${scope} → ${v.issues.length} issue(s): ${v.issues.slice(0, 2).map((i) => i.message).join(" | ")}`);
-      check(r.product.price === d.doc.product.price && r.offers.bundles.length === d.doc.offers.bundles.length, `${where}: remix ${scope} changed the offer`);
+      check(r.items[0]!.price === d.doc.items[0]!.price && r.offers.bundles.length === d.doc.offers.bundles.length, `${where}: remix ${scope} changed the offer`);
       const ids = (x: PageDoc) => x.sections.map((sec) => sec.id).sort().join(",");
       check(ids(r) === ids(d.doc), `${where}: remix ${scope} added/removed sections`);
       if (scope === "design") {
@@ -293,6 +363,8 @@ for (const [n, s] of SETUPS.entries()) {
       }
       if (scope !== "copy") checkRhythm(r, `${where}/remix-${scope}`);
       if (scope === "design" || scope === "all") checkNoOrange(r, `${where}/remix-${scope}`);
+      checkNoBoldSolid(r, `${where}/remix-${scope}`);
+      check(JSON.stringify(r.offers.bundles.map((o) => [o.id, o.price, o.lines])) === JSON.stringify(d.doc.offers.bundles.map((o) => [o.id, o.price, o.lines])), `${where}: remix ${scope} changed the offers' contents or prices`);
     }
   }
 }
@@ -445,6 +517,7 @@ const stable = (v: unknown): string =>
         name: presetName("color", locale),
         kind: "swatch",
         perUnit: true,
+        display: "auto",
         options: colors.map((label, i) => ({ id: `o-c${i}`, label, swatch: swatchFor(label), image: ref(31 + i, label), soldOut: false })),
       },
       {
@@ -452,6 +525,7 @@ const stable = (v: unknown): string =>
         name: presetName("size", locale),
         kind: "text",
         perUnit: true,
+        display: "auto",
         options: presetValues("size", locale)
           .slice(1, 5)
           .map((label, i) => ({ id: `o-s${i}`, label, soldOut: i === 3 })),
@@ -474,7 +548,7 @@ const stable = (v: unknown): string =>
     for (const d of generateDirections(input)) {
       const where = `options/${locale}/${d.archetype}`;
       checked++;
-      check(stable(d.doc.product.variants) === stable(variants), `${where}: product.variants changed`);
+      check(stable(d.doc.items[0]!.groups) === stable(variants), `${where}: the item's options changed`);
       check(d.doc.product.images[0]?.id === lead, `${where}: the first color's photo does not lead the page`);
       const hero = d.doc.sections.find((x) => x.type === "hero");
       const heroImage = (hero?.data.image as { id?: string } | undefined)?.id ?? d.doc.product.cutout?.id ?? d.doc.product.images[0]?.id;
@@ -483,7 +557,7 @@ const stable = (v: unknown): string =>
       check(form.length === 1, `${where}: ${form.length} visible order forms`);
       check(stable(d.doc.tracking) === stable(tracking), `${where}: tracking ${JSON.stringify(d.doc.tracking)}`);
       const { doc, issues } = validateDoc(d.doc);
-      check(!!doc && stable(doc.product.variants) === stable(variants), `${where}: options lost in validateDoc`);
+      check(!!doc && stable(doc.items[0]!.groups) === stable(variants), `${where}: options lost in validateDoc`);
       check(!issues.some((i) => i.level === "error"), `${where}: invalid (${issues.find((i) => i.level === "error")?.message})`);
     }
   }
@@ -508,9 +582,9 @@ const stable = (v: unknown): string =>
   check(splitOptionText("S, M ,L,,XL\nXXL، m").join("|") === "S|M|L|XL|XXL", "options: list splitting");
   check(inferPreset({ name: "Pointure", kind: "text", options: [] }) === "shoe" && inferPreset({ name: "x", kind: "swatch", options: [] }) === "color", "options: preset inference");
   const fr: VariantGroup[] = [
-    { id: "g-c", name: "Couleur", kind: "swatch", perUnit: true, options: [{ id: "o-1", label: "Noir", swatch: "#141414", soldOut: false }, { id: "o-2", label: "Lavande pastel", soldOut: false }] },
-    { id: "g-v", name: "Contenance", kind: "text", perUnit: false, options: [{ id: "o-3", label: "50 ml", soldOut: false }] },
-    { id: "g-m", name: "Matière", kind: "text", perUnit: true, options: [{ id: "o-4", label: "Soie", soldOut: false }] },
+    { id: "g-c", name: "Couleur", kind: "swatch", perUnit: true, display: "auto", options: [{ id: "o-1", label: "Noir", swatch: "#141414", soldOut: false }, { id: "o-2", label: "Lavande pastel", soldOut: false }] },
+    { id: "g-v", name: "Contenance", kind: "text", perUnit: false, display: "auto", options: [{ id: "o-3", label: "50 ml", soldOut: false }] },
+    { id: "g-m", name: "Matière", kind: "text", perUnit: true, display: "auto", options: [{ id: "o-4", label: "Soie", soldOut: false }] },
   ];
   const ar = relocalizeVariants(fr, "fr", "ar");
   check(
@@ -626,19 +700,315 @@ for (const cat of PRODUCT_CATEGORIES) {
 check(new Set(PRODUCT_CATEGORIES.map(familyOf)).size === FAMILIES.length, "some families are never used");
 console.log(`  library copy: ${libCount} combinations`);
 
-/* 6 — bundles */
-for (const [price, currency] of [[99, "MAD"], [149, "MAD"], [199, "MAD"], [249, "MAD"], [299, "MAD"], [1299, "MAD"], [29.9, "EUR"], [59.9, "EUR"], [3, "MAD"]] as const) {
-  const b = suggestBundles(price, currency, [], true);
-  if (price < 5) {
-    check(b.length === 1, `bundles ${price}: expected a single pack`);
-    continue;
+/* 6 — offers (docs/OFFERS.md §E.5, §H.1) */
+{
+  const T = { fr: offerTextsFor("fr"), ar: offerTextsFor("ar"), en: offerTextsFor("en") };
+  const base = getFixture("duo", { locale: "fr" }).doc;
+  type Items = PageDoc["items"];
+  type Offers = PageDoc["offers"]["bundles"];
+  /** a full page around items + offers (the duo fixture's sections, theme, form) */
+  const { orderBump: _bump, upsell: _upsell, ...plainOffers } = base.offers;
+  void _bump;
+  void _upsell;
+  const pageOf = (items: Items, bundles: Offers, extra: Partial<PageDoc> = {}): PageDoc => ({ ...base, ...extra, items, offers: { ...plainOffers, extras: [], bundles } });
+  /** no-break spaces (Intl money) read as plain spaces */
+  const plain = (t: string) => t.replace(/[  ]/g, " ");
+  /** MAD: whole, ending in 9 · decimal currencies: x.90, or whole ending in 9 (99, 119) */
+  const charming = (p: number, currency: string) => (Number.isInteger(p) ? p % 10 === 9 : currency !== "MAD" && Math.abs(p * 100 - Math.round(p) * 100 + 10) < 1e-6);
+  const sameItemOf = (o: Offers[number]) => {
+    const ids = new Set(o.lines.map((l) => ("item" in l.pick ? l.pick.item : "")));
+    return ids.size === 1 && !ids.has("") ? [...ids][0]! : null;
+  };
+
+  /** The invariants of every suggestion set (§H.1, §I.5). */
+  function checkSuggestions(doc: PageDoc, offers: Offers, where: string) {
+    check(offers.length >= 1 && offers.length <= 8, `${where}: ${offers.length} offers`);
+    check(new Set(offers.map((o) => o.id)).size === offers.length, `${where}: duplicate offer ids`);
+    check(offers.filter((o) => o.badge === "popular").length <= 1 && offers.filter((o) => o.badge === "best").length <= 1, `${where}: badges repeat`);
+    const page = pageOf(doc.items, offers, { currency: doc.currency, product: doc.product });
+    const parsed = PageDocObject.safeParse(page);
+    check(parsed.success, `${where}: invalid doc (${parsed.success ? "" : parsed.error.issues[0]?.message} at ${parsed.success ? "" : parsed.error.issues[0]?.path.join(".")})`);
+    const v = validateDoc(page);
+    check(!!v.doc && !v.issues.some((i) => i.level === "error"), `${where}: validateDoc error ${v.issues.find((i) => i.level === "error")?.message}`);
+    check(new Set(offers.map((o) => offerSignature(o))).size === offers.length, `${where}: two offers with the same contents`);
+    const byId = new Map(doc.items.map((it) => [it.id, it]));
+    const assetIds = new Set(doc.items.flatMap((it) => [...it.images.map((r) => r.id), ...(it.cutout ? [it.cutout.id] : [])]));
+    const groupIds = new Set(groupPhotos(doc).map((g) => g.asset.id));
+    const families = new Map<string, { units: number; ratio: number; id: string }[]>();
+    for (const o of offers) {
+      const m = offerMath(page, o);
+      const units = offerUnits(o);
+      check(o.freeShipping === false, `${where}/${o.id}: free delivery set (D10: it follows the page fee)`);
+      check(o.compareAt === undefined, `${where}/${o.id}: a compare-at price was invented`);
+      check(o.price > 0, `${where}/${o.id}: price ${o.price}`);
+      if (units >= 2) check(m.price < m.reference, `${where}/${o.id}: ${o.price} is not below its pieces bought alone (${m.reference / 100})`);
+      else check(doc.items.some((it) => it.price === o.price), `${where}/${o.id}: single piece at ${o.price}, not an item price`);
+      if (units >= 2) check(charming(o.price, doc.currency), `${where}/${o.id}: ${o.price} ${doc.currency} is not charm-rounded`);
+      for (const l of o.lines) {
+        if ("choice" in l.pick) {
+          check(l.pick.choice.every((id) => { const it = byId.get(id); return !!it && !!ownPhoto(doc, it); }), `${where}/${o.id}: a choice item has no photo of its own (blocks publishing)`);
+          const prices = new Set(l.pick.choice.map((id) => byId.get(id)?.price));
+          check(prices.size === 1 ? l.pick.surcharge === "none" : l.pick.surcharge === "difference", `${where}/${o.id}: choice surcharge ${l.pick.surcharge} for prices ${[...prices].join("/")}`);
+        }
+      }
+      if (o.visual.mode === "custom") {
+        check(o.visual.images.every((r) => assetIds.has(r.id)), `${where}/${o.id}: custom visual uses a photo of no item`);
+        check(o.visual.images.every((r) => !groupIds.has(r.id) || !r.box), `${where}/${o.id}: a group photo is cropped in the visual`);
+      }
+      const fam = sameItemOf(o) ? `item:${sameItemOf(o)}` : "mix";
+      families.set(fam, [...(families.get(fam) ?? []), { units, ratio: m.price / Math.max(1, m.reference), id: o.id }]);
+    }
+    // the bigger the pack, the lower its price relative to its pieces bought alone (per piece, for same-item packs)
+    for (const [fam, list] of families) {
+      for (const a of list) for (const b of list) if (a.units < b.units) check(b.ratio < a.ratio - 1e-9, `${where}: ${b.id} (${b.units} pieces) is not cheaper relative to its pieces than ${a.id} (${a.units}) in ${fam}`);
+    }
   }
-  const [x1, x2, x3] = b;
-  check(b.length === 3, `bundles ${price} ${currency}: ${b.length} packs`);
-  if (x1 && x2 && x3) {
-    check(x2.price > x1.price && x2.price < 2 * x1.price && x3.price > x2.price && x3.price / 3 < x2.price / 2, `bundles ${price}: ${b.map((x) => x.price)}`);
-    if (currency === "MAD") check(x2.price % 10 === 9 && x3.price % 10 === 9, `bundles ${price}: not charming (${x2.price}, ${x3.price})`);
-    console.log(`  bundles ${price} ${currency}: ${b.map((x) => x.price).join(" / ")}`);
+
+  // 6a — single items: ×1 / ×2 popular / ×3 best at today's numbers (+ the v1 alias)
+  for (const [price, currency] of [[99, "MAD"], [149, "MAD"], [199, "MAD"], [249, "MAD"], [299, "MAD"], [1299, "MAD"], [29.9, "EUR"], [59.9, "EUR"], [3, "MAD"]] as const) {
+    const items: Items = [{ id: "main", name: "", images: [ref(500)], price, groups: [], soldOut: false }];
+    const b = suggestOffers({ items, currency, product: base.product }, T.fr);
+    const legacy = suggestBundles(price, currency, []);
+    check(stable(legacy.map((o) => [o.id, o.price, o.lines])) === stable(b.map((o) => [o.id, o.price, o.lines])), `offers ${price} ${currency}: the v1 alias suggestBundles differs`);
+    if (price < 5) {
+      check(b.length === 1, `offers ${price}: expected a single pack`);
+      continue;
+    }
+    check(b.map((o) => offerSignature(o)).join(" ") === "main×1 main×2 main×3", `offers ${price} ${currency}: ${b.map((o) => offerSignature(o)).join(" ")}`);
+    check(b[1]?.badge === "popular" && b[2]?.badge === "best" && b[0]?.title === T.fr.packs[0]?.title, `offers ${price}: badges / titles`);
+    checkSuggestions(pageOf(items, b, { currency }), b, `offers ${price} ${currency}`);
+    console.log(`  offers ${price} ${currency}: ${b.map((x) => x.price).join(" / ")}`);
+  }
+
+  // 6b — the owner's duo page (§C.5): one cream of two (crops), the duo on its group photo, the trio
+  for (const locale of ["fr", "ar", "en"] as const) {
+    const doc = getFixture("duo", { locale }).doc;
+    const o = suggestOffers(doc, T[locale]);
+    const where = `duo/${locale}`;
+    check(o.map((x) => offerSignature(x)).join(" ") === "[main|nuit]×1 main×1+nuit×1 main×1+nuit×1+serum×1", `${where}: ${o.map((x) => offerSignature(x)).join(" ")}`);
+    const [one, duo, trio] = o;
+    const pair = doc.items[0]!.images.find((r) => !r.box)!.id;
+    const serum = doc.items[2]!.images[0]!.id;
+    check(one?.price === 149 && one.badge === "none" && one.title === T[locale].choice.title, `${where}: "Au choix" ${one?.price} ${one?.title}`);
+    check(duo?.price === 249 && duo.badge === "popular" && duo.visual.mode === "custom" && duo.visual.images.map((r) => r.id).join() === pair, `${where}: duo ${duo?.price} ${JSON.stringify(duo?.visual)}`);
+    check(trio?.badge === "best" && trio.visual.mode === "custom" && trio.visual.images.map((r) => r.id).join() === `${pair},${serum}`, `${where}: trio visual ${JSON.stringify(trio?.visual)}`);
+    checkSuggestions(doc, o, where);
+    const display = pickOfferDisplay("bloom", o, 1);
+    check(display.picker === "visual", `${where}: an image-led set shown as ${display.picker} on bloom`);
+    if (locale === "fr") console.log(`  duo page: ${o.map((x) => `${x.title} ${x.price}`).join(" · ")}`);
+  }
+
+  // 6c — seeded catalogs: 1–8 items, prices close or apart, own photos, crops, group photos, colors, matrix, sold out
+  const PRICES: Record<string, number[]> = { MAD: [49, 99, 129, 149, 155, 159, 199, 249, 299, 449, 999], EUR: [9.9, 19.9, 24.9, 29.9, 39.9, 59.9] };
+  const COLORS = ["Noir", "Blanc", "Gris", "Bleu marine", "Beige"];
+  let catalogs = 0;
+  const shapes = new Map<string, number>();
+  for (let n = 0; n < 240; n++) {
+    const r = rngFor(9100 + n, "catalog");
+    const currency = r() < 0.8 ? "MAD" : "EUR";
+    const count = 1 + Math.floor(r() * 8);
+    const group = r() < 0.5 ? ref(7000 + n * 20) : null;
+    const items: Items = Array.from({ length: count }, (_, k) => {
+      const images: AssetRef[] = [];
+      if (group && k < 3 && r() < 0.7) images.push(r() < 0.5 ? { ...group, box: { x: 0.05 + 0.3 * (k % 3), y: 0.1, w: 0.3, h: 0.8 } } : group);
+      if (r() < 0.75) images.push(ref(7001 + n * 20 + k));
+      const groups: Items[number]["groups"] = [];
+      const roll = r();
+      if (roll < 0.25) {
+        const nc = 2 + Math.floor(r() * 4);
+        groups.push({ id: "g-col", name: "Couleur", kind: "swatch", perUnit: true, display: "auto", options: COLORS.slice(0, nc).map((label, i) => ({ id: `o-${i}`, label, swatch: swatchFor(label) ?? "#141414", soldOut: i === 1 && r() < 0.3 })) });
+      } else if (roll < 0.4) {
+        groups.push({
+          id: "g-fit",
+          name: "Couleur & taille",
+          kind: "matrix",
+          perUnit: true,
+          display: "auto",
+          dims: [
+            { id: "d-col", name: "Couleur", kind: "swatch", values: COLORS.slice(0, 3).map((label, i) => ({ id: `o-c${i}`, label, soldOut: false })) },
+            { id: "d-size", name: "Taille", kind: "text", values: ["S", "M", "L"].map((label, i) => ({ id: `o-s${i}`, label, soldOut: false, ...(i === 2 ? { delta: 20 } : {}) })) },
+          ],
+          cells: r() < 0.5 ? [{ v: { "d-col": "o-c0" }, state: "out" }] : [],
+        });
+      }
+      const prices = PRICES[currency]!;
+      return { id: k === 0 ? "main" : `item-${k}`, name: count > 1 ? `Produit ${k + 1}` : "", images, price: prices[Math.floor(r() * prices.length)]!, groups, soldOut: count > 2 && r() < 0.06 };
+    });
+    const doc = pageOf(items, base.offers.bundles, { currency });
+    const offers = suggestOffers(doc, T.fr, { rules: true });
+    catalogs++;
+    const shape = `${count} item${count > 1 ? "s" : ""}: ${offers.length} offers`;
+    shapes.set(shape, (shapes.get(shape) ?? 0) + 1);
+    checkSuggestions(doc, offers, `catalog ${n} (${count} items, ${currency})`);
+    // every offer can be ordered as suggested, and matrix / per-piece options stay to fill per piece
+    const page = pageOf(items, offers, { currency });
+    check(offers.every((o) => offerAvailable(o, items)) || items.every((it) => it.soldOut), `catalog ${n}: an unavailable offer suggested`);
+    if (count === 1) check(offers[0]?.id === "x1", `catalog ${n}: single item without ×1`);
+    const sold = new Set(offers.flatMap((o) => o.lines.flatMap((l) => ("item" in l.pick ? [l.pick.item] : l.pick.choice))));
+    if (items.some((it) => sold.has(it.id) && it.groups.length && !it.soldOut)) check(resolveDisplay(page, { archetype: "bloom", formVariant: "card" }).fill !== "none", `catalog ${n}: options to fill but no personalize step`);
+  }
+  console.log(`  offers: ${catalogs} seeded catalogs honest and valid (${[...shapes.entries()].sort().slice(0, 6).map(([k, v]) => `${k} ×${v}`).join(", ")}…)`);
+
+  // 6d — two items: close prices → "Au choix" + "Duo"; apart → each alone + "Duo"; no own photos → each alone
+  {
+    const it = (id: string, price: number, images: AssetRef[]): Items[number] => ({ id, name: id === "main" ? "Huile" : "Savon", images, price, groups: [], soldOut: false });
+    const shot = ref(810);
+    const close = [it("main", 149, [ref(811), shot]), it("savon", 159, [ref(812), shot])];
+    const c = suggestOffers(pageOf(close, base.offers.bundles), T.fr);
+    check(c.map((o) => offerSignature(o)).join(" ") === "[main|savon;difference]×1 main×1+savon×1", `two close: ${c.map((o) => offerSignature(o)).join(" ")}`);
+    check(c[1]?.visual.mode === "custom" && c[1].visual.images[0]?.id === shot.id && c[1].badge === "popular", "two close: the duo is not on their group photo");
+    checkSuggestions(pageOf(close, c), c, "two close");
+    const apart = [it("main", 99, [ref(813)]), it("savon", 249, [ref(814)])];
+    const a = suggestOffers(pageOf(apart, base.offers.bundles), T.fr);
+    check(a.map((o) => offerSignature(o)).join(" ") === "main×1 savon×1 main×1+savon×1" && a[0]?.title === "Huile" && a[1]?.title === "Savon", `two apart: ${a.map((o) => `${offerSignature(o)} ${o.title}`).join(" | ")}`);
+    check(a[2]!.price > 249 && a[2]!.price < 348, `two apart: duo ${a[2]?.price} not between the priciest alone and both alone`);
+    const noOwn = [it("main", 149, [shot]), it("savon", 149, [shot])];
+    const no = suggestOffers(pageOf(noOwn, base.offers.bundles), T.fr);
+    check(no.every((o) => o.lines.every((l) => "item" in l.pick)), "two without own photos: a choice line (it would block publishing)");
+  }
+
+  // 6e — 4–8 items: "Au choix" · "2 au choix" · "3 au choix" · "Coffret complet" (≤ 6 items)
+  for (const count of [4, 6, 7]) {
+    const items: Items = Array.from({ length: count }, (_, k) => ({ id: k ? `p-${k}` : "main", name: `Parfum ${k + 1}`, images: [ref(820 + k)], price: 199 + (k % 2) * 50, groups: [], soldOut: false }));
+    const o = suggestOffers(pageOf(items, base.offers.bundles), T.fr);
+    const want = count <= 6 ? ["one", "any2", "any3", "set"] : ["one", "any2", "any3"];
+    check(o.map((x) => x.id).join() === want.join(), `${count} items: ${o.map((x) => x.id).join()}`);
+    check(o.find((x) => x.id === "any2")?.badge === "popular" && (count > 6 || o.find((x) => x.id === "set")?.badge === "best"), `${count} items: badges`);
+    checkSuggestions(pageOf(items, o), o, `${count} items`);
+  }
+
+  // 6f — matrix (color × size): ×1 / ×2 / ×3 + "Pack 3 couleurs", every piece filled on its own
+  for (const name of ["tshirt", "colors"] as const) {
+    const doc = getFixture(name).doc;
+    const o = suggestOffers(doc, T[doc.locale as "fr" | "ar"], { rules: true });
+    const page = pageOf(doc.items, o, { locale: doc.locale, currency: doc.currency, product: doc.product });
+    check(o.map((x) => x.id).join() === "x1,x2,x3,colors", `${name}: ${o.map((x) => x.id).join()}`);
+    const colors = o.find((x) => x.id === "colors");
+    const locks = colors?.lines.map((l) => Object.values(l.rules ?? {})[0]).map((r) => (r && "lock" in r ? r.lock : "")) ?? [];
+    check(locks.join() === "o-noir,o-blanc,o-gris" && colors?.price === o.find((x) => x.id === "x3")?.price, `${name}: color pack ${locks.join()} at ${colors?.price}`);
+    check(colors?.short === T[doc.locale as "fr" | "ar"].colors.short?.replace("{n}", "3"), `${name}: color pack segment label "${colors?.short}" (would read ×3 twice)`);
+    const stats = fillStats(page);
+    const resolved = resolveDisplay(page, { archetype: doc.theme.archetype, formVariant: "card" });
+    check(stats.units === 3 && resolved.fill !== "none", `${name}: per-piece fill (${stats.units} pieces to fill, fill ${resolved.fill})`);
+    check(expandUnits(colors!, doc.items).every((u) => u.rules && Object.keys(u.rules).length === 1), `${name}: color pack pieces lost their color`);
+    checkSuggestions(page, o, name);
+    const off = suggestOffers(doc, T.fr, { rules: false });
+    check(off.map((x) => x.id).join() === "x1,x2,x3", `${name}: color pack without the RULES switch`);
+  }
+  {
+    // a color choice group of 3+ colors (no matrix) → the pack locks the group itself
+    const items: Items = [{ id: "main", name: "", images: [ref(830)], price: 179, soldOut: false, groups: [{ id: "g-color", name: "Couleur", kind: "swatch", perUnit: true, display: "auto", options: ["Noir", "Beige", "Gris", "Blanc"].map((label, i) => ({ id: `o-${i}`, label, soldOut: i === 0 })) }] }];
+    const o = suggestOffers(pageOf(items, base.offers.bundles), T.fr, { rules: true });
+    const colors = o.find((x) => x.id === "colors");
+    check(!!colors && colors.lines.map((l) => JSON.stringify(l.rules)).join() === ['{"g-color":{"lock":"o-1"}}', '{"g-color":{"lock":"o-2"}}', '{"g-color":{"lock":"o-3"}}'].join(), `choice colors: ${JSON.stringify(colors?.lines.map((l) => l.rules))}`);
+  }
+
+  // 6g — presets: valid, honest, priced from the items
+  for (const name of ["duo", "tshirt"] as const) {
+    const doc = getFixture(name).doc;
+    for (const p of OFFER_PRESETS) {
+      const o = presetOffer(p, doc, { texts: T.fr });
+      const page = { ...doc, offers: { ...doc.offers, bundles: [...doc.offers.bundles, o].slice(-8) } };
+      const where = `preset ${p} on ${name}`;
+      check(!doc.offers.bundles.some((b) => b.id === o.id), `${where}: id ${o.id} taken`);
+      check(PageDocObject.safeParse(page).success, `${where}: invalid doc`);
+      check(o.freeShipping === false && o.compareAt === undefined, `${where}: free delivery or compare-at set`);
+      const m = offerMath(page, o);
+      const giftOnly = o.lines.some((l) => l.free) && m.price >= m.reference;
+      if (offerUnits(o) >= 2 && !giftOnly) check(m.price < m.reference, `${where}: ${o.price} not below ${m.reference / 100}`);
+    }
+  }
+  {
+    const doc = getFixture("duo").doc;
+    const bogo = presetOffer("bogo", doc);
+    const m = offerMath(doc, bogo);
+    check(offerSignature(bogo) === "gift:main×1+main×1" && bogo.price === 149 && m.reference === 29800, `bogo: ${offerSignature(bogo)} ${bogo.price} ref ${m.reference / 100}`);
+    const any3 = presetOffer("any-n", doc, { items: ["main", "nuit"], qty: 3 });
+    check(offerSignature(any3) === "[main|nuit]×3" && any3.price < 3 * 149, `any-n: ${offerSignature(any3)} ${any3.price}`);
+    const colors = presetOffer("pack-colors", getFixture("tshirt").doc, { values: ["o-noir", "o-gris"] });
+    check(colors.lines.length === 2 && colors.lines.every((l) => l.rules?.["g-fit.d-col"]), `pack-colors with values: ${JSON.stringify(colors.lines)}`);
+    check(presetOffer("choose-one", getFixture("tshirt").doc).lines.every((l) => "item" in l.pick), "choose-one on a single-item page: a choice of one");
+  }
+
+  // 6h — the admin sentence (page language), the composer's contents line
+  {
+    const doc = getFixture("duo", { locale: "fr" }).doc;
+    const trio = doc.offers.bundles.find((o) => o.id === "trio")!;
+    const want = "Le client reçoit 1 Crème jour + 1 Crème nuit + 1 Sérum éclat, paie 349 DH au lieu de 497 (−148), livraison offerte";
+    check(plain(offerSentence(doc, trio)) === want, `sentence: "${offerSentence(doc, trio)}"`);
+    const one = doc.offers.bundles.find((o) => o.id === "one")!;
+    check(offerContents(doc, one) === "1 au choix (Jour ou Nuit) · 1 pièce", `contents: "${offerContents(doc, one)}"`);
+    const paid = { ...doc, offers: { ...doc.offers, shippingFee: 30 } };
+    check(plain(offerSentence(paid, trio)).endsWith("+ 30 DH de livraison"), `sentence with a fee: "${offerSentence(paid, trio)}"`);
+    const ar = getFixture("duo", { locale: "ar" }).doc;
+    const s = offerSentence(ar, ar.offers.bundles.find((o) => o.id === "trio")!);
+    check(s.startsWith("الزبون كيتوصل بـ 1 كريم النهار") && s.includes("بلاصة 497 (−148)"), `sentence ar: "${s}"`);
+    const tee = getFixture("colors").doc;
+    const pack = tee.offers.bundles.find((o) => o.lines.length === 3 && o.lines.every((l) => l.rules));
+    if (pack) check(/\(أسود\)/.test(offerContents(tee, pack)), `contents with locks: "${offerContents(tee, pack)}"`);
+  }
+
+  // 6i — the wizard's items, offers, look and tracking answer reach every direction verbatim
+  {
+    const duo = getFixture("duo", { locale: "fr" }).doc;
+    const product = { name: duo.product.name, category: duo.product.category, images: duo.product.images };
+    const input: GenerateInput = { product, items: duo.items, palette: null, locale: "fr", market: "MA", seedBase: 77, tracking: { kind: "none" } };
+    const dirs = generateDirections(input);
+    check(dirs.length === 3, `wizard items: ${dirs.length} directions`);
+    for (const d of dirs) {
+      const where = `wizard items/${d.archetype}`;
+      check(stable(d.doc.items) === stable(duo.items), `${where}: the items changed`);
+      check(d.doc.offers.bundles.map((o) => offerSignature(o)).join(" ") === "[main|nuit]×1 main×1+nuit×1 main×1+nuit×1+serum×1", `${where}: offers ${d.doc.offers.bundles.map((o) => offerSignature(o)).join(" ")}`);
+      check(d.doc.tracking.none === true && !d.doc.tracking.metaPixelId, `${where}: "No pixel" answer lost (${JSON.stringify(d.doc.tracking)})`);
+      check(validateDoc(d.doc).issues.length === 0, `${where}: ${validateDoc(d.doc).issues.map((i) => i.message).slice(0, 2).join(" | ")}`);
+      checkOfferDisplay(d.doc, where);
+      // copy remix keeps every multi-item offer title
+      const r = remixDoc(d.doc, { seed: 5, scope: "copy" });
+      check(stable(r.offers.bundles.map((o) => o.title)) === stable(d.doc.offers.bundles.map((o) => o.title)), `${where}: copy remix re-worded multi-item offers`);
+    }
+    // offers and look given → used by every direction as they are; pixels answered → those pixels
+    const look = { picker: "pills", fill: "box", selection: "outline", media: "large", density: "comfortable" } as const;
+    const tracking = { kind: "ids", tracking: { tiktokPixelId: ["C4ABCDEF12345678"] } };
+    const given = generateDirections({ ...input, offers: duo.offers.bundles, display: look, tracking });
+    for (const d of given) {
+      check(stable(d.doc.offers.bundles) === stable(duo.offers.bundles), `wizard offers/${d.archetype}: offers changed`);
+      check(stable(d.doc.offers.display) === stable(look), `wizard look/${d.archetype}: ${JSON.stringify(d.doc.offers.display)}`);
+      check(stable(d.doc.tracking) === stable({ tiktokPixelId: ["C4ABCDEF12345678"] }), `wizard pixels/${d.archetype}: ${JSON.stringify(d.doc.tracking)}`);
+    }
+    let threw = "";
+    try {
+      generateDirections({ ...input, items: [{ id: "main", name: "Crème", price: -1 }] });
+    } catch (e) {
+      threw = e instanceof Error ? e.message : String(e);
+    }
+    check(threw.includes("products are incomplete"), `wizard items: invalid items not refused clearly (${threw || "no error"})`);
+    threw = "";
+    try {
+      generateDirections({ ...input, offers: [{ id: "x", lines: [], price: 10 }] });
+    } catch (e) {
+      threw = e instanceof Error ? e.message : String(e);
+    }
+    check(threw.includes("offers are incomplete"), `wizard offers: invalid offers not refused clearly (${threw || "no error"})`);
+    // a single-item page's ×N titles are re-worded by a copy remix (the v1 behaviour)
+    const single = generateDirections({ product: { name: "Sac", price: 199, category: "bags", images: [ref(40)] }, palette: null, locale: "fr", market: "MA", seedBase: 9 })[0]!.doc;
+    const renamed = { ...single, offers: { ...single.offers, bundles: single.offers.bundles.map((o) => ({ ...o, title: "Mon pack" })) } };
+    const rr = remixDoc(renamed, { seed: 3, scope: "copy" });
+    check(rr.offers.bundles.map((o) => o.title).join("|") === T.fr.packs.map((t) => t.title).join("|"), `single item: copy remix titles ${rr.offers.bundles.map((o) => o.title).join("|")}`);
+    console.log(`  wizard input: items / offers / look / tracking kept in ${dirs.length + given.length} directions`);
+  }
+
+  // 6j — never the bold form with a solid selection: souk (solid) directions across seeds, and the guard itself
+  {
+    let bold = 0;
+    for (let k = 0; k < 60; k++) {
+      const doc = buildDirection({ product: { name: "Tapis berbère", price: 899, category: "decor", images: [ref(900 + k)] }, palette: P.argan, locale: "fr", market: "MA", seedBase: 3000 + k }, "souk", 3000 + k);
+      if (doc.sections.some((x) => x.type === "orderForm" && x.variant === "bold")) bold++;
+      checkOfferDisplay(doc, `souk seed ${k}`);
+      checkNoBoldSolid(remixDoc(doc, { seed: k, scope: "design" }), `souk seed ${k}/remix-design`);
+    }
+    const solid = { picker: "ticket", fill: "auto", selection: "solid", media: "auto", density: "comfortable" } as const;
+    check(safeSelection(solid, "bold").selection === "soft" && safeSelection(solid, "card").selection === "solid", "safeSelection: bold + solid not turned soft");
+    console.log(`  bold + solid: never paired (${bold} bold souk forms in 60 seeds)`);
   }
 }
 

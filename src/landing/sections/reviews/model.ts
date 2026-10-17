@@ -4,6 +4,7 @@
  * asks for real reviews before publishing.
  */
 import { z } from "zod";
+import { offerUnits } from "@/lib/page/catalog";
 import { AssetRef } from "@/lib/page/schema";
 import { createT } from "../../i18n";
 import type { DefaultsInput, SectionProps } from "../../types";
@@ -121,7 +122,7 @@ export function defaults({ locale, product, offers, rng }: DefaultsInput): Data 
   const cities = shuffle(CITIES, rng);
   const items: Item[] = order.map((c, i) => {
     const b = pickOne(offers.bundles, rng);
-    const label = b.title?.trim() || t("bundle.qty", { n: b.qty });
+    const label = b.title?.trim() || t("bundle.qty", { n: offerUnits(b) });
     return {
       name: people[i]![L],
       city: cities[i]![L],

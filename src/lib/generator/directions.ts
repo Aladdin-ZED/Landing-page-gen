@@ -6,7 +6,6 @@ import { libraryCopy } from "@/lib/ai/copy-library";
 import type { PageCopy } from "@/lib/ai/copy-schema";
 import { getMarket } from "@/lib/markets/info";
 import {
-  BUNDLE_CARD_STYLES,
   PageDoc,
   Product,
   Tracking,
@@ -20,10 +19,10 @@ import {
 import { validateDoc } from "@/lib/page/validate";
 import { garmentOf } from "@/landing/sections/garment";
 import { ARCHETYPE_DEFS, rankArchetypes, type ExtractedPalette } from "@/lib/theme";
-import { suggestBundles } from "./bundles";
 import type { CopyExtras } from "./copy-map";
 import { calmBands, chooseOrder, chooseVariant, finishPlan, fullOrder, type PlanContext } from "./plan";
-import { deriveSeed, rngFor, weighted } from "./rng";
+import { CatalogInputError, directionCatalog, displayInput, pickOfferDisplay, safeSelection } from "./offers";
+import { deriveSeed } from "./rng";
 import { directSections } from "./direct";
 import { garmentDetails, garmentPhoto, modestBigWord, type PhotoInfo } from "./garment";
 import { glueDeep, glueEmphasis } from "./glue";
@@ -33,8 +32,27 @@ import { colorDistance, productTheme } from "./theme";
 import { themeTones } from "./tones";
 
 export interface GenerateInput {
-  /** product as typed in the wizard (validated with the Product schema) */
+  /**
+   * product as typed in the wizard (validated with the Product schema): the page's story (name,
+   * category, photos, rating). Without `items` it is also the page's one item: its price,
+   * compare-at, SKU and options (`variants`) make the item "main".
+   */
   product: unknown;
+  /**
+   * The page's items (Offers v2, wizard "Several products"; PageDoc `items`, 1–8, items[0] = lead):
+   * given → used verbatim (validated with the Item schema); absent → one item from `product`.
+   */
+  items?: unknown;
+  /**
+   * The page's offers (PageDoc `offers.bundles`, 1–8): given → used verbatim (validated with the
+   * Offer schema) by every direction; absent → suggestOffers on the items (src/lib/page/offer-presets.ts).
+   */
+  offers?: unknown;
+  /**
+   * The offer layout the owner chose in the wizard ("Look": a combo, PageDoc `offers.display`): given
+   * → every direction uses it; absent → each archetype picks (docs/OFFERS.md §E.5).
+   */
+  display?: unknown;
   /** palette extracted from the main product photo */
   palette: ExtractedPalette | null;
   /** vibe keywords from the local AI ("luxury natural") */
@@ -70,9 +88,11 @@ export interface GenerateInput {
   /** force the archetypes instead of ranking them (admin choice) */
   archetypes?: readonly Archetype[];
   /**
-   * The page's ad pixels (PageDoc.tracking), e.g. the store pixels the owner kept in the wizard
-   * (trackingForNewPage, src/lib/pixels/summary.ts). Validated with the Tracking schema; omitted or
-   * invalid → no pixels (the save fills in the store's own).
+   * "Ad tracking for this page", the wizard's required answer (docs/OFFERS.md §A.4): a TrackingChoice
+   * `{ kind: "ids", tracking }` (the page's pixels) or `{ kind: "none" }` ("No pixel on this page" →
+   * `tracking.none`). A plain Tracking value is still read (one release). Validated with the Tracking
+   * schema; omitted or invalid → no answer (`{}`: the checklist and the publish dialog ask for one).
+   * The page is created with exactly this tracking: nothing is added when saving.
    */
   tracking?: unknown;
 }
@@ -103,20 +123,6 @@ export class GeneratorError extends Error {
     this.name = "GeneratorError";
   }
 }
-
-const CARD_STYLE: Readonly<Record<Archetype, readonly (typeof BUNDLE_CARD_STYLES)[number][]>> = {
-  maison: ["tiers", "pills"],
-  apothecary: ["stack", "tiers"],
-  souk: ["ticket", "visual"],
-  playground: ["visual", "ticket"],
-  kinetic: ["tiers", "stack"],
-  circuit: ["tiers", "pills"],
-  hearth: ["stack", "visual"],
-  bloom: ["visual", "stack"],
-  field: ["stack", "visual"],
-  editorial: ["pills", "tiers"],
-  garage: ["ticket", "tiers"],
-};
 
 const cleanFacts = (facts: readonly string[] | undefined) =>
   (facts ?? [])
@@ -165,8 +171,9 @@ const SPREAD_TYPES = new Set(["hero", "benefits", "problem", "steps", "showcase"
  * use (made less likely, never forbidden).
  */
 export function buildDirection(input: GenerateInput, archetype: Archetype, seed: number, avoid?: ReadonlyMap<string, ReadonlySet<string>>): PageDoc {
+  // the story (name, category, photos); without `items`, the v1 product is also the one item "main"
   const parsedProduct = Product.safeParse(input.product);
-  if (!parsedProduct.success) throw new GeneratorError("The product is incomplete: name and price are required.");
+  if (!parsedProduct.success) throw new GeneratorError(input.items ? "The product is incomplete: a name is required." : "The product is incomplete: name and price are required.");
   const facts = cleanFacts(input.facts);
   const market = getMarket(input.market);
   const currency = input.currency && /^[A-Z]{3}$/.test(input.currency) ? input.currency : market.currency;
@@ -193,19 +200,29 @@ export function buildDirection(input: GenerateInput, archetype: Archetype, seed:
       hasWhatsapp,
     });
 
-  // the product's options (colors, sizes…) reach every direction exactly as typed: the order form
-  // (required, rendered by every direction) shows their pickers
+  const story = parsedProduct.data;
   const product: PageDoc["product"] = {
-    ...parsedProduct.data,
-    tagline: parsedProduct.data.tagline || copy.tagline,
-    description: parsedProduct.data.description || (facts.length ? factsToDescription(facts) : undefined),
+    ...story,
+    tagline: story.tagline || copy.tagline,
+    description: story.description || (facts.length ? factsToDescription(facts) : undefined),
   };
+  // the items (options as typed: the order form, rendered by every direction, shows their pickers)
+  // and the offers: the wizard's verbatim, else suggested from the items' prices and group photos
+  let catalog: ReturnType<typeof directionCatalog>;
+  try {
+    catalog = directionCatalog(input, { currency, product, copy });
+  } catch (e) {
+    throw new GeneratorError(e instanceof CatalogInputError ? e.message : "The products or offers are invalid.");
+  }
+  const { items, bundles } = catalog;
 
   const theme = productTheme({ category: product.category, palette: input.palette, aiVibe: input.aiVibe, keywords, mood: reading.mood, archetype, seed, locale: input.locale });
-  const cardStyle = weighted(rngFor(seed, "card-style"), CARD_STYLE[archetype].map((v, i) => ({ value: v, weight: i === 0 ? 0.7 : 0.3 })));
+  // the owner's "Look" for every direction, else the archetype's pick for these offers (§E.5)
+  const display = displayInput(input.display) ?? pickOfferDisplay(archetype, bundles, seed);
   const offers: PageDoc["offers"] = {
-    bundles: suggestBundles(product.price, currency, copy.bundles, shippingFee === 0),
-    cardStyle,
+    bundles,
+    display,
+    extras: [],
     showPerUnit: true,
     showSavings: "both",
     shippingFee,
@@ -233,7 +250,7 @@ export function buildDirection(input: GenerateInput, archetype: Archetype, seed:
   // children's lines (size by age, "her prayer outfit"). A product the sections cannot read as a
   // garment still gets its copy family's defaults (fit and fabric sample lines, not toy ones).
   const sectionsReadGarment = garment && garmentOf(product) !== null;
-  const basics: DocBasics = { locale: input.locale, product: copyCat === product.category || sectionsReadGarment ? product : { ...product, category: copyCat }, offers, theme };
+  const basics: DocBasics = { locale: input.locale, product: copyCat === product.category || sectionsReadGarment ? product : { ...product, category: copyCat }, items, offers, theme };
   // a garment's detail callouts describe a garment (the section's family defaults may not), and the
   // promise lines only point to WhatsApp when the store has a number
   // the photo a garment's details are pinned on (a single figure rather than a group shot) and its
@@ -273,14 +290,18 @@ export function buildDirection(input: GenerateInput, archetype: Archetype, seed:
   }));
   const sections = directSections(planned);
 
+  // the generator never pairs the bold order form (cards on an accent slab) with a solid selection
+  const formVariant = sections.find((s) => s.type === "orderForm" && !s.hidden)?.variant;
+
   const ogImage = product.images[0];
   const draft: PageDocInput = {
-    v: 1,
+    v: 2,
     locale: input.locale,
     market: input.market,
     currency,
     product,
-    offers,
+    items,
+    offers: { ...offers, display: safeSelection(display, formVariant) },
     form: {
       city: input.market === "MA" ? "select" : "text",
       address: "required",
@@ -309,12 +330,27 @@ export function buildDirection(input: GenerateInput, archetype: Archetype, seed:
   return doc;
 }
 
-/** The caller's tracking value when valid (schema-normalized), else none. */
+/**
+ * The page's tracking from the wizard's answer: `{ kind: "none" }` → "No pixel on this page";
+ * `{ kind: "ids", tracking }` → those pixels; a plain Tracking value (one release) → as is. Invalid
+ * or empty → `{}` (no answer yet).
+ */
 function trackingOf(value: unknown): PageDoc["tracking"] {
-  if (value === undefined || value === null) return {};
-  const parsed = Tracking.safeParse(value);
-  return parsed.success ? parsed.data : {};
+  if (value === undefined || value === null || typeof value !== "object") return {};
+  const v = value as { kind?: unknown; tracking?: unknown };
+  if (v.kind === "none") return { none: true };
+  const parsed = Tracking.safeParse(v.kind === "ids" ? v.tracking : value);
+  if (!parsed.success) return {};
+  // "No pixel" and pixels at once: the pixels win (the same repair as upgradeDoc)
+  if (parsed.data.none && hasPixel(parsed.data)) {
+    const { none, ...rest } = parsed.data;
+    void none;
+    return rest;
+  }
+  return parsed.data;
 }
+
+const hasPixel = (t: PageDoc["tracking"]) => [t.metaPixelId, t.tiktokPixelId, t.snapPixelId, t.ga4Id].some((ids) => (Array.isArray(ids) ? ids.length > 0 : !!ids));
 
 /** Vibe words the ranking matched for an archetype ('AI vibe "luxury, heritage" +0.60'). */
 const matchedVibes = (reason: string) =>

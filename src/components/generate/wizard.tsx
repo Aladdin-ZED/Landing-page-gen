@@ -1,7 +1,8 @@
 "use client";
 /**
- * The generator wizard: photos → on-device analysis → product details → three art-directed
- * directions → a draft page in the builder.
+ * The generator wizard: photos → on-device analysis → product details → offers (what the page
+ * sells: products, offers, look — docs/OFFERS.md §H.2) → three art-directed directions (with the
+ * page's ad tracking answer) → a draft page in the builder.
  *
  * Everything runs in the admin's browser: photos are downscaled and color-read locally, the local
  * AI (src/lib/ai) reads, cuts out and writes, and the pure generator (src/lib/generator) builds the
@@ -31,7 +32,10 @@ import type { CopyRequest } from "@/lib/ai/prompts";
 import type { GenerateInput } from "@/lib/generator";
 import { getMarket } from "@/lib/markets/info";
 import { parseFocus } from "@/lib/media/focus";
-import type { Archetype, Market } from "@/lib/page/schema";
+import { comboDisplay, suggestOffers } from "@/components/admin/offers";
+import { removeItem, type PhotoInfo, type PhotoSource } from "@/components/admin/items";
+import { feature } from "@/lib/page/features";
+import { isChoiceGroup, LIMITS, MAIN_ITEM_ID, PageDocObject, type Archetype, type Item, type Market, type Offer, type OfferDisplay, type Offers } from "@/lib/page/schema";
 import { cleanVariants, leadPhotoId, relocalizeVariants, suggestPresets } from "@/lib/page/variant-presets";
 import { whatsappDigits } from "@/lib/render/config";
 import type { AssetRowLike, StoreInfo } from "@/landing/context";
@@ -43,6 +47,7 @@ import { focalPoint, initialState, loadState, newSeed, photoAssetFrom, photosKey
 import { StepAnalysis, type JobState } from "./step-analysis";
 import { MAX_FACTS, parsePrice, StepDetails } from "./step-details";
 import { StepDirections, type CopyState } from "./step-directions";
+import { StepOffers } from "./step-offers";
 import { StepPhotos } from "./step-photos";
 import { pixelTracking, type PixelStore } from "./tracking";
 import { WIZARD_LEAD, WIZARD_TITLE, WizardSkeleton } from "./skeleton";
@@ -57,6 +62,8 @@ export interface GenerateWizardProps {
   /** preview rows of the store's own assets (logo) */
   storeAssets: Readonly<Record<string, AssetRowLike>>;
   canUpload: boolean;
+  /** the user may add new pixel ids (owners: settings.write) in "Ad tracking for this page" */
+  canCreatePixels?: boolean;
 }
 
 const MAX_PHOTOS = 12;
@@ -173,7 +180,7 @@ function classifyVibe(c: ClassifyResult | null): string | null {
   return second && second[1] >= first[1] * 0.7 ? `${a} ${second[0].slice(5)}` : a;
 }
 
-function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, afterSkeleton }: GenerateWizardProps & { afterSkeleton: boolean }) {
+function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, canCreatePixels = false, afterSkeleton }: GenerateWizardProps & { afterSkeleton: boolean }) {
   const router = useRouter();
   const ai = useAi({ enabled: aiSettings.enabled, maxTier: aiSettings.tier });
   /** the process-wide AI manager: stable functions for the jobs below (the hook is for display) */
@@ -201,7 +208,8 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   const pickerMounted = useOpenedOnce(picker);
   usePrefetchOnIdle(PREFETCH);
   // a failed load is retried on the next step change or "Try again" (a new seed)
-  const generator = useGeneratorKit(state.step === 3, `${state.step}:${state.seedBase}`);
+  // loaded from the Offers step on: the directions are ready the moment they are asked for
+  const generator = useGeneratorKit(state.step >= 3, `${state.step >= 3 ? 3 : state.step}:${state.seedBase}`);
   const [confirmReset, setConfirmReset] = useState(false);
   const [jobs, setJobs] = useState<{ classify: JobState; analysis: JobState; cutout: JobState }>({ classify: IDLE, analysis: IDLE, cutout: IDLE });
   const setJob = useCallback((name: "classify" | "analysis" | "cutout", job: JobState) => setJobs((j) => ({ ...j, [name]: job })), []);
@@ -302,7 +310,7 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   const lead = useMemo(() => {
     const id = leadPhotoId(details.variants);
     if (!id) return null;
-    const option = details.variants.flatMap((g) => g.options).find((o) => o.image?.id === id);
+    const option = details.variants.filter(isChoiceGroup).flatMap((g) => g.options).find((o) => o.image?.id === id);
     const photo = ready.find((p) => p.asset.id === id);
     return option && photo ? { label: option.label, url: photo.asset.thumbUrl ?? photo.asset.url ?? photo.preview } : null;
   }, [details.variants, ready]);
@@ -623,17 +631,78 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
       category: details.category,
       images: ordered.map((p) => toAssetRef(p.asset, name.slice(0, 200))),
       ...(cutoutAsset ? { cutout: toAssetRef(cutoutAsset, name.slice(0, 200)) } : {}),
-      variants,
+      // the generator's v1 product takes choice groups; combined options and fields reach the page with the items
+      variants: variants.filter(isChoiceGroup),
     }),
     [name, price, details.category, ordered, cutoutAsset, variants],
   );
+
+  /* ---- offers (what the page sells) ---- */
+
+  const several = feature("MULTI_ITEM") && details.sells === "several";
+  const pageItems = useMemo<Item[]>(() => {
+    const leadItem: Item = {
+      id: MAIN_ITEM_ID,
+      name: several ? (details.lead.name.trim() || name).slice(0, 120) : "",
+      ...(several && details.lead.short ? { short: details.lead.short } : {}),
+      images: several ? details.lead.images : [],
+      price: Number.isFinite(price) && price > 0 ? price : 0,
+      groups: variants,
+      soldOut: false,
+    };
+    return several ? [leadItem, ...details.extraItems] : [leadItem];
+  }, [several, details.lead, details.extraItems, name, price, variants]);
+  const offersDoc = useMemo(
+    () => ({ items: pageItems, currency, offers: { bundles: [] as Offer[] } as Offers, product: { name, category: details.category, images: [] }, locale: details.locale }),
+    [pageItems, currency, name, details.category, details.locale],
+  );
+  const autoOffers = useMemo(() => suggestOffers(offersDoc, { rules: feature("RULES") }), [offersDoc]);
+  const shownOffers = details.offers ?? autoOffers;
+  const chosenOffers = useMemo(() => {
+    const on = shownOffers.filter((o) => !details.offersOff.includes(o.id));
+    return on.length ? on : shownOffers.slice(0, 1);
+  }, [shownOffers, details.offersOff]);
+  /** the wizard's products / offers replace the generator's (else it suggests its own packs, titled in the page language) */
+  const ownOffers = several || details.offers !== null || details.offersOff.length > 0 || variants.some((g) => !isChoiceGroup(g));
+  /** the page's photos for the item wells, crops and offer visuals */
+  const wizardPhotos = useMemo<PhotoSource>(() => {
+    const list: PhotoInfo[] = ordered.map((p) => ({ ref: toAssetRef(p.asset, name.slice(0, 200)), url: p.asset.thumbUrl ?? p.asset.url ?? p.preview, large: p.asset.url ?? p.preview, width: p.asset.width, height: p.asset.height }));
+    const byId = new Map(list.map((x) => [x.ref.id, x]));
+    return { photos: list, info: (id: string) => byId.get(id) ?? null };
+  }, [ordered, name]);
+  const palettes = useMemo(() => Object.fromEntries(ordered.map((p) => [p.asset.id, p.palette])), [ordered]);
+  const onItems = useCallback(
+    (next: Item[]) => {
+      const [first, ...rest] = next;
+      if (!first) return;
+      const patch: Partial<typeof details> = {
+        lead: { name: first.name, ...(first.short ? { short: first.short } : {}), images: first.images },
+        extraItems: rest.slice(0, LIMITS.items - 1),
+      };
+      // edited offers follow deleted products (their lines go, empty offers go)
+      if (details.offers) {
+        const ids = new Set(next.map((x) => x.id));
+        let state2: { items: Item[]; offers: Offers } = { items: pageItems, offers: { bundles: details.offers, display: { picker: "stack", fill: "auto", selection: "soft", media: "auto", density: "comfortable" }, extras: [], showPerUnit: true, showSavings: "both", shippingFee: 0, urgency: {} } };
+        for (const it of pageItems) {
+          if (ids.has(it.id)) continue;
+          const res = removeItem(state2, it.id);
+          if (res) state2 = res;
+        }
+        patch.offers = state2.offers.bundles;
+      }
+      dispatch({ type: "details", patch });
+    },
+    [details.offers, pageItems],
+  );
+  /** "Auto": each direction keeps its archetype's pick; a combo applies to every direction */
+  const lookDisplay = useCallback((archetype: Archetype, bundles: readonly Offer[]): OfferDisplay | null => (details.look === "auto" ? null : comboDisplay(details.look, archetype, bundles)), [details.look]);
   /**
    * Styles for "Other styles", best first: the generator's mood-aware ranking (photo, category, AI
    * vibe and the product's own words). A calm or modest product only gets the quiet languages, so
    * cycling never forces a prayer abaya into playground, kinetic, souk or garage.
    */
   const ranked = useMemo<Archetype[]>(() => {
-    if (!kit || state.step !== 3 || !detailsValid) return [];
+    if (!kit || state.step !== 4 || !detailsValid) return [];
     try {
       return kit.rankDirections({ product, palette, aiVibe, facts }).map((r) => r.archetype);
     } catch {
@@ -661,11 +730,22 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
     if (cutoutAsset && !list.some((x) => x.id === cutoutAsset.id)) list.push(toPhotoInfo(cutoutAsset));
     return list;
   }, [ordered, cutoutAsset]);
-  /** the page's ad pixels: every store pixel the owner left ticked */
-  const tracking = useMemo(() => pixelTracking(pixelStore.summary, details.pixelsOff), [pixelStore.summary, details.pixelsOff]);
+  /**
+   * The page's ad pixels: the Directions step's explicit answer (per-page pixels), else — until it
+   * ships — every store pixel the owner left ticked in Details.
+   */
+  const pagePixels = feature("PAGE_PIXELS");
+  const tracking = useMemo(() => {
+    if (pagePixels) return details.tracking ? (details.tracking.kind === "none" ? { none: true as const } : details.tracking.tracking) : null;
+    return pixelTracking(pixelStore.summary, details.pixelsOff);
+  }, [pagePixels, details.tracking, pixelStore.summary, details.pixelsOff]);
   const input = useMemo<GenerateInput | null>(() => {
-    if (state.step !== 3 || !ordered.length || !detailsValid) return null;
+    if (state.step !== 4 || !ordered.length || !detailsValid) return null;
+    // given → used verbatim by the generator (GN); the wizard also applies them to each direction below
+    const look = details.look !== "auto" ? comboDisplay(details.look, "field", chosenOffers) : null;
+    const own = { ...(ownOffers ? { items: pageItems, offers: chosenOffers } : {}), ...(look ? { display: look } : {}) };
     return {
+      ...own,
       product,
       palette,
       aiVibe,
@@ -686,19 +766,32 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
       // the store pixels the owner kept (unread store → none here; the save adds the store's)
       ...(tracking ? { tracking } : {}),
       ...(styles ? { archetypes: styles } : {}),
-    };
-  }, [state.step, state.seedBase, ordered.length, detailsValid, product, details.locale, details.market, palette, aiVibe, pageCopy, facts, sameMarket, defaults.shippingFee, deliveryText, currency, storeWhatsapp, store.name, photoInfos, tracking, styles]);
+    } as GenerateInput;
+  }, [state.step, state.seedBase, ordered.length, detailsValid, product, details.locale, details.market, palette, aiVibe, pageCopy, facts, sameMarket, defaults.shippingFee, deliveryText, currency, storeWhatsapp, store.name, photoInfos, tracking, styles, ownOffers, pageItems, chosenOffers, details.look]);
 
   const built = useMemo(() => {
     if (!input) return { directions: null, error: null };
     // the generator is code-split: the directions show their loading state until it is in
     if (!kit) return { directions: null, error: generator.error };
     try {
-      return { directions: kit.generateDirections(input), error: null };
+      const directions = kit.generateDirections(input).map((d) => {
+        // the wizard's products, offers and look, used verbatim (validated) whatever the generator did with them
+        if (!ownOffers && details.look === "auto") return d;
+        const doc = { ...d.doc, items: ownOffers ? pageItems : d.doc.items, offers: { ...d.doc.offers, bundles: ownOffers ? chosenOffers : d.doc.offers.bundles } };
+        const display = lookDisplay(doc.theme.archetype, doc.offers.bundles);
+        if (display) doc.offers = { ...doc.offers, display };
+        const checked = PageDocObject.safeParse(doc);
+        if (!checked.success) {
+          console.warn("[generate] the wizard's offers don't fit this direction", checked.error.issues.slice(0, 3));
+          return d;
+        }
+        return { ...d, doc: checked.data };
+      });
+      return { directions, error: null };
     } catch (err) {
       return { directions: null, error: err instanceof Error ? err.message : "Unknown error." };
     }
-  }, [input, kit, generator.error]);
+  }, [input, kit, generator.error, ownOffers, pageItems, chosenOffers, details.look, lookDisplay]);
 
   const previewAssets = useMemo(() => {
     const out: Record<string, AssetRowLike> = { ...storeAssets };
@@ -721,8 +814,8 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
           name,
           chosen: index,
           directions: directions.map((d) => ({ archetype: d.archetype, label: d.label, doc: d.doc })),
-          // the Ad tracking step showed the store pixels: its choices are final
-          ...(pixelStore.summary ? { pixels: "chosen" as const } : {}),
+          // the page's tracking answer (or the Details step's store-pixel ticks) is final
+          ...((pagePixels ? !!details.tracking : !!pixelStore.summary) ? { pixels: "chosen" as const } : {}),
         }),
         { success: "Page created — opening the builder" },
       );
@@ -735,17 +828,22 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
       setCopyJob(null);
       router.push(`/admin/pages/${res.id}/edit`);
     },
-    [built.directions, copyState.state, stopCopy, name, router, pixelStore.summary],
+    [built.directions, copyState.state, stopCopy, name, router, pixelStore.summary, pagePixels, details.tracking],
   );
 
   /* ---- navigation ---- */
 
+  /** several products: every product named and priced; at least one offer */
+  const offersIssue = several && pageItems.some((it) => !it.name.trim()) ? "Name every product." : several && pageItems.some((it) => !(it.price > 0)) ? "Give every product a price." : !chosenOffers.length ? "Keep at least one offer." : null;
   const canContinue: Record<Step, boolean> = {
     0: ready.length > 0 && uploading === 0,
     1: true,
     2: detailsValid,
-    3: false,
+    3: detailsValid && !offersIssue,
+    4: false,
   };
+  /** "Create page" waits for the page's ad tracking answer (per-page pixels) */
+  const trackingGate = pagePixels && !details.tracking ? "Choose the ad tracking for this page first." : null;
 
   const validateDetails = useCallback(() => {
     const next: { name?: string; price?: string } = {};
@@ -758,7 +856,7 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
 
   const goto = useCallback(
     (step: Step) => {
-      if (step === 3 && !validateDetails()) {
+      if (step >= 3 && !validateDetails()) {
         dispatch({ type: "goto", step: 2 });
         return;
       }
@@ -781,7 +879,7 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
   }, [state.step, aiOn, ordered.length, classify, jobs.classify.status, setKey, runClassify]);
 
   useEffect(() => {
-    if (state.step !== 3 || !wantCopy || !detailsValid || !ordered.length || copyJob?.key === copyKey || auto.current.copy === copyKey) return;
+    if (state.step !== 4 || !wantCopy || !detailsValid || !ordered.length || copyJob?.key === copyKey || auto.current.copy === copyKey) return;
     const t = window.setTimeout(() => void runCopy(), 0);
     return () => window.clearTimeout(t);
   }, [state.step, wantCopy, detailsValid, ordered.length, copyJob?.key, copyKey, runCopy]);
@@ -824,6 +922,8 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
           ...(variants.length ? [`${variants.length} option group${variants.length === 1 ? "" : "s"}`] : []),
           PAGE_LOCALES.find((l) => l.value === details.locale)?.hint ?? "",
         ].join(" · ");
+      case 3:
+        return offersIssue ?? `${pageItems.length} product${pageItems.length === 1 ? "" : "s"} · ${chosenOffers.length} offer${chosenOffers.length === 1 ? "" : "s"}`;
       default:
         return "Pick the closest to your brand — everything stays editable";
     }
@@ -927,7 +1027,26 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
             />
           )}
           {state.step === 3 && (
+            <StepOffers
+              details={details}
+              onChange={(patch) => dispatch({ type: "details", patch })}
+              items={pageItems}
+              onItems={onItems}
+              offers={shownOffers}
+              auto={details.offers === null}
+              currency={currency}
+              locale={details.locale}
+              productName={name}
+              productImages={product.images}
+              photos={wizardPhotos}
+              palettes={palettes}
+              shippingFee={sameMarket ? defaults.shippingFee : 0}
+            />
+          )}
+          {state.step === 4 && (
             <StepDirections
+              tracking={pagePixels ? { value: details.tracking, onChange: (tracking) => dispatch({ type: "details", patch: { tracking } }), canCreate: canCreatePixels } : null}
+              gate={trackingGate}
               directions={built.directions}
               error={built.error}
               assets={previewAssets}
@@ -948,7 +1067,7 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
       </AnimatePresence>
 
       <StepFooter
-        sticky={state.step < 3}
+        sticky={state.step < 4}
         status={stepStatus}
         back={
           state.step > 0 ? (
@@ -959,13 +1078,13 @@ function Wizard({ ai: aiSettings, defaults, store, storeAssets, canUpload, after
           ) : null
         }
         next={
-          state.step < 2 ? (
+          state.step < 3 ? (
             <Button className="h-10 rounded-full px-5" disabled={!canContinue[state.step]} onClick={() => goto((state.step + 1) as Step)}>
               Continue
               <ArrowRightIcon />
             </Button>
-          ) : state.step === 2 ? (
-            <Button variant="brand" className="h-10 rounded-full px-5" onClick={() => goto(3)}>
+          ) : state.step === 3 ? (
+            <Button variant="brand" className="h-10 rounded-full px-5" disabled={!canContinue[3]} onClick={() => goto(4)}>
               <SparklesIcon />
               Design 3 directions
             </Button>

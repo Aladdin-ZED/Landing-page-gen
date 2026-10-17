@@ -36,7 +36,10 @@ const FALLBACK: Partial<Record<RuntimeStringKey, string>> = {
   "form.previewNotice": "Preview — order not sent",
 };
 
-export function str(cfg: LandingRuntimeConfig, key: RuntimeStringKey): string {
+/** config.strings key of the "complete the verification above" message (filled by the renderer with a site key). */
+export const CAPTCHA_STRING = "form.errCaptcha";
+
+export function str(cfg: Pick<LandingRuntimeConfig, "strings">, key: RuntimeStringKey): string {
   const v = cfg.strings ? cfg.strings[key] : undefined;
   if (typeof v === "string" && v) return v;
   if (key === "form.errEmail") return str(cfg, "form.errRequired");

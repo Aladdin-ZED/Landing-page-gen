@@ -137,7 +137,7 @@ export function Chat({ ctx, data, id, titleId }: ViewProps): ReactElement {
                           alt={photo.alt || ctx.product.name}
                         />
                         <span className="lp-problem__tag lp-glass" data-corner={tagCorner}>
-                          <Money ctx={ctx} amount={ctx.product.price} />
+                          <Money ctx={ctx} amount={ctx.lead.price} />
                         </span>
                       </div>
                     ) : null}

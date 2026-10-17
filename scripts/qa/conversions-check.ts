@@ -1,11 +1,15 @@
 /**
- * Ad pixels — server side, offline (fetch is mocked; no network, no database):
- *  - Tracking schema: legacy single ids → lists, dedupe, limits, empty → unset;
- *  - per-pixel server credentials with the legacy single-token fallback;
- *  - Settings → Pixels: masked-token resolution, legacy migration, validation, no token in summaries;
- *  - redactSetting masks per-pixel token maps;
+ * Ad pixels — server side, offline (fetch is mocked; no network, no database), docs/OFFERS.md §A:
+ *  - Tracking schema: legacy single ids → lists, dedupe, limits, empty → unset; `none` / `copiedFrom`;
+ *    repair drops `none` when ids are set;
+ *  - pixel library schema (ids, duplicates, caps, test windows) and the pure helpers (windows, diff,
+ *    edits, labels, health throttle);
+ *  - migration (pure part): store ids first, then by usage, no cap, labels;
+ *  - per-pixel server credentials: own token only (legacy never read), the test code only inside an
+ *    active window of the event's page;
  *  - Purchase payloads: event_id = order id, same event names as the browser pixel, hashed E.164
- *    phone (Morocco), contents/quantity, one request per pixel with a token, tokens never in URLs;
+ *    phone, contents per item from allocate() incl. the bump item, one request per pixel with a token,
+ *    tokens never in URLs; health classes of failures;
  *  - transport: retry on 5xx, failures never throw, TikTok non-zero codes are failures;
  *  - "Send test event": test_event_code always set, the platform's answer is reported.
  *
@@ -13,14 +17,28 @@
  */
 import { createHash } from "node:crypto";
 import { OrderPayload } from "@/lib/orders/contract";
-import { CONVERSION_MAX_RISK, dispatchPurchase, purchaseConversion, sendTestEvent, serverCredentials, type TrackingSecrets } from "@/lib/orders/conversions-core";
+import { CONVERSION_MAX_RISK, dispatchPurchase, failureCode, orderContents, purchaseConversion, sendTestEvent, serverCredentials, type TrackingSecrets } from "@/lib/orders/conversions-core";
 import { getFixture } from "@/lib/page/fixtures";
+import { emptySelection, orderTotals } from "@/lib/page/pricing";
 import { PageDoc, Tracking } from "@/lib/page/schema";
-import { validatePixelForm } from "@/lib/pixels/form";
+import { pixelChecks, pixelNotes } from "@/lib/pixels/checklist";
 import { PIXEL_EVENTS } from "@/lib/pixels/ids";
-import { PixelSettingsError, pixelFormValues, resolvePixelSettings, summarize } from "@/lib/pixels/settings";
-import { mergeStorePixels, runtimePixels, trackingFlags } from "@/lib/pixels/tracking";
-import { TrackingSecretsSettings, redactSetting } from "@/lib/settings/schemas";
+import {
+  editTracking,
+  healthWriteDue,
+  missingPixels,
+  pixelLabel,
+  pruneLibrary,
+  testWindow,
+  trackingDiff,
+  usageText,
+  withEntry,
+  type PixelLibrary,
+  type PixelLibraryView,
+} from "@/lib/pixels/library";
+import { collectPixels, migrationLabel } from "@/lib/pixels/migrate";
+import { runtimePixels, trackingFlags } from "@/lib/pixels/tracking";
+import { PixelLibrarySettings, TrackingSecretsSettings, redactSetting } from "@/lib/settings/schemas";
 
 let pass = 0;
 const failures: string[] = [];
@@ -41,6 +59,10 @@ const META_B = "222222222222222";
 const TT_1 = "CTESTPIXEL0000000001";
 const TT_2 = "CTESTPIXEL0000000002";
 const SNAP = "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
+const PAGE = "01JAAAAAAAAAAAAAAAAAAAAAAA";
+const OTHER_PAGE = "01JBBBBBBBBBBBBBBBBBBBBBBB";
+const NOW = Date.parse("2026-10-16T10:00:00Z");
+const iso = (ms: number) => new Date(ms).toISOString();
 
 /* ---------------- Tracking schema ---------------- */
 eq("legacy single id → list", Tracking.parse({ metaPixelId: META_A, ga4Id: "G-TEST1234" }), { metaPixelId: [META_A], ga4Id: ["G-TEST1234"] });
@@ -49,6 +71,7 @@ eq("empty list → unset", Tracking.parse({ metaPixelId: [] }).metaPixelId, unde
 ok("4 Meta pixels refused", !Tracking.safeParse({ metaPixelId: [META_A, META_B, "333333333333333", "444444444444444"] }).success);
 ok("2 Snap pixels refused", !Tracking.safeParse({ snapPixelId: [SNAP, "9a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"] }).success);
 ok("invalid id refused", !Tracking.safeParse({ tiktokPixelId: ["lowercase-id"] }).success);
+eq("No pixel answer kept", Tracking.parse({ none: true }), { none: true });
 {
   const fx = getFixture("massage");
   const legacy = PageDoc.safeParse({ ...fx.doc, tracking: { metaPixelId: META_A, tiktokPixelId: TT_1 } });
@@ -58,17 +81,83 @@ ok("invalid id refused", !Tracking.safeParse({ tiktokPixelId: ["lowercase-id"] }
     eq("legacy page → CSP flags", trackingFlags(legacy.data.tracking), { meta: true, tiktok: true, snap: false, ga4: false });
   }
   eq("runtime pixels read raw legacy strings", runtimePixels({ metaPixelId: META_A, snapPixelId: SNAP }), { meta: [META_A], snap: [SNAP] });
+  const both = PageDoc.safeParse({ ...fx.doc, tracking: { metaPixelId: [META_A], none: true, copiedFrom: "Argan" } });
+  ok("repair drops `none` when ids are set, keeps copiedFrom", both.success && both.data.tracking.none === undefined && both.data.tracking.copiedFrom === "Argan", both.success ? both.data.tracking : both.error.issues);
+  eq("runtime pixels ignore none / copiedFrom", runtimePixels({ none: true, copiedFrom: "x" }), {});
 }
-eq(
-  "mergeStorePixels fill keeps the page's own ids",
-  mergeStorePixels({ metaPixelId: [META_B] }, { metaPixelId: [META_A], tiktokPixelId: [TT_1] }, "fill"),
-  { metaPixelId: [META_B], tiktokPixelId: [TT_1] },
-);
-eq(
-  "mergeStorePixels replace takes the store lists, keeps other platforms",
-  mergeStorePixels({ metaPixelId: [META_B], ga4Id: ["G-PAGE1234"] }, { metaPixelId: [META_A, META_B] }, "replace"),
-  { metaPixelId: [META_A, META_B], ga4Id: ["G-PAGE1234"] },
-);
+
+/* ---------------- pixel library ---------------- */
+const entry = (platform: "meta" | "tiktok" | "snap" | "ga4", id: string, extra: Record<string, unknown> = {}) => ({ platform, id, label: "", addedAt: iso(NOW - 86_400_000), tests: [], ...extra });
+ok("library: valid entries parse", PixelLibrarySettings.safeParse({ pixels: [entry("meta", META_A), entry("tiktok", TT_1)] }).success);
+ok("library: duplicate refused", !PixelLibrarySettings.safeParse({ pixels: [entry("meta", META_A), entry("meta", META_A)] }).success);
+ok("library: invalid id refused", !PixelLibrarySettings.safeParse({ pixels: [entry("meta", "abc")] }).success);
+ok("library: label > 40 refused", !PixelLibrarySettings.safeParse({ pixels: [entry("meta", META_A, { label: "x".repeat(41) })] }).success);
+ok("library: 6 test windows refused", !PixelLibrarySettings.safeParse({ pixels: [entry("meta", META_A, { tests: Array.from({ length: 6 }, () => ({ pageId: PAGE, until: iso(NOW + 60_000) })) })] }).success);
+ok("library: 200 pixels allowed, 201 refused", PixelLibrarySettings.safeParse({ pixels: Array.from({ length: 200 }, (_, i) => entry("meta", String(1_000_000 + i))) }).success && !PixelLibrarySettings.safeParse({ pixels: Array.from({ length: 201 }, (_, i) => entry("meta", String(1_000_000 + i))) }).success);
+eq("library: v defaults to 1, pixels to []", PixelLibrarySettings.parse({}), { v: 1, pixels: [] });
+
+const library: PixelLibrary = PixelLibrarySettings.parse({
+  pixels: [
+    entry("meta", META_A, { label: "Compte principal" }),
+    entry("meta", META_B, { label: "BM backup" }),
+    entry("tiktok", TT_1, { label: "TikTok Maroc", tests: [{ pageId: PAGE, until: iso(NOW + 30 * 60_000) }, { pageId: OTHER_PAGE, until: iso(NOW - 60_000) }] }),
+    entry("tiktok", TT_2),
+  ],
+});
+ok("test window: active for its page", !!testWindow(library, "tiktok", TT_1, PAGE, NOW));
+ok("test window: never for another page", testWindow(library, "tiktok", TT_1, "01JCCCCCCCCCCCCCCCCCCCCCCC", NOW) === null);
+ok("test window: expired ignored", testWindow(library, "tiktok", TT_1, OTHER_PAGE, NOW) === null);
+ok("test window: ends at `until`", testWindow(library, "tiktok", TT_1, PAGE, NOW + 30 * 60_000) === null);
+eq("pruneLibrary drops expired windows", pruneLibrary(library, NOW).pixels[2]!.tests.map((w) => w.pageId), [PAGE]);
+eq("withEntry replaces in place", withEntry(library, { ...library.pixels[1]!, label: "Backup 2" }).pixels.map((p) => p.label), ["Compte principal", "Backup 2", "TikTok Maroc", ""]);
+eq("trackingDiff", trackingDiff({ metaPixelId: [META_A, META_B] }, { metaPixelId: [META_A], tiktokPixelId: [TT_1] }), {
+  added: [{ platform: "meta", id: META_B }],
+  removed: [{ platform: "tiktok", id: TT_1 }],
+});
+eq("editTracking: adding an id drops none and copiedFrom", editTracking({ none: true, copiedFrom: "Argan" }, "meta", [META_A]), { metaPixelId: [META_A] });
+eq("editTracking: removing the last id leaves the page unanswered", editTracking({ metaPixelId: [META_A] }, "meta", []), {});
+ok("missingPixels: no ids, no none", missingPixels({}) && !missingPixels({ none: true }) && !missingPixels({ ga4Id: ["G-TEST1234"] }));
+eq("pixelLabel: label, else platform + masked id", [pixelLabel({ platform: "meta", id: META_A, label: "Compte principal" }), pixelLabel(undefined, "tiktok", TT_2)], ["Compte principal", "TikTok ••••0002"]);
+eq("usageText", [usageText({ pages: 3, live: 2, exports: 1, drafts: 3 }), usageText({ pages: 1, live: 0, exports: 0, drafts: 1 })], ["Used on 3 pages · 2 live · 1 export", "Used on 1 page"]);
+ok("health throttle: first write, changes and 10 min", healthWriteDue(undefined, { state: "ok" }, NOW) && !healthWriteDue({ state: "ok", at: NOW }, { state: "ok" }, NOW + 60_000) && healthWriteDue({ state: "ok", at: NOW }, { state: "refused", code: "token" }, NOW + 1) && healthWriteDue({ state: "ok", at: NOW }, { state: "ok" }, NOW + 10 * 60_000));
+
+/* ---------------- checklist ---------------- */
+{
+  const fx = getFixture("massage");
+  const bare = PageDoc.parse({ ...fx.doc, tracking: {} });
+  const view: PixelLibraryView = {
+    canCreate: false,
+    pixels: [
+      { platform: "meta", id: META_A, label: "Compte principal", addedAt: iso(NOW), server: true, testCode: false, activeTests: [], health: { at: iso(NOW), state: "refused", code: "permission", testMode: false }, usage: { pages: 1, live: 1, exports: 0, drafts: 1 } },
+      { platform: "tiktok", id: TT_1, label: "TikTok Maroc", addedAt: iso(NOW), server: false, testCode: false, activeTests: [], health: null, usage: { pages: 1, live: 1, exports: 0, drafts: 1 } },
+    ],
+  };
+  eq("checklist: no pixel → warning", pixelChecks(bare, { library: null, health: {}, live: false }).map((c) => c.id), ["pixels:none"]);
+  eq("checklist: No pixel answer → nothing", pixelChecks(PageDoc.parse({ ...fx.doc, tracking: { none: true } }), { library: null, health: {}, live: false }), []);
+  const withIds = PageDoc.parse({ ...fx.doc, tracking: { metaPixelId: [META_A], tiktokPixelId: [TT_1], copiedFrom: "Argan" } });
+  const checks = pixelChecks(withIds, { library: view, health: { [`meta:${META_A}`]: view.pixels[0]!.health! }, live: true });
+  ok("checklist: server refusal warning with label and code", checks.length === 1 && /^Compte principal: server refused events \(permission\) since/.test(checks[0]!.title), checks);
+  eq("notes: copied + browser-only", pixelNotes(withIds, { library: view }).map((n) => n.id), ["pixels:copied", `pixels:browser:tiktok:${TT_1}`]);
+}
+
+/* ---------------- migration (pure part) ---------------- */
+{
+  const store = { metaPixelId: [META_B], tiktokPixelId: [TT_2] };
+  const sources = [
+    { pageName: "Argan", tracking: { metaPixelId: [META_A] } },
+    { pageName: "Massage", tracking: { metaPixelId: [META_A, META_B], tiktokPixelId: [TT_1] } },
+    { pageName: "Massage", tracking: { metaPixelId: [META_A] } },
+    { pageName: "Broken", tracking: { metaPixelId: ["not-an-id"], snapPixelId: SNAP } },
+    { pageName: "Null", tracking: null },
+  ];
+  const got = collectPixels(store, sources);
+  eq("migration: store ids first (their order), then by usage", got.map((p) => `${p.platform}:${p.id}`), [`meta:${META_B}`, `tiktok:${TT_2}`, `meta:${META_A}`, `tiktok:${TT_1}`, `snap:${SNAP}`]);
+  eq("migration: first page name", got.find((p) => p.id === META_A)?.firstPage, "Argan");
+  eq("migration: labels", [migrationLabel(got[0]!, 0), migrationLabel({ ...got[0]!, platform: "meta" }, 1), migrationLabel(got[2]!, 0)], ["Pixel principal", "Pixel 2", "Argan · ••••1111"]);
+  ok("migration: long page names fit the 40-char label", migrationLabel({ platform: "meta", id: META_A, store: false, firstPage: "x".repeat(80) }, 0).length <= 40);
+  const many = collectPixels(null, Array.from({ length: 150 }, (_, i) => ({ pageName: `P${i}`, tracking: { metaPixelId: [String(5_000_000 + i)] } })));
+  eq("migration: no cap", many.length, 150);
+}
 
 /* ---------------- secrets: schema, redaction, credentials ---------------- */
 const legacySecrets: TrackingSecrets = TrackingSecretsSettings.parse({
@@ -82,58 +171,33 @@ eq("legacy secrets parse with empty maps", [legacySecrets.metaTokens, legacySecr
   const s = TrackingSecretsSettings.parse({ metaTokens: { [META_A]: "ownTokenAAAA1111" }, metaTestCodes: { [META_A]: "TEST222" } });
   const red = redactSetting("tracking_secrets", s);
   eq("redactSetting masks per-pixel tokens", red.metaTokens, { [META_A]: "••••1111" });
-  eq("own token + own test code", serverCredentials(s, "meta", META_A), { token: "ownTokenAAAA1111", testCode: "TEST222", source: "pixel" });
-  eq("no token → browser only", serverCredentials(s, "meta", META_B), null);
-  eq("legacy token covers any pixel", serverCredentials(legacySecrets, "meta", META_B), { token: "legacyMetaToken123", testCode: "TEST111", source: "legacy" });
+  eq("own token, no window → production event", serverCredentials(s, library, "meta", META_A, PAGE, NOW), { token: "ownTokenAAAA1111" });
+  eq("no token → browser only", serverCredentials(s, library, "meta", META_B, PAGE, NOW), null);
+  eq("legacy single token is never read", serverCredentials(legacySecrets, library, "meta", META_B, PAGE, NOW), null);
+  const tt = TrackingSecretsSettings.parse({ tiktokTokens: { [TT_1]: "ttOwnToken12345" }, tiktokTestCodes: { [TT_1]: "TEST999" } });
+  eq("test code inside the page's window", serverCredentials(tt, library, "tiktok", TT_1, PAGE, NOW), { token: "ttOwnToken12345", testCode: "TEST999" });
+  eq("same pixel, another page → production", serverCredentials(tt, library, "tiktok", TT_1, OTHER_PAGE, NOW), { token: "ttOwnToken12345" });
+  eq("window over → production", serverCredentials(tt, library, "tiktok", TT_1, PAGE, NOW + 31 * 60_000), { token: "ttOwnToken12345" });
   ok("token map keys must be pixel ids", !TrackingSecretsSettings.safeParse({ metaTokens: { "not-an-id": "ownTokenAAAA1111" } }).success);
+  ok("token maps take up to 200 pixels", TrackingSecretsSettings.safeParse({ metaTokens: Object.fromEntries(Array.from({ length: 200 }, (_, i) => [String(1_000_000 + i), "tokenValue12345"])) }).success);
 }
 
-/* ---------------- Settings → Pixels form ---------------- */
-{
-  const store = Tracking.parse({ metaPixelId: [META_A] });
-  const rows = pixelFormValues(store, legacySecrets);
-  eq("legacy token shown as a mask on the store pixel", rows.meta, [{ origin: META_A, id: META_A, token: "••••n123", testCode: "TEST111" }]);
-  const next = resolvePixelSettings(
-    {
-      ...rows,
-      meta: [rows.meta[0]!, { origin: "", id: ` ${META_B} `, token: "newTokenBBBB2222", testCode: "" }],
-      tiktok: [{ origin: "", id: "ctestpixel0000000001", token: "", testCode: "" }],
-      snap: [{ origin: "", id: SNAP.toUpperCase(), token: "", testCode: "" }],
-      ga4: [{ origin: "", id: "", token: "", testCode: "" }],
-    },
-    legacySecrets,
-  );
-  eq("saved pixel lists (normalized)", next.pixels, { metaPixelId: [META_A, META_B], tiktokPixelId: [TT_1], snapPixelId: [SNAP] });
-  eq("masked token resolved to the stored one + new token", next.secrets.metaTokens, { [META_A]: "legacyMetaToken123", [META_B]: "newTokenBBBB2222" });
-  eq("test code kept per pixel", next.secrets.metaTestCodes, { [META_A]: "TEST111" });
-  eq("legacy single values folded and cleared", [next.secrets.metaCapiToken, next.secrets.metaTestEventCode, next.secrets.tiktokToken], [undefined, undefined, undefined]);
-  eq("Snap token kept as is", next.secrets.snapToken, "snapToken12345");
-  let threw = "";
-  try {
-    resolvePixelSettings({ meta: [{ origin: META_B, id: META_B, token: "••••zzzz", testCode: "" }], tiktok: [], snap: [], ga4: [] }, TrackingSecretsSettings.parse({}));
-  } catch (e) {
-    threw = e instanceof PixelSettingsError ? e.message : "other";
-  }
-  ok("mask without a stored token is refused", /paste it again/.test(threw), threw);
-  const errs = validatePixelForm({
-    meta: [
-      { origin: "", id: META_A, token: "", testCode: "" },
-      { origin: "", id: META_A, token: "bad token", testCode: "test" },
-    ],
-    tiktok: [{ origin: "", id: "", token: "someTokenValue123", testCode: "" }],
-    snap: [],
-    ga4: [{ origin: "", id: "UA-1234", token: "", testCode: "" }],
-  });
-  eq("form errors", Object.keys(errs).sort(), ["ga4.0.id", "meta.1.id", "meta.1.testCode", "meta.1.token", "tiktok.0.id"]);
-  const summary = summarize(next.pixels, next.secrets);
-  const json = JSON.stringify(summary);
-  ok("summary never contains a token", !json.includes("legacyMetaToken123") && !json.includes("newTokenBBBB2222"), json);
-  eq("summary flags", summary.platforms.meta, [
-    { id: META_A, server: true, testMode: true },
-    { id: META_B, server: true, testMode: false },
-  ]);
-  eq("summary tracking for new pages", summary.tracking, { metaPixelId: [META_A, META_B], tiktokPixelId: [TT_1], snapPixelId: [SNAP] });
-}
+/* ---------------- failure classes (pixel_health) ---------------- */
+eq(
+  "failureCode",
+  [
+    failureCode("meta", 400, { error: { code: 190, message: "Invalid OAuth access token." } }),
+    failureCode("meta", 403, { error: { code: 10, message: "Permission denied" } }),
+    failureCode("meta", 400, { error: { code: 100, message: "Unsupported post request. Object with ID does not exist" } }),
+    failureCode("meta", 429, null),
+    failureCode("meta", null, null),
+    failureCode("tiktok", 200, { code: 40105, message: "Access token is incorrect or has been revoked" }),
+    failureCode("tiktok", 200, { code: 40001, message: "No permission to operate" }),
+    failureCode("tiktok", 200, { code: 40100, message: "Too many requests" }),
+    failureCode("tiktok", 200, { code: 40002, message: "pixel code not found" }),
+  ],
+  ["token", "permission", "pixel", "rate", "network", "token", "permission", "rate", "pixel"],
+);
 
 /* ---------------- Purchase payloads + transport (mocked fetch) ---------------- */
 interface Call {
@@ -158,11 +222,12 @@ const okAnswer = (url: string) =>
 async function main() {
   const fx = getFixture("massage");
   const doc = PageDoc.parse({ ...fx.doc, tracking: { metaPixelId: [META_A, META_B], tiktokPixelId: [TT_1, TT_2], snapPixelId: [SNAP] } });
+  const offer = doc.offers.bundles.find((b) => b.lines.reduce((n, l) => n + l.qty, 0) === 2) ?? doc.offers.bundles[0]!;
   const payload = OrderPayload.parse({
     pageKey: fx.pageKey,
     idem: "123e4567-e89b-42d3-a456-426614174000",
     eventId: "browser-uuid-0001",
-    bundleId: doc.offers.bundles[0]!.id,
+    bundleId: offer.id,
     name: "Salma Test",
     phone: "+212612345678",
     t: 9000,
@@ -172,15 +237,20 @@ async function main() {
     ttp: "ttp-cookie-value-123",
     ref: "https://shop.example/massage?utm_source=fb#top",
   });
+  const selection = emptySelection(offer.id);
+  const totals = orderTotals(doc, selection)!;
+  const units = offer.lines.reduce((n, l) => n + l.qty, 0);
   const order = {
-    totals: { total: 399 },
-    items: { qty: 2 },
+    totals,
+    offer,
+    selection,
+    items: { qty: units, bundleLabel: "Pack Duo (x2)" },
     phone: { e164: "+212612345678", country: "MA" },
     email: null,
     name: "Salma Test",
     city: "Casablanca",
   } as unknown as Parameters<typeof purchaseConversion>[0]["order"];
-  const target = { doc, pageId: "PAGE01", source: "live" as const };
+  const target = { doc, pageId: PAGE, source: "live" as const };
   const at = new Date("2026-10-15T10:00:00Z");
   const base = { orderId: "CMD-PX0001", createdAt: at, payload, order, target, ip: "105.66.1.2", ua: "Mozilla/5.0 test" };
 
@@ -188,38 +258,80 @@ async function main() {
   ok("no Meta/TikTok pixel → no event", purchaseConversion({ ...base, riskScore: 0, target: { ...target, doc: { ...doc, tracking: { snapPixelId: [SNAP] } } } }) === null);
   const c = purchaseConversion({ ...base, riskScore: 10 })!;
   eq("event id = order id (not the browser uuid)", c.eventId, "CMD-PX0001");
-  eq("event pixels", c.pixels, { meta: [META_A, META_B], tiktok: [TT_1, TT_2] });
+  eq("event pixels = the validated version's ids", c.pixels, { meta: [META_A, META_B], tiktok: [TT_1, TT_2] });
   eq("source url cleaned (no fragment)", c.sourceUrl, "https://shop.example/massage?utm_source=fb");
+  const value = totals.total / 100;
+  const cid = doc.items[0]!.sku || fx.pageKey;
+  eq("single-item contents: units at the allocated price", c.contents, [{ id: cid, quantity: units, itemPrice: Math.round((offer.price / units) * 100) / 100 }]);
+  eq("content name = product name (single item)", c.contentName, doc.product.name);
+
+  /* multi-item contents (duo trio 349 = 149 + 149 + 199 by weight) + bump item at the bump price */
+  {
+    const dfx = getFixture("duo");
+    const duo = PageDoc.parse({ ...dfx.doc, offers: { ...dfx.doc.offers, orderBump: { enabled: true, title: "Sérum", price: 99, item: "serum" } } });
+    const trio = duo.offers.bundles.find((b) => b.id === "trio")!;
+    const sel = { ...emptySelection("trio"), bump: true };
+    const tot = orderTotals(duo, sel)!;
+    const got = orderContents(duo, { offer: trio, selection: sel, totals: tot }, "PKDUO");
+    eq("contents per item via allocate (largest remainder) + bump item", got, {
+      contents: [
+        { id: "PKDUO", quantity: 1, itemPrice: 104.63 },
+        { id: "PKDUO.nuit", quantity: 1, itemPrice: 104.63 },
+        { id: "PKDUO.serum", quantity: 2, itemPrice: 119.37 },
+      ],
+      numItems: 4,
+    });
+    const noBump = orderContents(duo, { offer: trio, selection: emptySelection("trio"), totals: orderTotals(duo, emptySelection("trio"))! }, "PKDUO");
+    eq("no bump: Σ contents = offer price", Math.round(noBump.contents.reduce((n, x) => n + x.itemPrice * x.quantity, 0) * 100), 34900);
+    const one = duo.offers.bundles.find((b) => b.id === "one")!;
+    const choice = orderContents(duo, { offer: one, selection: { ...emptySelection("one"), units: [{ item: "nuit", options: {}, fields: {} }] }, totals: orderTotals(duo, emptySelection("one"))! }, "PKDUO");
+    eq("choice unit counts as the chosen item", choice.contents.map((x) => x.id), ["PKDUO.nuit"]);
+    const unresolved = orderContents(duo, { offer: one, selection: emptySelection("one"), totals: orderTotals(duo, emptySelection("one"))! }, "PKDUO");
+    eq("unresolved choice unit = first available choice", unresolved.contents.map((x) => x.id), ["PKDUO"]);
+    const conv = purchaseConversion({
+      ...base,
+      riskScore: 0,
+      payload: { ...payload, pageKey: "PKDUO" },
+      order: { ...order, offer: trio, selection: sel, totals: tot, items: { qty: 3, bundleLabel: "Le rituel complet (x3)" } } as unknown as Parameters<typeof purchaseConversion>[0]["order"],
+      target: { ...target, doc: { ...duo, tracking: { metaPixelId: [META_A] } } },
+    })!;
+    eq("multi-item content name = offer label", conv.contentName, "Le rituel complet (x3)");
+  }
 
   const secrets = TrackingSecretsSettings.parse({
     metaTokens: { [META_A]: "metaTokenAAAA1111" },
     metaTestCodes: { [META_A]: "TEST123" },
+    tiktokTokens: { [TT_1]: "tiktokOwnToken99", [TT_2]: "tiktokOwnToken88" },
+    tiktokTestCodes: { [TT_1]: "TEST777" },
+    // legacy fields stay stored and must never be used
+    metaCapiToken: "legacyMetaToken123",
     tiktokToken: "tiktokLegacyToken99",
   });
   respond = (url) => okAnswer(url);
   calls.length = 0;
-  const results = await dispatchPurchase(c, secrets);
+  const results = await dispatchPurchase(c, secrets, library, NOW);
   eq(
-    "one request per pixel with a token",
+    "one request per pixel with its OWN token; test code only in the page's window",
     results.map((r) => `${r.platform}:${r.pixelId}:${r.ok}:${r.testMode}`).sort(),
-    [`meta:${META_A}:true:true`, `tiktok:${TT_1}:true:false`, `tiktok:${TT_2}:true:false`],
+    [`meta:${META_A}:true:false`, `tiktok:${TT_1}:true:true`, `tiktok:${TT_2}:true:false`],
   );
+  ok("legacy token never sent", !JSON.stringify(calls).includes("legacyMetaToken123") && !JSON.stringify(calls).includes("tiktokLegacyToken99"));
   const meta = calls.find((x) => x.url.includes("graph.facebook.com"))!;
   const metaEvent = (meta.body.data as Record<string, unknown>[])[0]!;
   eq("Meta URL (no token in it)", meta.url, `https://graph.facebook.com/v26.0/${META_A}/events`);
   eq("Meta token in the body", meta.body.access_token, "metaTokenAAAA1111");
-  eq("Meta test event code", meta.body.test_event_code, "TEST123");
+  ok("Meta saved test code NOT attached outside a window", !("test_event_code" in meta.body));
   eq("Meta event name = browser purchase name", metaEvent.event_name, PIXEL_EVENTS.meta.purchase);
   eq("Meta event id", metaEvent.event_id, "CMD-PX0001");
   eq("Meta event time", metaEvent.event_time, Math.floor(at.getTime() / 1000));
   eq("Meta custom data", metaEvent.custom_data, {
     currency: "MAD",
-    value: 399,
-    content_ids: [doc.product.sku || fx.pageKey],
+    value,
+    content_ids: [cid],
     content_type: "product",
     content_name: doc.product.name,
-    contents: [{ id: doc.product.sku || fx.pageKey, quantity: 2, item_price: 199.5 }],
-    num_items: 2,
+    contents: [{ id: cid, quantity: units, item_price: c.contents![0]!.itemPrice }],
+    num_items: units,
     order_id: "CMD-PX0001",
   });
   const ud = metaEvent.user_data as Record<string, unknown>;
@@ -228,35 +340,43 @@ async function main() {
   eq("Meta clear ids", [ud.client_ip_address, ud.client_user_agent, ud.fbp, ud.fbc], ["105.66.1.2", "Mozilla/5.0 test", payload.fbp, payload.fbc]);
   const tts = calls.filter((x) => x.url.includes("business-api.tiktok.com"));
   eq("TikTok one request per pixel code", tts.map((x) => x.body.event_source_id).sort(), [TT_1, TT_2]);
-  eq("TikTok token in the header only", [tts[0]!.headers["Access-Token"], JSON.stringify(tts[0]!.body).includes("tiktokLegacyToken99")], ["tiktokLegacyToken99", false]);
-  ok("TikTok without a test code", tts.every((x) => !("test_event_code" in x.body)));
-  const ttEvent = (tts[0]!.body.data as Record<string, unknown>[])[0]!;
+  const tt1 = tts.find((x) => x.body.event_source_id === TT_1)!;
+  const tt2 = tts.find((x) => x.body.event_source_id === TT_2)!;
+  eq("TikTok own token in the header only", [tt1.headers["Access-Token"], JSON.stringify(tt1.body).includes("tiktokOwnToken99")], ["tiktokOwnToken99", false]);
+  eq("TikTok test code inside this page's window", [tt1.body.test_event_code, "test_event_code" in tt2.body], ["TEST777", false]);
+  const ttEvent = (tt1.body.data as Record<string, unknown>[])[0]!;
   eq("TikTok event name = browser purchase name", ttEvent.event, PIXEL_EVENTS.tiktok.purchase);
   eq("TikTok event id", ttEvent.event_id, "CMD-PX0001");
   eq("TikTok phone = sha256 of +212 E.164", (ttEvent.user as Record<string, unknown>).phone, sha("+212612345678"));
   eq("TikTok click/browser ids", [(ttEvent.user as Record<string, unknown>).ttclid, (ttEvent.user as Record<string, unknown>).ttp], ["E.C.P.ttclid12345", "ttp-cookie-value-123"]);
   eq("TikTok properties", ttEvent.properties, {
-    contents: [{ content_id: doc.product.sku || fx.pageKey, content_type: "product", content_name: doc.product.name, quantity: 2, price: 199.5 }],
+    contents: [{ content_id: cid, content_type: "product", content_name: doc.product.name, quantity: units, price: c.contents![0]!.itemPrice }],
     content_type: "product",
-    content_ids: [doc.product.sku || fx.pageKey],
+    content_ids: [cid],
     currency: "MAD",
-    value: 399,
+    value,
     order_id: "CMD-PX0001",
   });
+
+  // another page firing the same TikTok pixel sends production events
+  calls.length = 0;
+  await dispatchPurchase({ ...c, pageId: OTHER_PAGE, pixels: { meta: [], tiktok: [TT_1] } }, secrets, library, NOW);
+  ok("same pixel on another page: no test code", calls.length === 1 && !("test_event_code" in calls[0]!.body), calls.map((x) => x.body.test_event_code));
 
   // transport: a 500 is retried once; a network failure and a TikTok error code are failures, never throws
   respond = (url, n) => (url.includes("graph.facebook.com") && n === 1 ? { status: 500, json: { error: { message: "temporary" } } } : okAnswer(url));
   calls.length = 0;
   const one = { ...c, pixels: { meta: [META_A], tiktok: [] } };
-  const retried = await dispatchPurchase(one, secrets);
+  const retried = await dispatchPurchase(one, secrets, library, NOW);
   eq("5xx retried once then ok", [retried.map((r) => r.ok), calls.length], [[true], 2]);
   respond = () => "throw";
-  const down = await dispatchPurchase(c, secrets);
-  ok("network failure → results ok:false, no throw", down.length === 3 && down.every((r) => !r.ok && !!r.detail), down);
-  respond = (url) => (url.includes("tiktok") ? { status: 200, json: { code: 40001, message: "Access token invalid" } } : okAnswer(url));
-  const ttErr = await dispatchPurchase({ ...c, pixels: { meta: [], tiktok: [TT_1] } }, secrets);
-  ok("TikTok non-zero code is a failure", ttErr.length === 1 && !ttErr[0]!.ok && /40001/.test(ttErr[0]!.detail ?? ""), ttErr);
-  eq("no token → nothing sent", (await dispatchPurchase(c, TrackingSecretsSettings.parse({}))).length, 0);
+  const down = await dispatchPurchase(c, secrets, library, NOW);
+  ok("network failure → results ok:false + code network, no throw", down.length === 3 && down.every((r) => !r.ok && !!r.detail && r.code === "network"), down);
+  respond = (url) => (url.includes("tiktok") ? { status: 200, json: { code: 40105, message: "Access token is incorrect or has been revoked" } } : okAnswer(url));
+  const ttErr = await dispatchPurchase({ ...c, pixels: { meta: [], tiktok: [TT_1] } }, secrets, library, NOW);
+  ok("TikTok non-zero code is a failure (token)", ttErr.length === 1 && !ttErr[0]!.ok && /40105/.test(ttErr[0]!.detail ?? "") && ttErr[0]!.code === "token", ttErr);
+  eq("no token → nothing sent", (await dispatchPurchase(c, TrackingSecretsSettings.parse({}), library, NOW)).length, 0);
+  eq("only legacy tokens → nothing sent", (await dispatchPurchase(c, legacySecrets, library, NOW)).length, 0);
 
   // Settings → Pixels "Send test event"
   respond = (url) => okAnswer(url);
@@ -268,7 +388,7 @@ async function main() {
   ok("test event id is TEST-…", /^TEST-[0-9A-F]{8}$/.test(t1.eventId), t1.eventId);
   respond = () => ({ status: 400, json: { error: { message: "Invalid OAuth access token.", code: 190, fbtrace_id: "Zz" } } });
   const t2 = await sendTestEvent({ platform: "meta", pixelId: META_B, token: "badTokenBBBB2222", testCode: "TEST999", siteUrl: null, currency: "MAD", country: "MA" });
-  ok("test event: platform error reported", !t2.ok && t2.message === "Invalid OAuth access token." && t2.status === 400 && t2.facts.includes("code 190"), t2);
+  ok("test event: platform error reported + class", !t2.ok && t2.message === "Invalid OAuth access token." && t2.status === 400 && t2.facts.includes("code 190") && t2.code === "token", t2);
   respond = () => ({ status: 200, json: { code: 40002, message: "pixel code not found", request_id: "r2" } });
   const t3 = await sendTestEvent({ platform: "tiktok", pixelId: TT_1, token: "tiktokTokenXYZ123", testCode: "TEST42", siteUrl: null, currency: "MAD", country: "MA" });
   ok("TikTok test event error reported", !t3.ok && t3.message === "pixel code not found" && t3.facts.some((f) => f.includes("40002")), t3);

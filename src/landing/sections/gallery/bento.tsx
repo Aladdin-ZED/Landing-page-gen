@@ -106,7 +106,7 @@ export function Bento({ ctx, data, bg, titleId, shots }: ViewProps): ReactElemen
         <p className="lp-gallery__buy-name">{short}</p>
         {data.cta ? (
           <>
-            <Price ctx={ctx} amount={ctx.product.price} compareAt={ctx.product.compareAt} size="l" />
+            <Price ctx={ctx} amount={ctx.lead.price} compareAt={ctx.lead.compareAt} size="l" />
             <div className="lp-gallery__buy-go">
               <Cta ctx={ctx} label={data.ctaLabel.trim() || ctx.t("cta.order")} editPath="ctaLabel" size="m" />
               <p className="lp-gallery__buy-cod">

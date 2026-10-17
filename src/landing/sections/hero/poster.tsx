@@ -53,7 +53,7 @@ export function PosterHero({ id, variant, bg, data, ctx }: HeroProps): ReactElem
   // price tag swap corners when theirs would sit on a face, a hand or the product itself
   const ratio = frameAspect(visualFacts(asset), 0.8, 1.3);
   const flip = !cutout && posterFlip(ctx, asset, ratio);
-  const saving = savingsOf(ctx.product.price, ctx.product.compareAt);
+  const saving = savingsOf(ctx.lead.price, ctx.lead.compareAt);
   const pct = saving && ctx.offers.showSavings !== "none" ? ctx.t("bundle.savePct", { pct: saving.pct }) : null;
   const ring = [ctx.t("trust.cod"), freeShipping(ctx) ? ctx.t("bundle.freeShipping") : ctx.t("trust.check")];
   const tilt = cutout ? 0 : seededRotation(ctx, `${id}-print`, 0.8);
@@ -113,7 +113,7 @@ export function PosterHero({ id, variant, bg, data, ctx }: HeroProps): ReactElem
             />
           </span>
           <div className="lp-hero__tag" data-bg={TAG_BG[field]} {...reveal("rise", 520)}>
-            <Price ctx={ctx} amount={ctx.product.price} compareAt={ctx.product.compareAt} size="xl" showSavings={!pct} className="lp-hero__price" />
+            <Price ctx={ctx} amount={ctx.lead.price} compareAt={ctx.lead.compareAt} size="xl" showSavings={!pct} className="lp-hero__price" />
           </div>
         </div>
 

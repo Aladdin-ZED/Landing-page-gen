@@ -4,6 +4,9 @@
  *    APP_SECRET is logged as an error, since every order fails with it
  *  - applies pending database migrations (serialised across processes with a DB lock)
  *  - purges expired sessions
+ *  - one-time boot tasks in ONE process (withBootLock, src/lib/db/boot-lock.ts), in the background:
+ *    published checksums in the v2 document form (marker setting doc_schema = 2), then the read-only
+ *    Offers v2 upgrade dry run (`[upgrade-check]` lines) — they never delay serving
  * Failures are logged and never crash the process: the app keeps serving what it can and
  * the next start retries.
  */
@@ -49,5 +52,32 @@ export async function register(): Promise<void> {
     if (purged > 0) console.info(`[boot] purged ${purged} expired session(s).`);
   } catch (err) {
     console.error("[boot] session cleanup failed:", err instanceof Error ? err.message : err);
+  }
+
+  void bootTasks();
+}
+
+/** One-time tasks, run by the process that gets the boot lock (others skip them). Never throws. */
+async function bootTasks(): Promise<void> {
+  try {
+    const { withBootLock } = await import("./lib/db/boot-lock");
+    const { bootUpgradeCheck, syncPublishedChecksums } = await import("./lib/db/boot-tasks");
+    const res = await withBootLock(async () => {
+      const checksums = await syncPublishedChecksums();
+      if (!checksums.skipped) console.info(`[boot] published checksums in the v2 document form: ${checksums.updated} of ${checksums.pages} updated.`);
+      // pixel library migration (docs/OFFERS.md §A.6): one-time, idempotent, marker written last
+      try {
+        const { migratePixelLibrary } = await import("./lib/pixels/migrate.server");
+        const px = await migratePixelLibrary();
+        if (px.ran) console.info(`[boot] pixel library created: ${px.entries} pixel(s), ${px.tokensCopied} token(s) copied, ${px.testCodesDeactivated} test code(s) deactivated.`);
+      } catch (err) {
+        console.error("[boot] pixel library migration failed:", err instanceof Error ? err.message : err);
+      }
+      return true;
+    });
+    if (!res.ran) return;
+    await bootUpgradeCheck().catch((err) => console.error("[upgrade-check] failed:", err instanceof Error ? err.message : err));
+  } catch (err) {
+    console.error("[boot] one-time tasks failed:", err instanceof Error ? err.message : err);
   }
 }

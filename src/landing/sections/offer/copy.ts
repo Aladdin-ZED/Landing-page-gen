@@ -3,6 +3,7 @@
  * stale when the merchant edits a pack. Lines are picked for the product (consumable, giftable or
  * durable) and for the real bundle ladder (a duo, bigger packs, or a single offer).
  */
+import { offerUnits } from "@/lib/page/catalog";
 import type { Locale, Offers, Product, ProductCategory } from "@/lib/page/schema";
 
 type L = { ar: string; fr: string; en: string };
@@ -23,7 +24,7 @@ export interface OfferCopy {
 }
 
 export function offerCopy(locale: Locale, product: Product, offers: Offers, rng: () => number): OfferCopy {
-  const qtys = offers.bundles.map((b) => b.qty);
+  const qtys = offers.bundles.map((b) => offerUnits(b));
   const multi = qtys.some((q) => q > 1);
   const kind = CONSUMABLE.has(product.category) ? "use" : GIFTABLE.has(product.category) ? "gift" : "keep";
 

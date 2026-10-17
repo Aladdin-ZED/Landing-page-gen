@@ -2,7 +2,8 @@
 /**
  * Version history drawer: every generation, save, publish, restore and autosave of the page.
  * Select one to see it, then restore it (a "restore" version is recorded and the current draft is
- * kept as "Before restore"), preview it full-size, or start a new page from it.
+ * kept as "Before restore"), preview it full-size, or start a new page from it. A restore keeps the
+ * page's current pixels unless "Also restore its pixels" is ticked (docs/OFFERS.md §A.4).
  */
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUpRight, Bookmark, CopyPlus, History, LoaderCircle, Pencil, RotateCcw, Star } from "lucide-react";
@@ -11,12 +12,14 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { LandingThumbnail } from "@/components/preview";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { createVersion, duplicatePage, getVersionPreview, listVersions, renameVersion, restoreVersion, starVersion } from "@/lib/editor/actions";
 import { VersionLabel } from "@/lib/editor/schemas";
 import type { EditorAsset, VersionKind, VersionSummary } from "@/lib/editor/types";
 import type { PageDoc } from "@/lib/page/schema";
+import { sameIds } from "@/lib/pixels/library";
 import { cn } from "@/lib/utils";
 import { useEditor, useEditorStore } from "./context";
 import { fullTime, relativeTime, useEnv, useNow } from "./env";
@@ -58,6 +61,10 @@ export function VersionsDrawer({ open, onOpenChange }: { open: boolean; onOpenCh
   const [preview, setPreview] = useState<{ id: string; doc: PageDoc; assets: Record<string, EditorAsset> } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** "Also restore its pixels" (off: a restore keeps the page's current pixels) */
+  const [restorePixelsFor, setRestorePixelsFor] = useState<string | null>(null);
+  const restorePixels = restorePixelsFor !== null && restorePixelsFor === selected;
+  const draftTracking = useEditor((s) => s.doc.tracking);
   const [newLabel, setNewLabel] = useState("");
 
   const shown = useMemo(() => {
@@ -109,7 +116,9 @@ export function VersionsDrawer({ open, onOpenChange }: { open: boolean; onOpenCh
       toast.error("Resolve the editing conflict first.");
       return;
     }
-    const res = await call(() => restoreVersion({ pageId: page.id, versionId: v.id, baseUpdatedAt: store.getState().page.updatedAt }));
+    // `pixels`: restore the version's pixels too (the server keeps the current ones otherwise)
+    const input = { pageId: page.id, versionId: v.id, baseUpdatedAt: store.getState().page.updatedAt, pixels: restorePixels };
+    const res = await call(() => restoreVersion(input));
     setBusy(null);
     if (!res.ok) {
       if (res.error === "conflict") {
@@ -263,6 +272,15 @@ export function VersionsDrawer({ open, onOpenChange }: { open: boolean; onOpenCh
                     {sel.author ? ` · ${sel.author}` : ""}
                   </p>
                   <div className="mt-auto flex flex-col gap-1.5 pt-3">
+                    {user.canWrite && preview && preview.id === sel.id && !sameIds(preview.doc.tracking, draftTracking) ? (
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-foreground/[0.035] px-2.5 py-2 text-[11.5px] leading-snug text-foreground/80">
+                        <Checkbox checked={restorePixels} onCheckedChange={(v) => setRestorePixelsFor(v === true ? sel.id : null)} className="mt-px" />
+                        <span className="grid gap-0.5">
+                          <span className="font-medium">Also restore its pixels</span>
+                          <span className="text-muted-foreground">Off: the page keeps the pixels it has now.</span>
+                        </span>
+                      </label>
+                    ) : null}
                     {user.canWrite ? (
                       <Button size="sm" onClick={() => void restore(sel)} disabled={!!busy} className="justify-start">
                         {busy === "restore" ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}

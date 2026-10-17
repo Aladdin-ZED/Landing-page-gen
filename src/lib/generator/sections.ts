@@ -12,7 +12,7 @@ import { applyPatch } from "./overlay";
 import type { PlannedSection } from "./plan";
 import { parseOr } from "./zod-tools";
 
-export type DocBasics = Pick<PageDoc, "locale" | "product" | "offers" | "theme">;
+export type DocBasics = Pick<PageDoc, "locale" | "product" | "items" | "offers" | "theme">;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 

@@ -4,7 +4,8 @@
  */
 import { z } from "zod";
 import { AssetRef, Locale, Market, Money, Tracking } from "@/lib/page/schema";
-import { PIXEL_ID_RE } from "@/lib/pixels/ids";
+import { ID_HELP } from "@/lib/pixels/form";
+import { PIXEL_ID_RE, PIXEL_PLATFORMS } from "@/lib/pixels/ids";
 
 const text = (max: number) =>
   z
@@ -83,8 +84,56 @@ export const SheetsSettings = z.object({
   connectedAt: z.iso.datetime({ offset: true }).optional(),
 });
 
-/** Store-level ad pixels: the defaults new pages start with ("Apply to pages" copies them too). */
+/**
+ * Store-level ad pixels from before per-page pixels (docs/OFFERS.md §A): read once by the pixel
+ * library migration (src/lib/pixels/migrate.server.ts), ignored afterwards, deleted in the cleanup
+ * release. Pages own their pixels; nothing copies this value into pages any more.
+ */
 export const PixelsSettings = Tracking;
+
+/* ------------------------------------------------------------------ */
+/* Pixel library (§A.2): every pixel the store knows, labels, test windows */
+/* ------------------------------------------------------------------ */
+
+/** A per-page, time-boxed test window: events of THIS page carry the pixel's test code until `until`. */
+export const PixelTestWindow = z.object({ pageId: z.string().length(26), until: z.iso.datetime({ offset: true }) });
+export type PixelTestWindow = z.infer<typeof PixelTestWindow>;
+
+export const PixelLibraryEntry = z
+  .object({
+    platform: z.enum(PIXEL_PLATFORMS),
+    /** canonical (normalizePixelId); immutable once saved */
+    id: z.string(),
+    /** "Compte principal", "BM backup 2" */
+    label: z.string().trim().max(40).default(""),
+    addedAt: z.iso.datetime({ offset: true }),
+    /** expired windows are pruned on every write */
+    tests: z.array(PixelTestWindow).max(5).default([]),
+  })
+  .superRefine((e, c) => {
+    if (!PIXEL_ID_RE[e.platform].test(e.id)) c.addIssue({ code: "custom", message: ID_HELP[e.platform], path: ["id"] });
+  });
+export type PixelLibraryEntry = z.infer<typeof PixelLibraryEntry>;
+
+/** The UI adds up to 100; the schema keeps headroom so the migration never drops an id. */
+export const PIXEL_LIBRARY_UI_MAX = 100;
+export const PixelLibrarySettings = z
+  .object({ v: z.literal(1).default(1), pixels: z.array(PixelLibraryEntry).max(200).default([]) })
+  .refine((l) => new Set(l.pixels.map((p) => `${p.platform}:${p.id}`)).size === l.pixels.length, { error: "Duplicate pixel." });
+
+/** Last server outcome of a pixel (no personal data). */
+export const PixelHealthEntry = z.object({
+  at: z.iso.datetime({ offset: true }),
+  state: z.enum(["ok", "refused", "unverified"]),
+  code: z.enum(["token", "permission", "pixel", "rate", "network", "other"]).optional(),
+  testMode: z.boolean(),
+});
+export type PixelHealthEntry = z.infer<typeof PixelHealthEntry>;
+/** key "platform:id" */
+export const PixelHealthSettings = z.record(z.string().max(80), PixelHealthEntry);
+/** Spec name (§A.2). */
+export const PixelHealth = PixelHealthSettings;
+export type PixelHealth = z.infer<typeof PixelHealthSettings>;
 
 /** A platform's "Test events" code (Meta Events Manager / TikTok Events Manager), e.g. TEST12345. */
 export const TestEventCode = z.string().trim().regex(/^[A-Z0-9]{4,20}$/, { error: "4–20 capital letters and digits, e.g. TEST12345." });
@@ -93,15 +142,16 @@ export const TestEventCode = z.string().trim().regex(/^[A-Z0-9]{4,20}$/, { error
 const perPixel = <T extends z.ZodType>(platform: "meta" | "tiktok", value: T) =>
   z
     .record(z.string().regex(PIXEL_ID_RE[platform]), value)
-    .refine((o) => Object.keys(o).length <= 12, { error: "Too many pixels." })
+    .refine((o) => Object.keys(o).length <= 200, { error: "Too many pixels." })
     .default({});
 
 /**
  * Server-side event credentials (stored encrypted). Tokens and test codes are per pixel id — a
- * Conversions API token / Events API token belongs to one pixel (dataset). The single-value fields
- * are how they were stored before multi-pixel support: they still apply to any pixel without its
- * own entry (see serverCredentials in src/lib/orders/conversions-core.ts) and move into the per-pixel
- * maps the next time Settings → Pixels is saved.
+ * Conversions API token / Events API token belongs to one pixel (dataset). A test code is a stored
+ * value: it is attached to an event only inside an active test window of that event's page (pixel
+ * library, §A.2). The single-value fields are how they were stored before multi-pixel support: the
+ * library migration copies them into the per-pixel maps; they stay stored (rollback only), are never
+ * read by this build, and are deleted in the cleanup release.
  */
 export const TrackingSecretsSettings = z.object({
   /** Meta Conversions API access token per Meta pixel id */
@@ -163,6 +213,10 @@ export const SETTINGS = {
   defaults: def({ schema: DefaultsSettings, secret: false, defaults: () => ({}) }),
   sheets: def({ schema: SheetsSettings, secret: false, defaults: () => ({ enabled: false }) }),
   pixels: def({ schema: PixelsSettings, secret: false, defaults: () => ({}) }),
+  /** the pixel library (§A.2) — also the migration marker: written last by migrate.server.ts */
+  pixel_library: def({ schema: PixelLibrarySettings, secret: false, defaults: () => ({ v: 1 as const, pixels: [] }) }),
+  /** last server outcome per pixel, "platform:id" → entry (§A.2) */
+  pixel_health: def({ schema: PixelHealthSettings, secret: false, defaults: () => ({}) }),
   tracking_secrets: def({
     schema: TrackingSecretsSettings,
     secret: true,

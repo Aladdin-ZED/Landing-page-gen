@@ -3,6 +3,11 @@ import "server-only";
  * Abandoned-lead capture: the runtime posts the form state once the phone looks valid. One row per
  * idempotency key (= the order's idem), updated while the visitor keeps typing, marked converted
  * when the order arrives. Invalid phones and throttled clients are ignored silently.
+ *
+ * `selection` (docs/OFFERS.md §G.1, §I.2, §I.4): the warehouse text of the part of the lead's offer
+ * choice that resolves against the version the visitor saw ("1 × Jour + 1 × Nuit (NR/M)"), ≤ 400
+ * characters. Units or extras that don't resolve (not chosen yet, unknown ids) are left out, never
+ * an error.
  */
 import { eq, sql } from "drizzle-orm";
 import type { z } from "zod";
@@ -13,8 +18,9 @@ import { findCity, getMarket } from "@/lib/markets";
 import { normalizePhone } from "@/lib/markets/phone";
 import { hashIp } from "@/lib/security/crypto";
 import { rateLimit } from "@/lib/security/rate-limit";
-import type { LeadPayload } from "./contract";
-import { resolvePageKey, type PageTarget } from "./resolve";
+import type { LeadPayload, UnitIn } from "./contract";
+import { orderVersion, resolvePageKey, type PageTarget } from "./resolve";
+import { leadSelectionText } from "./lead-text";
 import { cleanInput, validName } from "./validate";
 
 type Lead = z.output<typeof LeadPayload>;
@@ -39,6 +45,18 @@ export async function upsertLead(payload: Lead, ctx: { ip: string; target?: Page
   const bundleId = payload.bundleId && doc.offers.bundles.some((b) => b.id === payload.bundleId) ? payload.bundleId : null;
   const utm = Object.fromEntries(Object.entries(payload.utm).filter(([, v]) => typeof v === "string" && v));
 
+  // the selection reads the version the visitor saw (same rule as orders); never blocks the lead
+  let selection: string | null = null;
+  try {
+    const seen = await orderVersion(target, payload);
+    const units = (payload.units ?? []).filter((u): u is UnitIn => !!u && typeof u === "object");
+    const extras = Object.fromEntries(Object.entries(payload.extras ?? {}).filter((e): e is [string, string] => typeof e[1] === "string"));
+    const id = payload.bundleId && seen.doc.offers.bundles.some((b) => b.id === payload.bundleId) ? payload.bundleId : null;
+    selection = leadSelectionText(seen.doc, { bundleId: id, units, extras });
+  } catch (err) {
+    console.warn("[leads] selection skipped:", err instanceof Error ? err.message : "unknown error");
+  }
+
   // only the original page's unconverted lead may be updated through its idem
   const own = sql`\`page_id\` = ${target.pageId} AND \`converted_order_id\` IS NULL`;
   await db
@@ -51,6 +69,7 @@ export async function upsertLead(payload: Lead, ctx: { ip: string; target?: Page
       name,
       city,
       bundleId,
+      selection,
       utm: Object.keys(utm).length ? utm : null,
       createdAt: new Date(),
     })
@@ -60,6 +79,7 @@ export async function upsertLead(payload: Lead, ctx: { ip: string; target?: Page
         name: sql`IF(${own}, COALESCE(VALUES(\`name\`), \`name\`), \`name\`)`,
         city: sql`IF(${own}, COALESCE(VALUES(\`city\`), \`city\`), \`city\`)`,
         bundleId: sql`IF(${own}, COALESCE(VALUES(\`bundle_id\`), \`bundle_id\`), \`bundle_id\`)`,
+        selection: sql`IF(${own}, COALESCE(VALUES(\`selection\`), \`selection\`), \`selection\`)`,
       },
     });
   return { stored: true };

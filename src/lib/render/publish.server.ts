@@ -3,6 +3,12 @@ import "server-only";
  * Publishing & serving of landing pages.
  *
  *   const v = await publishPage(pageId, user.id, { expectedUpdatedAt }); // draft → validated → rendered → immutable version
+ *   const r = await renderAndCommit(pageId, doc, { kind: "publish", label, userId, baseVersionId }); // any validated doc → live
+ *   const t = await publishTrackingOnly(pageId, user.id, tracking, baseVersionId); // live version + new pixels only
+ *
+ * Pixels (docs/OFFERS.md §A.3): every publish path refuses ids that are not in the pixel library
+ * (`pixel_not_in_library`) unless the user may change settings (an owner's unknown ids join the
+ * library), and audits "page.pixels_changed" (masked ids) whenever the live ids change.
  *   const p = await getPublishedBySlug("argan");       // what GET /argan serves (cached in memory)
  *   const h = await getHomePublished();                // what GET / serves
  *   const l = await getLegalDocument(p, "privacy");    // GET /legal/privacy?p=argan (rendered on demand)
@@ -16,14 +22,17 @@ import "server-only";
  * invalidatePublished() (re-exported here from ./cache.server).
  */
 import { createHash } from "node:crypto";
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 import { audit } from "@/lib/audit";
+import { PixelError, enforceLibraryRule } from "@/lib/pixels/library.server";
+import { idsOnly, maskPixelId, sameIds, trackingDiff, type PixelRef } from "@/lib/pixels/library";
+import { invalidatePixelUsage } from "@/lib/pixels/usage.server";
 import { isGatePath } from "@/lib/auth/gate";
 import { db } from "@/lib/db/client";
 import { newId } from "@/lib/db/ids";
 import { pages, pageVersions, settings } from "@/lib/db/schema";
 import { getAssetsByIds } from "@/lib/media";
-import type { PageDoc } from "@/lib/page/schema";
+import type { PageDoc, Tracking } from "@/lib/page/schema";
 import { validateDoc, type DocIssue } from "@/lib/page/validate";
 import { getSetting, getSettings } from "@/lib/settings";
 import { collectAssetIds, liveAssetResolver, liveLinks, type AssetResolver, type LegalKind, type StoreInfo } from "@/landing/context";
@@ -68,9 +77,22 @@ export function publicOrigin(): string | undefined {
   }
 }
 
+export type PublishErrorCode =
+  | "not_found"
+  | "invalid"
+  | "conflict"
+  /** the rendered page breaks a page cap (HTML weight, order form data, option photos: render/caps.ts) */
+  | "page_too_large"
+  /** renderAndCommit with baseVersionId: the live version moved meanwhile */
+  | "live_changed"
+  /** a pixel the page would fire is not in the pixel library and the user can't add it (§A.3) */
+  | "pixel_not_in_library"
+  /** publishTrackingOnly on a page that isn't live */
+  | "not_live";
+
 export class PublishError extends Error {
   constructor(
-    readonly code: "not_found" | "invalid" | "conflict",
+    readonly code: PublishErrorCode,
     message: string,
     readonly issues: DocIssue[] = [],
     /** "conflict": the page's current updatedAt (ms), so an editor can reload or resolve */
@@ -145,7 +167,8 @@ const sha256hex = (s: string) => createHash("sha256").update(s, "utf8").digest("
 
 /**
  * Validate the page draft, render landing + thank-you pages, store them as an immutable "publish"
- * version and point the page at it. Throws PublishError("not_found" | "invalid" | "conflict").
+ * version and point the page at it. Throws PublishError("not_found" | "invalid" | "conflict" |
+ * "page_too_large").
  *
  * The version always holds exactly the draft whose stamp is checked in the transaction: the row is
  * locked (FOR UPDATE) and its updated_at compared with the one read before rendering.
@@ -164,7 +187,7 @@ export async function publishPage(pageId: string, userId: string, opts: PublishO
 
 async function publishOnce(pageId: string, userId: string, expectedUpdatedAt: number | undefined): Promise<PublishResult | "retry"> {
   const [page] = await db
-    .select({ id: pages.id, slug: pages.slug, draft: pages.draft, publicKey: pages.publicKey, updatedAt: pages.updatedAt })
+    .select({ id: pages.id, slug: pages.slug, draft: pages.draft, updatedAt: pages.updatedAt })
     .from(pages)
     .where(eq(pages.id, pageId))
     .limit(1);
@@ -176,70 +199,321 @@ async function publishOnce(pageId: string, userId: string, expectedUpdatedAt: nu
 
   const { doc, issues } = validateDoc(page.draft);
   if (!doc) throw new PublishError("invalid", "The page has errors that must be fixed before publishing.", issues);
+  await libraryRule(doc.tracking, userId);
+  const before = await liveIds(page.id);
+
+  const res = await renderAndCommit(page.id, doc, {
+    kind: "publish",
+    label: null,
+    userId,
+    draft: { readStamp, slug: page.slug, strict: expectedUpdatedAt !== undefined },
+  });
+  if (res === "retry") return "retry";
+  await audit("page.published", {
+    userId,
+    target: page.id,
+    meta: { versionId: res.versionId, slug: res.slug, warnings: issues.length, failedSections: res.renderIssues.map((i) => i.sectionId), turnstile: res.turnstile },
+  });
+  await auditPixels(page.id, userId, doc.tracking, before, "publish");
+  return { versionId: res.versionId, pageId: page.id, slug: res.slug, etag: res.etag, publishedAt: res.publishedAt, issues, renderIssues: res.renderIssues };
+}
+
+export interface CommitOptions {
+  kind: "publish";
+  /** version label ("Pixels only"…); null for a plain publish */
+  label: string | null;
+  userId: string;
+  /**
+   * Compare-and-swap on the live version (pixels-only updates): the page must still point at this
+   * version when the row is locked, else PublishError("live_changed"). The draft stamp is never
+   * checked nor moved.
+   */
+  baseVersionId?: string | null;
+  /**
+   * Compare-and-swap on the draft (publishPage): the stamp and slug read before rendering. A draft
+   * saved meanwhile → PublishError("conflict") when `strict`, else "retry". The stamp moves forward.
+   */
+  draft?: { readStamp: number; slug: string; strict: boolean };
+}
+
+export interface CommitResult {
+  versionId: string;
+  slug: string;
+  etag: string;
+  publishedAt: Date;
+  /** sections left out because they failed to render */
+  renderIssues: RenderIssue[];
+  /** runtime contract of the published HTML (page_versions.runtime_v) */
+  runtimeV: number;
+  turnstile: boolean;
+}
+
+/* ------------------------------------------------------------------ */
+/* Database packet size (MariaDB max_allowed_packet; XAMPP ships 1 MB)  */
+/* ------------------------------------------------------------------ */
+
+/** Bytes a string takes in a text-protocol statement (mysql2 escapes \0 \b \t \n \r \x1a " ' \\ with a backslash). */
+const sqlBytes = (s: string | null | undefined): number => (s ? Buffer.byteLength(s, "utf8") + (s.match(/[\0\b\t\n\r\x1a"'\\]/g)?.length ?? 0) : 0);
+/** statement text and the small columns around the big value */
+const PACKET_SLACK = 4096;
+let packetCache: { at: number; bytes: number } | null = null;
+
+/** The server's max_allowed_packet (cached 10 min); null when it can't be read. */
+async function maxPacket(): Promise<number | null> {
+  if (packetCache && Date.now() - packetCache.at < 600_000) return packetCache.bytes;
+  try {
+    const [rows] = (await db.execute(sql`SELECT @@max_allowed_packet AS m`)) as unknown as [{ m: number | string }[]];
+    const bytes = Number(rows[0]?.m);
+    if (!Number.isFinite(bytes) || bytes <= 0) return null;
+    packetCache = { at: Date.now(), bytes };
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+/** A refused statement: the server's packet error, or the reset that follows it (the rollback then fails too). */
+function packetError(err: unknown): "packet" | "reset" | null {
+  for (let e = err as { code?: unknown; errno?: unknown; message?: unknown; cause?: unknown } | undefined, i = 0; e && i < 6; e = e.cause as typeof e, i++) {
+    if (e.code === "ER_NET_PACKET_TOO_LARGE" || e.errno === 1153 || (typeof e.message === "string" && e.message.includes("max_allowed_packet"))) return "packet";
+    if (e.code === "ECONNRESET" || e.code === "PROTOCOL_CONNECTION_LOST" || e.code === "EPIPE") return "reset";
+  }
+  return null;
+}
+
+const tooHeavy = (bytes: number, limit: number | null) =>
+  new PublishError(
+    "page_too_large",
+    `This page is too heavy for the database: one write needs ${Math.ceil(bytes / 1024)} KB` +
+      (limit ? ` and the server accepts ${Math.floor(limit / 1024)} KB (MariaDB max_allowed_packet)` : " (more than MariaDB's max_allowed_packet)") +
+      ". Remove sections or photos, or raise max_allowed_packet on the database server.",
+    [{ level: "error", path: "page.html", message: "The page is too heavy for the database." }],
+  );
+
+/**
+ * Render a validated document (landing + thank-you, current renderer and store settings), refuse
+ * blocking render issues (`page_too_large`, also when one write would exceed the database's
+ * max_allowed_packet), insert the immutable "publish" version (with its
+ * runtime_v: the runtime contract the rendered HTML embeds) and move the page's publishedVersionId —
+ * the page row locked FOR UPDATE and checked against `draft` (publishPage) or `baseVersionId`
+ * (pixels-only updates). Shared by every publish path.
+ */
+export async function renderAndCommit(pageId: string, doc: PageDoc, opts: CommitOptions): Promise<CommitResult | "retry"> {
+  const [page] = await db.select({ id: pages.id, slug: pages.slug, publicKey: pages.publicKey }).from(pages).where(eq(pages.id, pageId)).limit(1);
+  if (!page) throw new PublishError("not_found", "Page not found.");
+  const slug = opts.draft?.slug ?? page.slug;
+  if (!isServableSlug(slug)) throw new PublishError("invalid", `The address "/${slug}" is reserved — choose another slug.`);
 
   const [store, siteKey] = await Promise.all([storeInfo(), turnstileSiteKey()]);
   const assets = await liveResolverFor(doc, store);
-  const urls: DocumentUrls = { landing: landingPath(page.slug), thankYou: thankYouPath(page.slug), endpoints: PUBLIC_ENDPOINTS };
-  const opts = {
+  const urls: DocumentUrls = { landing: landingPath(slug), thankYou: thankYouPath(slug), endpoints: PUBLIC_ENDPOINTS };
+  const renderOpts = {
     mode: "live" as const,
     assets,
     pageKey: page.publicKey,
     store,
     urls,
-    links: liveLinks(page.slug),
+    links: liveLinks(slug),
     origin: publicOrigin(),
     turnstileSiteKey: siteKey,
   };
-  const landing = await renderLandingHtml(doc, opts);
-  const thanks = await renderThankYouHtml(doc, opts);
-
+  // the version id is known before rendering: #lp-config carries it as `ver` (§G.1)
   const versionId = newId();
+  const landing = await renderLandingHtml(doc, { ...renderOpts, ver: versionId });
+  if (landing.blocking.length) {
+    throw new PublishError(
+      "page_too_large",
+      landing.blocking.map((b) => b.message).join(" "),
+      landing.blocking.map((b) => ({ level: "error" as const, path: `page.${b.measure}`, message: b.message })),
+    );
+  }
+  const thanks = await renderThankYouHtml(doc, renderOpts);
+  const runtimeV = landing.runtimeV ?? 1;
+  // the version row travels as three statements (row + doc, landing HTML, thank-you HTML), so the
+  // largest packet is the heaviest of them, never their sum; refused here with a clear message
+  // rather than as a reset connection mid-transaction
+  const heaviest = Math.max(sqlBytes(JSON.stringify(doc)) + sqlBytes(landing.csp) + sqlBytes(thanks.csp), sqlBytes(landing.html), sqlBytes(thanks.html)) + PACKET_SLACK;
+  const packetLimit = await maxPacket();
+  if (packetLimit && heaviest > packetLimit) throw tooHeavy(heaviest, packetLimit);
+
   let publishedAt = new Date();
   const committed = await db.transaction(async (tx) => {
     const [locked] = await tx
-      .select({ updatedAt: pages.updatedAt, slug: pages.slug })
+      .select({ updatedAt: pages.updatedAt, slug: pages.slug, publishedVersionId: pages.publishedVersionId })
       .from(pages)
       .where(eq(pages.id, page.id))
       .limit(1)
       .for("update");
     if (!locked) throw new PublishError("not_found", "Page not found.");
-    const stamp = locked.updatedAt.getTime();
-    if (stamp !== readStamp || locked.slug !== page.slug) {
-      if (expectedUpdatedAt !== undefined) throw draftChanged(stamp);
+    if (locked.slug !== slug) {
+      if (opts.draft?.strict) throw draftChanged(locked.updatedAt.getTime());
       return false;
     }
-    // the stamp always moves forward (editors compare it exactly)
-    publishedAt = new Date(Math.max(publishedAt.getTime(), stamp + 1));
+    if (opts.draft) {
+      const stamp = locked.updatedAt.getTime();
+      if (stamp !== opts.draft.readStamp) {
+        if (opts.draft.strict) throw draftChanged(stamp);
+        return false;
+      }
+      // the stamp always moves forward (editors compare it exactly)
+      publishedAt = new Date(Math.max(publishedAt.getTime(), stamp + 1));
+    }
+    if (opts.baseVersionId !== undefined && locked.publishedVersionId !== opts.baseVersionId) {
+      throw new PublishError("live_changed", "The live page changed meanwhile. Reload, then try again.");
+    }
     await tx.insert(pageVersions).values({
       id: versionId,
       pageId: page.id,
-      kind: "publish",
-      label: null,
+      kind: opts.kind,
+      label: opts.label,
       doc,
-      html: landing.html,
-      thankYouHtml: thanks.html,
       csp: landing.csp,
       thankYouCsp: thanks.csp,
       etag: landing.etag,
       checksum: sha256hex(JSON.stringify(doc)),
-      createdBy: userId,
+      runtimeV,
+      createdBy: opts.userId,
       createdAt: publishedAt,
     });
+    await tx.update(pageVersions).set({ html: landing.html }).where(eq(pageVersions.id, versionId));
+    await tx.update(pageVersions).set({ thankYouHtml: thanks.html }).where(eq(pageVersions.id, versionId));
     await tx
       .update(pages)
-      .set({ publishedVersionId: versionId, status: "published", locale: doc.locale, updatedAt: publishedAt })
+      .set({
+        publishedVersionId: versionId,
+        status: "published",
+        locale: doc.locale,
+        // a pixels-only update never touches the draft stamp (open editors keep saving)
+        ...(opts.draft ? { updatedAt: publishedAt } : {}),
+      })
       .where(eq(pages.id, page.id));
     return true;
+  }).catch((err: unknown) => {
+    const why = packetError(err);
+    // a reset only means "too large" when this write could be (limit unknown: MariaDB's 1 MB floor)
+    if (why === "packet" || (why === "reset" && heaviest > (packetLimit ?? 1024 * 1024))) throw tooHeavy(heaviest, packetLimit);
+    throw err;
   });
   if (!committed) return "retry";
   invalidatePublished();
-  await audit("page.published", {
-    userId,
-    target: page.id,
-    meta: { versionId, slug: page.slug, warnings: issues.length, failedSections: landing.issues.map((i) => i.sectionId), turnstile: !!siteKey },
-  });
+  return { versionId, slug, etag: landing.etag, publishedAt, renderIssues: landing.issues, runtimeV, turnstile: !!siteKey };
+}
 
-  return { versionId, pageId: page.id, slug: page.slug, etag: landing.etag, publishedAt, issues, renderIssues: landing.issues };
+/* ------------------------------------------------------------------ */
+/* Pixels: library rule, audit, pixels-only live update (§A.3)          */
+/* ------------------------------------------------------------------ */
+
+/** The library rule as a PublishError (`pixel_not_in_library`). */
+async function libraryRule(tracking: Tracking, userId: string): Promise<void> {
+  try {
+    await enforceLibraryRule(tracking, userId);
+  } catch (err) {
+    if (err instanceof PixelError && err.code === "pixel_not_in_library") {
+      throw new PublishError("pixel_not_in_library", err.message, [{ level: "error", path: "tracking", message: err.message }]);
+    }
+    throw err;
+  }
+}
+
+/** The live version's pixel ids (null when the page isn't live). */
+async function liveIds(pageId: string): Promise<Tracking | null> {
+  const [row] = await db
+    .select({ doc: pageVersions.doc, status: pages.status })
+    .from(pages)
+    .innerJoin(pageVersions, eq(pageVersions.id, pages.publishedVersionId))
+    .where(eq(pages.id, pageId))
+    .limit(1);
+  if (!row || row.status !== "published") return null;
+  return idsOnly((row.doc as { tracking?: Record<string, unknown> } | null)?.tracking ?? null);
+}
+
+const masked = (refs: readonly PixelRef[]) => refs.map((r) => `${r.platform}:${maskPixelId(r.id)}`);
+
+/** audit("page.pixels_changed") when the live ids changed; refreshes the usage cache. */
+async function auditPixels(pageId: string, userId: string, next: Tracking, before: Tracking | null, mode: "publish" | "pixels_only"): Promise<void> {
+  invalidatePixelUsage();
+  const diff = trackingDiff(next, before);
+  if (!diff.added.length && !diff.removed.length) return;
+  await audit("page.pixels_changed", { userId, target: pageId, meta: { added: masked(diff.added), removed: masked(diff.removed), mode } });
+}
+
+export interface TrackingOnlyResult {
+  versionId: string;
+  slug: string;
+  publishedAt: Date;
+  /** the draft's tracking was patched too (false: it already matched, or it changed meanwhile) */
+  draftUpdated: boolean;
+  /** the draft was being edited and kept its pixels (compare-and-swap lost 3 times) */
+  draftConflict: boolean;
+  /** the draft's new stamp when it was patched (editors adopt it) */
+  draftUpdatedAt: number | null;
+}
+
+/**
+ * Pixels-only live update (§A.3): the LIVE version's document with only `tracking` replaced,
+ * validated, rendered with the current renderer and committed as a new "publish" version labelled
+ * "Pixels only" — the page row locked and checked against `baseVersionId` (PublishError
+ * "live_changed"), never against the draft stamp. Then the draft's tracking is patched
+ * (compare-and-swap, 3 attempts) unless it already matches. Open tabs keep ordering against the
+ * previous version through the 72 h rule.
+ */
+export async function publishTrackingOnly(
+  pageId: string,
+  userId: string,
+  tracking: Tracking,
+  baseVersionId: string,
+  /** patchDraft false: the caller already patched the draft (Replace on pages…) */
+  opts: { patchDraft?: boolean } = {},
+): Promise<TrackingOnlyResult> {
+  const [row] = await db
+    .select({ status: pages.status, publishedVersionId: pages.publishedVersionId, doc: pageVersions.doc })
+    .from(pages)
+    .leftJoin(pageVersions, eq(pageVersions.id, pages.publishedVersionId))
+    .where(eq(pages.id, pageId))
+    .limit(1);
+  if (!row) throw new PublishError("not_found", "Page not found.");
+  if (row.status !== "published" || !row.publishedVersionId || !row.doc) throw new PublishError("not_live", "This page isn't live. Publish it first.");
+  if (row.publishedVersionId !== baseVersionId) throw new PublishError("live_changed", "The live page changed meanwhile. Reload, then try again.");
+  const { doc: liveDoc } = validateDoc(row.doc);
+  if (!liveDoc) throw new PublishError("invalid", "The live version can't be read. Publish the page from the builder instead.");
+  // live pages fire ids only; "No pixel" is kept only when there are none
+  const ids = idsOnly(tracking);
+  const nextTracking: Tracking = sameIds(ids, {}) && tracking.none ? { none: true } : ids;
+  const { doc, issues } = validateDoc({ ...liveDoc, tracking: nextTracking });
+  if (!doc) throw new PublishError("invalid", "These pixels can't be published.", issues);
+  await libraryRule(doc.tracking, userId);
+  const before = idsOnly(liveDoc.tracking);
+
+  const res = await renderAndCommit(pageId, doc, { kind: "publish", label: "Pixels only", userId, baseVersionId });
+  if (res === "retry") throw new PublishError("live_changed", "The live page changed meanwhile. Reload, then try again.");
+  await audit("page.published", { userId, target: pageId, meta: { versionId: res.versionId, slug: res.slug, pixelsOnly: true } });
+  await auditPixels(pageId, userId, doc.tracking, before, "pixels_only");
+
+  // the draft follows (compare-and-swap on its stamp; an editor saving meanwhile keeps its own)
+  let draftUpdated = false;
+  let draftConflict = false;
+  let draftUpdatedAt: number | null = null;
+  for (let attempt = 0; opts.patchDraft !== false && attempt < 3; attempt++) {
+    const [d] = await db.select({ draft: pages.draft, updatedAt: pages.updatedAt }).from(pages).where(eq(pages.id, pageId)).limit(1);
+    if (!d || !d.draft || typeof d.draft !== "object") break;
+    const current = (d.draft as { tracking?: Record<string, unknown> }).tracking ?? {};
+    if (sameIds(current, doc.tracking) && !!current.none === !!doc.tracking.none) break;
+    const stamp = new Date(Math.max(Date.now(), d.updatedAt.getTime() + 1));
+    const nextDraft = { ...(d.draft as PageDoc), tracking: { ...doc.tracking } };
+    const upd = await db
+      .update(pages)
+      .set({ draft: nextDraft, updatedAt: stamp })
+      .where(and(eq(pages.id, pageId), eq(pages.updatedAt, d.updatedAt)));
+    const n = (Array.isArray(upd) ? (upd[0] as { affectedRows?: number }) : (upd as { affectedRows?: number }))?.affectedRows ?? 0;
+    if (n === 1) {
+      draftUpdated = true;
+      draftUpdatedAt = stamp.getTime();
+      break;
+    }
+    if (attempt === 2) draftConflict = true;
+  }
+  invalidatePixelUsage();
+  return { versionId: res.versionId, slug: res.slug, publishedAt: res.publishedAt, draftUpdated, draftConflict, draftUpdatedAt };
 }
 
 /* ------------------------------------------------------------------ */

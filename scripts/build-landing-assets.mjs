@@ -22,13 +22,29 @@
  *                    page that renders two or more variants of one type inlines it.
  *   thankYouCss      src/landing/thankyou/thankyou.css
  *   legalCss         src/landing/legal/legal.css (privacy / terms / shipping / contact documents)
- *   runtimeJs        src/landing/runtime/entry.ts bundled as an IIFE (es2019, minified)
+ *   runtimeJs        the "landing" runtime chunk (= runtimeChunks.landing; kept for the renderer)
  *   runtimeHash      "sha256-<base64>" of runtimeJs, for the hash-based landing CSP
  *   version          short content hash of everything here and in chunks.ts
  * → src/landing/generated/chunks.ts (renderer only — kept out of the admin's client bundle):
  *   sectionChunkCss  types with variant files: "<type>" (<type>.css) and "<type>.<variant>"
  *   sectionVariants  the variant ids of each of those types (sorted)
  *   A page rendering ONE variant of a type inlines "<type>" + "<type>.<variant>" (src/landing/document.tsx).
+ *   pickerCss        orderForm/packs.<picker>.css per offer picker (docs/OFFERS.md §F.9): a page inlines
+ *                    its resolved picker's chunk (plus its fallback picker's) after the orderForm CSS;
+ *                    the complete orderForm stylesheet (sectionCss, the preview) carries all of them.
+ * (assets.ts, read by the renderer) runtimeChunks — the runtime split into independent IIFEs (§F.9), each its own inline <script>:
+ *                      landing         runtime/entry.ts            product pages (core, offers, units, form…)
+ *                      thanks          runtime/entry-thanks.ts     thank-you pages
+ *                      pixels          runtime/entry-pixels.ts     pages with pixels, mode ≠ preview
+ *                      turnstile       runtime/entry-turnstile.ts  a Turnstile site key is embedded
+ *                      units-matrix    runtime/entry-matrix.ts     config.features has "matrix"
+ *                      units-fields    runtime/entry-fields.ts     config.features has "fields"
+ *                      fill-steps-box  runtime/entry-steps.ts      config.features has "steps-box"
+ *                      whatsapp        runtime/entry-whatsapp.ts   WhatsApp exports: the bridge (WA_BRIDGE_JS), after the core
+ *                    Optional chunks go BEFORE the core chunk (they register on window.__lpx).
+ *   runtimeChunkHashes  "sha256-<base64>" of each chunk (CSP).
+ *   Budgets (gzip -9 bytes, src/landing/runtime/budgets.json): a warning here; render-check fails above
+ *   the recorded number + 5%.
  *
  * Why a merge for the complete stylesheet: concatenating the variant files would repeat a rule two
  * variants share AFTER the first variant's own later rules, where it could override them (the
@@ -40,7 +56,8 @@
  * Files are rewritten only when their content changes. Runs on predev/prebuild (`npm run
  * assets:build`). Missing or empty sources yield empty strings; invalid CSS rules are dropped with a
  * warning (lightningcss error recovery) so one broken section can never take the whole site down.
- * Budget (a warning, never a failure): runtime ≤ 15 KB gzip. `--report` prints every chunk's size.
+ * Budgets (warnings, never a failure here): each runtime chunk per budgets.json, and the heaviest page
+ * (every optional chunk + landing) under the page cap (budgets.json "page", docs/OFFERS.md §F.9). `--report` prints every chunk's size.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -56,8 +73,25 @@ const OUT_FILE = join(LANDING, "generated", "assets.ts");
 const CHUNKS_FILE = join(LANDING, "generated", "chunks.ts");
 const REPORT = process.argv.includes("--report");
 
-/** Runtime budget (ARCHITECTURE.md: ~15 KB of runtime on a visitor's page), gzip -9 bytes. */
-const RUNTIME_GZIP_BUDGET = 15 * 1024;
+/** Runtime chunks: chunk name → entry file (docs/OFFERS.md §F.9). */
+const RUNTIME_CHUNKS = [
+  ["landing", "entry.ts"],
+  ["thanks", "entry-thanks.ts"],
+  ["pixels", "entry-pixels.ts"],
+  ["turnstile", "entry-turnstile.ts"],
+  ["units-matrix", "entry-matrix.ts"],
+  ["units-fields", "entry-fields.ts"],
+  ["fill-steps-box", "entry-steps.ts"],
+  ["whatsapp", "entry-whatsapp.ts"],
+];
+/** Chunk budgets, gzip -9 bytes (measured, docs/OFFERS.md §F.9); "page" = the heaviest page in one document. */
+const BUDGETS = (() => {
+  try {
+    return JSON.parse(readFileSync(join(LANDING, "runtime", "budgets.json"), "utf8"));
+  } catch {
+    return {};
+  }
+})();
 
 /** Browser floor of the landing pages (DESIGN.md §9): chrome 90, safari 14, firefox 90, samsung 14. */
 const v = (major, minor = 0) => (major << 16) | (minor << 8);
@@ -368,10 +402,36 @@ function listVariantFiles(type) {
   return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
-async function compileRuntime() {
-  const entry = join(LANDING, "runtime", "entry.ts");
+/**
+ * The generated modules are renderer data: a runtime chunk that imports a shared module mentioning
+ * them (src/lib/export/whatsapp.ts: WA_BRIDGE_JS = runtimeChunks.whatsapp) gets an empty stand-in.
+ */
+const NO_GENERATED = {
+  name: "no-generated-chunks",
+  setup(b) {
+    b.onResolve({ filter: /generated\/(?:assets|chunks)$/ }, () => ({ path: "generated", namespace: "lp-stub" }));
+    b.onLoad({ filter: /.*/, namespace: "lp-stub" }, () => ({ contents: "export const runtimeChunks = {}, runtimeChunkHashes = {};", loader: "js" }));
+  },
+};
+
+/** orderForm/packs.<picker>.css → { picker: css } (sorted). */
+function listPickerCss() {
+  const dir = join(LANDING, "sections", "orderForm");
+  const out = {};
+  if (!existsSync(dir)) return out;
+  for (const name of readdirSync(dir).sort()) {
+    const m = /^packs\.([a-z0-9]+(?:-[a-z0-9]+)*)\.css$/.exec(name);
+    if (!m) continue;
+    const css = compileCss(join(dir, name));
+    if (css) out[m[1]] = css;
+  }
+  return out;
+}
+
+async function compileRuntime(file) {
+  const entry = join(LANDING, "runtime", file);
   if (!isNonEmptyFile(entry)) {
-    warn(`${rel(entry)} is missing — runtimeJs is empty`);
+    warn(`${rel(entry)} is missing — its runtime chunk is empty`);
     return "";
   }
   const res = await build({
@@ -387,8 +447,9 @@ async function compileRuntime() {
     logLevel: "silent",
     tsconfig: join(ROOT, "tsconfig.json"),
     define: { "process.env.NODE_ENV": '"production"' },
+    plugins: [NO_GENERATED],
   });
-  for (const w of res.warnings) warn(`runtime: ${w.text}`);
+  for (const w of res.warnings) warn(`runtime ${file}: ${w.text}`);
   return guardScript(res.outputFiles[0]?.text.trim() ?? "");
 }
 
@@ -423,19 +484,27 @@ async function main() {
     if (complete) sectionCss[type] = complete;
   }
 
+  const pickerCss = listPickerCss();
+  if (Object.keys(pickerCss).length && sectionCss.orderForm) sectionCss.orderForm = [sectionCss.orderForm, ...Object.values(pickerCss)].join("\n");
+
   const thankYouCss = compileCss(join(LANDING, "thankyou", "thankyou.css"));
   const legalCss = compileCss(join(LANDING, "legal", "legal.css"));
 
-  let runtimeJs = "";
-  try {
-    runtimeJs = await compileRuntime();
-  } catch (err) {
-    const msg = err?.errors?.map?.((e) => `${e.location?.file ?? ""}:${e.location?.line ?? ""} ${e.text}`).join("; ") ?? String(err);
-    throw new Error(`runtime bundle failed: ${msg}`);
+  const runtimeChunks = {};
+  const runtimeChunkHashes = {};
+  for (const [name, file] of RUNTIME_CHUNKS) {
+    try {
+      runtimeChunks[name] = await compileRuntime(file);
+    } catch (err) {
+      const msg = err?.errors?.map?.((e) => `${e.location?.file ?? ""}:${e.location?.line ?? ""} ${e.text}`).join("; ") ?? String(err);
+      throw new Error(`runtime bundle ${name} failed: ${msg}`);
+    }
+    runtimeChunkHashes[name] = runtimeChunks[name] ? `sha256-${sha256(runtimeChunks[name]).digest("base64")}` : "";
   }
-  const runtimeHash = runtimeJs ? `sha256-${sha256(runtimeJs).digest("base64")}` : "";
+  const runtimeJs = runtimeChunks.landing;
+  const runtimeHash = runtimeChunkHashes.landing;
 
-  const versionHash = sha256(JSON.stringify([base, sectionCss, sectionChunkCss, sectionVariants, thankYouCss, legalCss, runtimeJs])).digest("hex").slice(0, 12);
+  const versionHash = sha256(JSON.stringify([base, sectionCss, sectionChunkCss, sectionVariants, pickerCss, thankYouCss, legalCss, runtimeChunks])).digest("hex").slice(0, 12);
 
   const lit = (s) => JSON.stringify(s);
   const entries = (obj) =>
@@ -462,11 +531,27 @@ export const thankYouCss: string = ${lit(thankYouCss)};
 /** Legal documents stylesheet (src/landing/legal/legal.css). */
 export const legalCss: string = ${lit(legalCss)};
 
-/** Landing runtime (src/landing/runtime/entry.ts), IIFE, es2019, minified. Inlined at the end of <body>. */
+/**
+ * The "landing" runtime chunk (src/landing/runtime/entry.ts), IIFE, es2019, minified: product pages,
+ * inlined at the end of <body> after their optional chunks. Every chunk: ./chunks · runtimeChunks.
+ */
 export const runtimeJs: string = ${lit(runtimeJs)};
 
 /** CSP source expression for runtimeJs ("sha256-<base64>"); empty when there is no runtime. */
 export const runtimeHash: string = ${lit(runtimeHash)};
+
+/** Runtime chunks (docs/OFFERS.md §F.9). Optional chunks register on window.__lpx: inline them BEFORE "landing" / "thanks". */
+export type RuntimeChunk = ${RUNTIME_CHUNKS.map(([n]) => lit(n)).join(" | ")};
+
+/** Each chunk: an IIFE (es2019, minified) for its own inline <script>. */
+export const runtimeChunks: Readonly<Record<RuntimeChunk, string>> = {
+${entries(runtimeChunks)}
+};
+
+/** CSP source expression of each chunk ("sha256-<base64>"). */
+export const runtimeChunkHashes: Readonly<Record<RuntimeChunk, string>> = {
+${entries(runtimeChunkHashes)}
+};
 
 /** Content version of this asset set (assets.ts + chunks.ts). */
 export const version: string = ${lit(versionHash)};
@@ -488,6 +573,12 @@ ${entries(sectionChunkCss)}
 export const sectionVariants: Readonly<Record<string, readonly string[]>> = {
 ${entries(sectionVariants)}
 };
+
+/** Offer picker stylesheets (orderForm/packs.<picker>.css): a page inlines its picker's (+ its fallback's). */
+export const pickerCss: Readonly<Record<string, string>> = {
+${entries(pickerCss)}
+};
+
 `;
 
   mkdirSync(dirname(OUT_FILE), { recursive: true });
@@ -501,7 +592,16 @@ ${entries(sectionVariants)}
   const gz = (s) => (s ? gzipSync(Buffer.from(s, "utf8"), { level: 9 }).length : 0);
   const kb = (n) => (n / 1024).toFixed(1);
   const runtimeGz = gz(runtimeJs);
-  if (runtimeGz > RUNTIME_GZIP_BUDGET) warn(`runtime is ${kb(runtimeGz)} KB gzip — over the ${kb(RUNTIME_GZIP_BUDGET)} KB budget`);
+  for (const [name] of RUNTIME_CHUNKS) {
+    const size = gz(runtimeChunks[name]);
+    const budget = BUDGETS[name];
+    if (typeof budget === "number" && size > budget) warn(`runtime chunk ${name} is ${kb(size)} KB gzip — over its ${kb(budget)} KB budget`);
+  }
+  // the heaviest product page: every optional chunk + landing, as separate scripts and as one document
+  const worst = ["pixels", "turnstile", "units-matrix", "units-fields", "fill-steps-box", "landing"].map((n) => runtimeChunks[n]);
+  const worstSum = worst.reduce((n, js) => n + gz(js), 0);
+  const worstDoc = gz(worst.join("\n"));
+  if (typeof BUDGETS.page === "number" && worstDoc > BUDGETS.page) warn(`heaviest page scripts are ${kb(worstDoc)} KB gzip in one document — over the ${kb(BUDGETS.page)} KB cap`);
   const sum = (obj) => Object.values(obj).reduce((n, s) => n + bytes(s), 0);
   const variantCount = Object.values(sectionVariants).reduce((n, ids) => n + ids.length, 0);
   if (REPORT) {
@@ -512,7 +612,9 @@ ${entries(sectionVariants)}
       rows.push([`  ${type}`, sectionChunkCss[type] ?? ""]);
       for (const id of sectionVariants[type]) rows.push([`  ${type}.${id}`, sectionChunkCss[`${type}.${id}`]]);
     }
-    rows.push(["thank-you", thankYouCss], ["legal", legalCss], ["runtime", runtimeJs]);
+    for (const [id, css] of Object.entries(pickerCss)) rows.push([`  picker ${id}`, css]);
+    rows.push(["thank-you", thankYouCss], ["legal", legalCss]);
+    for (const [name] of RUNTIME_CHUNKS) rows.push([`runtime ${name}`, runtimeChunks[name]]);
     for (const [name, s] of rows) console.log(`  ${name.padEnd(34)} ${kb(bytes(s)).padStart(6)} KB ${kb(gz(s)).padStart(6)} KB gz`);
   }
   console.log(
@@ -520,7 +622,8 @@ ${entries(sectionVariants)}
       `${Object.keys(sectionCss).length} section types ${kb(sum(sectionCss))} KB complete · ` +
       `${Object.keys(sectionVariants).length} split into ${variantCount} variant chunks (${kb(sum(sectionChunkCss))} KB) · ` +
       `thank-you ${kb(bytes(thankYouCss))} KB · legal ${kb(bytes(legalCss))} KB · ` +
-      `runtime ${kb(bytes(runtimeJs))} KB (${kb(runtimeGz)} KB gz) · ${Math.round(performance.now() - t0)} ms` +
+      `runtime ${kb(bytes(runtimeJs))} KB (${kb(runtimeGz)} KB gz) + ${RUNTIME_CHUNKS.length - 1} chunks, heaviest page ${kb(worstSum)} KB gz ` +
+      `(${kb(worstDoc)} KB in one document) · ${Math.round(performance.now() - t0)} ms` +
       (warnings ? ` · ${warnings} warning(s)` : ""),
   );
 }

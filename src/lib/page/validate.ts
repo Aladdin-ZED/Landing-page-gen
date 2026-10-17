@@ -3,7 +3,10 @@
  *
  *   const { doc, issues } = validateDoc(draft);   // doc === null → not renderable (see issues)
  *
- * - The page-level fields (product, offers, form, theme…) must satisfy PageDoc — they are not guessed.
+ * - The page-level fields (product, items, offers, form, theme…) must satisfy PageDoc — they are not
+ *   guessed. v1 documents are upgraded to v2 first and everything existing data can break is repaired
+ *   (src/lib/page/upgrade.ts: money to 2 decimals, duplicate ids, dangling references…); each repair
+ *   is reported as a warning.
  * - Sections are repaired one by one: unknown types and malformed instances are dropped, unknown
  *   variants fall back to the first variant, duplicate ids are renamed, extra singletons dropped,
  *   required sections (the order form) added, and invalid section data is merged over the section's
@@ -15,7 +18,8 @@
  * Isomorphic: used by the publisher (server), the renderer and the admin preview (browser).
  */
 import type { z } from "zod";
-import { Divider, PageDoc, SectionInstance, ThemeSpec, type PageDoc as PageDocT, type SectionInstance as SectionInstanceT } from "./schema";
+import { Divider, PageDocObject, SectionInstance, ThemeSpec, type PageDoc as PageDocT, type SectionInstance as SectionInstanceT } from "./schema";
+import { upgradeDocReport } from "./upgrade";
 import { seededRandom } from "@/landing/context";
 import { getSection, SECTIONS } from "@/landing/registry";
 import type { AnySectionDefinition } from "@/landing/types";
@@ -195,13 +199,14 @@ export interface NormalizedSection {
   issues: DocIssue[];
 }
 
-type DocBasics = Pick<PageDocT, "locale" | "product" | "offers" | "theme">;
+type DocBasics = Pick<PageDocT, "locale" | "product" | "items" | "offers" | "theme">;
 
 /** The section definition's defaults for this page (deterministic per page seed + section id). */
 export function sectionDefaults(def: AnySectionDefinition, doc: DocBasics, sectionId: string): unknown {
   return def.defaults({
     locale: doc.locale,
     product: doc.product,
+    items: doc.items,
     offers: doc.offers,
     archetype: doc.theme.archetype,
     rng: seededRandom(doc.theme.seed, `defaults:${sectionId}`),
@@ -277,28 +282,19 @@ function uniqueId(base: string, taken: ReadonlySet<string>): string {
 
 export function validateDoc(input: unknown): ValidateResult {
   const issues: DocIssue[] = [];
-  const raw = sanitizeDeep(input);
-  if (!isPlainObject(raw)) return { doc: null, issues: [{ level: "error", path: "", message: "The page document is not an object." }] };
-  migrateLegacy(raw, issues);
+  const sanitized = sanitizeDeep(input);
+  if (!isPlainObject(sanitized)) return { doc: null, issues: [{ level: "error", path: "", message: "The page document is not an object." }] };
+  migrateLegacy(sanitized, issues);
+
+  // v1 → v2 + deterministic repairs (offer / line / group / option ids, preselected, dangling refs…)
+  const up = upgradeDocReport(sanitized);
+  for (const r of up.repairs) issues.push({ level: "warning", path: r.path, message: r.message });
+  const raw = isPlainObject(up.doc) ? up.doc : sanitized;
 
   const rawSections = raw.sections;
-  const head = PageDoc.safeParse({ ...raw, sections: [] });
+  const head = PageDocObject.safeParse({ ...raw, sections: [] });
   if (!head.success) return { doc: null, issues: [...issues, ...zodIssues(head.error, "", "error")] };
-  const base = head.data;
-
-  /* bundles: ids must be unique (runtime + order API select by id) */
-  const bundleIds = new Set<string>();
-  const bundles = base.offers.bundles.map((b, i) => {
-    if (!bundleIds.has(b.id)) {
-      bundleIds.add(b.id);
-      return b;
-    }
-    const id = uniqueId(b.id, bundleIds);
-    bundleIds.add(id);
-    issues.push({ level: "warning", path: `offers.bundles.${i}.id`, message: `Duplicate bundle id "${b.id}" renamed to "${id}".` });
-    return { ...b, id };
-  });
-  const docBase: PageDocT = { ...base, offers: { ...base.offers, bundles } };
+  const docBase: PageDocT = head.data;
 
   /* sections */
   const list = Array.isArray(rawSections) ? rawSections.slice(0, MAX_SECTIONS) : [];
@@ -387,7 +383,7 @@ export function validateDoc(input: unknown): ValidateResult {
     }
   }
 
-  const final = PageDoc.safeParse({ ...docBase, sections });
+  const final = PageDocObject.safeParse({ ...docBase, sections });
   if (!final.success) return { doc: null, issues: [...issues, ...zodIssues(final.error, "", "error")] };
   return { doc: final.data, issues };
 }

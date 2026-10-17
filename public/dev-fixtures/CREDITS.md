@@ -20,3 +20,15 @@ Rebuild them with `npx tsx scripts/qa/fixture-images.ts`.
 | blender-fruit | `c5a0913383417911c3572b8ed81cf1eb` | Melissa Walker Horn | https://unsplash.com/photos/loyxR74E4vU |
 | parfum-glass | `55e4c8246376fe46c9055d88b1387baf` | Kier in Sight Archives | https://unsplash.com/photos/j1vg92xdoX4 |
 | parfum-tray | `0adb2ba97e1013e60401e63989862c79` | Lindsey Savage | https://unsplash.com/photos/jSoc-A8rwfo |
+
+Derived photos of the Offers v2 fixtures (`duo`, `tshirt`, `colors`), built offline by
+`npx tsx scripts/qa/fixture-derived.ts` from the photos above (Unsplash License: modifications
+allowed) or drawn as vector mockups:
+
+| Fixture image | Asset id | Made from |
+|---|---|---|
+| duo-pair (16:9) | `40b88379a913d4547c42c7cbc4a04fa8` | argan-amber + parfum-glass, side by side |
+| duo-serum (4:5) | `b6ee0e53782ccb2b5721c474d0975ee5` | argan-stand, cropped |
+| tee-noir (4:5) | `4508cdd123b86a79e0e2c542f861e2cb` | vector t-shirt mockup (no photo) |
+| tee-blanc (4:5) | `3f0fb0c3cdf3fe94a7779062d416a8ea` | vector t-shirt mockup (no photo) |
+| tee-gris (4:5) | `549fe175e9e879b760036480016220ed` | vector t-shirt mockup (no photo) |

@@ -3,6 +3,10 @@
  * Full-size framing editor for one AssetRef: the picker (subject, heads, hands, live crops of every
  * frame shape) with the image's alt text. AUTO = no fx/fy (pages fit every frame to the subject);
  * a point = every frame centers on it. Edits apply to the page as they are made (undoable).
+ *
+ * Box mode (docs/OFFERS.md §B.4, "Crop {item} from this photo"): `mode="box"` opens the crop frame
+ * instead (src/components/admin/items/crop-dialog.tsx, shared with the generate wizard): drag a
+ * rectangle around one product of a group photo; `onBox` gets the box (0..1 of the photo).
  */
 import { RotateCcwIcon } from "lucide-react";
 import { useId, useRef } from "react";
@@ -13,7 +17,8 @@ import { roundFocal } from "@/components/admin/media/focal/tags";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { AssetRef } from "@/lib/page/schema";
+import { CropDialog } from "@/components/admin/items/crop-dialog";
+import type { AssetRef, CropBox } from "@/lib/page/schema";
 import { useEditor } from "../context";
 import { assetUrl } from "../env";
 
@@ -42,19 +47,46 @@ export function FocalDialog({
   assetRef,
   onChange,
   title = "Framing",
+  mode = "focal",
+  onBox,
+  initialBox,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   assetRef: AssetRef;
   onChange(next: AssetRef): void;
   title?: string;
+  /** "box": crop one product out of the photo (assetRef.box is the current crop) */
+  mode?: "focal" | "box";
+  onBox?(box: CropBox): void;
+  /** box mode: where a new crop starts */
+  initialBox?: CropBox;
 }) {
   const altId = useId();
   const done = useRef<HTMLButtonElement>(null);
   const row = useEditor((s) => s.assets[assetRef.id]);
-  const { info, loading } = useFocalInfo(open ? assetRef.id : null);
+  const { info, loading } = useFocalInfo(open && mode === "focal" ? assetRef.id : null);
   const value = refFocal(assetRef);
   const src = assetUrl(row, 960);
+
+  if (mode === "box") {
+    return (
+      <CropDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        src={assetUrl(row, 1440)}
+        width={row?.width ?? 1}
+        height={row?.height ?? 1}
+        value={assetRef.box ?? null}
+        initial={initialBox}
+        title={title}
+        onDone={(box) => {
+          onBox?.(box);
+          onChange({ ...assetRef, box });
+        }}
+      />
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

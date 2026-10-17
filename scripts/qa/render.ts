@@ -22,7 +22,8 @@ import { LEGAL_KINDS, type LegalKind } from "@/landing/context";
 import { getSection, SECTION_TYPES } from "@/landing/registry";
 import type { PageLinks } from "@/landing/types";
 import { FIXTURE_LOCALES, FIXTURE_NAMES, fixtureAssets, getFixture, isFixtureName, type FixtureLocale } from "@/lib/page/fixtures";
-import { defaultBundleId, orderTotals } from "@/lib/page/pricing";
+import { offerUnits } from "@/lib/page/catalog";
+import { defaultBundleId, emptySelection, fromCents, orderTotals } from "@/lib/page/pricing";
 import { ARCHETYPES, type Archetype, type PageDoc } from "@/lib/page/schema";
 import { validateDoc } from "@/lib/page/validate";
 import { bundleLabel } from "@/lib/render/config";
@@ -119,8 +120,9 @@ function revealAll(html: string): string {
 /** A sample order in sessionStorage so the thank-you page renders its "filled" state. */
 function seedOrder(html: string, doc: PageDoc, pageKey: string): string {
   const t = createT(doc.locale);
-  const bundle = doc.offers.bundles.find((b) => b.id === defaultBundleId(doc.offers)) ?? doc.offers.bundles[0]!;
-  const totals = orderTotals(doc.product, doc.offers, bundle.id, false);
+  const bundle = doc.offers.bundles.find((b) => b.id === defaultBundleId(doc.offers, doc.items)) ?? doc.offers.bundles[0]!;
+  const cents = orderTotals(doc, emptySelection(bundle.id));
+  const totals = cents ? { total: fromCents(cents.total) } : null;
   const label = bundleLabel({ t }, bundle);
   const order = {
     orderId: "CMD-7K3Q9X",
@@ -129,7 +131,7 @@ function seedOrder(html: string, doc: PageDoc, pageKey: string): string {
     currency: doc.currency,
     bundleLabel: label,
     items: label,
-    qty: bundle.qty,
+    qty: offerUnits(bundle),
     upsellToken: "qa-upsell-token-0001",
     eventId: "qa-event-0001",
     ts: 0,

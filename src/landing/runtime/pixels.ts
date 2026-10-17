@@ -14,17 +14,22 @@
  *              event id = order id — the id the server-side events (Meta Conversions API, TikTok
  *              Events API) carry, so each platform counts the order once. GA4: transaction_id.
  *
+ * Contents per item (docs/OFFERS.md §G.7): content ids per item (contentIdOf), quantities and unit
+ * prices from the offer price split (money.ts allocate) — browser events from the current selection
+ * (st.px, a choice unit not chosen yet counting as its line's first available item), the Purchase from
+ * the stored order groups; the bump item at its price. content_name = product (one item) or offer.
+ *
+ * Optional chunk "pixels" (§F.9): the renderer embeds it only on pages with pixels outside previews.
+ *
  * Advanced matching: once the phone number is valid, its SHA-256 hashes (+ name, e-mail, country;
  * never the clear values) are kept in sessionStorage "lp-px-u" → TikTok identify() right away; on the
  * thank-you page Meta init user data, TikTok identify() and Snap init get them before the Purchase,
  * then they are deleted.
  */
-import { round2 } from "../../lib/page/pricing";
+import { round2 } from "../../lib/page/money";
 import { PIXEL_EVENTS, pixelIdList, purchaseEventId, type PixelPlatform, type PixelStep } from "../../lib/pixels/ids";
-import type { Ctx, W } from "./core";
+import type { Content, Ctx, PixelOrder, W } from "./core";
 import { getForm, report, sget, sset } from "./core";
-import { control } from "./fields";
-import { computeTotals } from "./money";
 import { normalizePhone } from "./phone";
 
 type Fn = (...a: unknown[]) => void;
@@ -73,12 +78,15 @@ const LEAD_DELAY_MS = 1200;
 const HEX64 = /^[a-f0-9]{64}$/;
 
 interface PixelEvent {
-  /** event value (pack total, order total…) */
+  /** event value, money (pack total, order total…) */
   value: number;
+  /** units (+ bump) */
   qty: number;
   currency: string;
-  /** unit price of the item (defaults to value / qty) */
-  unit?: number;
+  /** per content id: quantity, unit price (cents) */
+  contents: Content[];
+  /** content_name: product name (single item) or the offer label */
+  name: string;
   orderId?: string;
 }
 
@@ -268,19 +276,20 @@ export function pixels(c: Ctx): void {
     const value = round2(e.value);
     const cur = e.currency;
     const qty = Math.max(1, Math.round(e.qty) || 1);
-    const unit = round2(e.unit !== undefined ? e.unit : value / qty);
-    const id = p.contentId;
+    const list = e.contents.length ? e.contents : [{ id: p.contentId, q: qty, p: Math.round((value * 100) / qty) }];
+    const ids = list.map((x) => x.id);
+    const name = e.name || p.name;
     const eventId = step === "purchase" && e.orderId ? purchaseEventId(e.orderId) : "";
     const lead = step === "lead";
     if (on("meta") && w.fbq)
       guard(() => {
         const data: Record<string, unknown> = lead
-          ? { content_name: p.name, content_ids: [id], value, currency: cur }
+          ? { content_name: name, content_ids: ids, value, currency: cur }
           : {
-              content_ids: [id],
+              content_ids: ids,
               content_type: "product",
-              content_name: p.name,
-              contents: [{ id, quantity: qty, item_price: unit }],
+              content_name: name,
+              contents: list.map((x) => ({ id: x.id, quantity: x.q, item_price: x.p / 100 })),
               value,
               currency: cur,
               num_items: qty,
@@ -294,9 +303,9 @@ export function pixels(c: Ctx): void {
         w.ttq!.track(
           PIXEL_EVENTS.tiktok[step],
           {
-            contents: [{ content_id: id, content_type: "product", content_name: p.name, quantity: qty, price: unit }],
+            contents: list.map((x) => ({ content_id: x.id, content_type: "product", content_name: name, quantity: x.q, price: x.p / 100 })),
             content_type: "product",
-            content_ids: [id],
+            content_ids: ids,
             value,
             currency: cur,
             ...(e.orderId ? { order_id: e.orderId } : {}),
@@ -312,7 +321,7 @@ export function pixels(c: Ctx): void {
           lead
             ? { price: value, currency: cur }
             : {
-                item_ids: [id],
+                item_ids: ids,
                 price: value,
                 currency: cur,
                 number_items: qty,
@@ -331,17 +340,17 @@ export function pixels(c: Ctx): void {
             : {
                 currency: cur,
                 value,
-                items: [{ item_id: p.sku || id, item_name: p.name, quantity: qty, price: unit }],
+                items: list.map((x) => ({ item_id: x.id, item_name: name, quantity: x.q, price: x.p / 100 })),
                 ...(e.orderId ? { transaction_id: e.orderId } : {}),
               },
         ),
       );
   };
 
-  const perUnit = (bundleId: string) => {
-    const b = cfg.bundles.find((x) => x.id === bundleId);
-    return b ? round2(b.perUnit) : undefined;
-  };
+  /** the selection (or the default offer) as an event: value = subtotal / total, contents per item */
+  const ev = (o: PixelOrder | null, total: boolean): PixelEvent | null =>
+    o ? { value: (total ? o.total : o.subtotal) / 100, qty: o.units, currency: cfg.currency, contents: o.contents, name: o.name } : null;
+  const order = (id?: string) => (st.px ? st.px(id) : null);
 
   /* ---------------- loaders + page view (once per window) ---------------- */
   if (!w.__lpPx) {
@@ -380,20 +389,17 @@ export function pixels(c: Ctx): void {
         gtag("js", new Date());
         for (const id of ids.ga4) gtag("config", id);
       });
-    if (landing) {
-      const t = computeTotals(cfg, cfg.defaultBundleId, false);
-      send("view", {
-        value: t ? t.bundle : p.price,
-        qty: t ? t.qty : 1,
-        currency: cfg.currency,
-        unit: t ? perUnit(cfg.defaultBundleId) : p.price,
-      });
-    }
+    // after the DOM modules bound (the selection reader is theirs): ViewContent of the default offer
+    if (landing)
+      win.setTimeout(() => {
+        const e = ev(order(cfg.defaultBundleId), false);
+        if (e) send("view", e);
+      }, 0);
   }
 
   /* ---------------- thank-you: Purchase (emitted once per order by thankyou.ts) ---------------- */
   c.sub("purchase", (o) => {
-    send("purchase", { value: o.value, qty: o.qty, currency: o.currency, orderId: o.orderId });
+    send("purchase", { value: o.value, qty: o.qty, currency: o.currency, orderId: o.orderId, contents: o.contents || [], name: o.name || p.name });
     try {
       win.sessionStorage.removeItem(PX_USER_KEY);
     } catch {
@@ -407,10 +413,10 @@ export function pixels(c: Ctx): void {
   let checkout = false;
   const cart = () => {
     if (carted) return;
-    const t = computeTotals(cfg, st.bundleId || cfg.defaultBundleId, st.bump);
-    if (!t) return;
+    const e = ev(order(), false);
+    if (!e) return;
     carted = true;
-    send("cart", { value: t.subtotal, qty: t.qty, currency: cfg.currency, unit: perUnit(st.bundleId) });
+    send("cart", e);
   };
   // after the current event: the bundle module may apply the shopper's pick in the same tick
   c.sub("bundle", (e) => {
@@ -420,10 +426,10 @@ export function pixels(c: Ctx): void {
     win.setTimeout(() => {
       cart();
       if (checkout) return;
-      const t = computeTotals(cfg, st.bundleId || cfg.defaultBundleId, st.bump);
-      if (!t) return;
+      const e = ev(order(), true);
+      if (!e) return;
       checkout = true;
-      send("checkout", { value: t.total, qty: t.qty, currency: cfg.currency, unit: perUnit(st.bundleId) });
+      send("checkout", e);
     }, 0),
   );
 
@@ -437,19 +443,19 @@ export function pixels(c: Ctx): void {
     if (leadDone || st.done) return;
     leadDone = true;
     sset(win, "sessionStorage", leadKey, "1");
-    const t = computeTotals(cfg, st.bundleId || cfg.defaultBundleId, st.bump);
-    send("lead", { value: t ? t.total : p.price, qty: t ? t.qty : 1, currency: cfg.currency });
+    const e = ev(order(), true);
+    if (e) send("lead", e);
   };
   const contact = (now: boolean) => {
     const f = getForm(c);
-    const phoneEl = f ? control(f, "phone") : null;
+    const phoneEl = f ? f.querySelector<HTMLInputElement>('[name="phone"]') : null;
     const phone = phoneEl ? normalizePhone(phoneEl.value, cfg.phone) : null;
     if (!f || !phone) {
       win.clearTimeout(leadTimer);
       return;
     }
-    const nameEl = control(f, "name");
-    const emailEl = control(f, "email");
+    const nameEl = f.querySelector<HTMLInputElement>('[name="name"]');
+    const emailEl = f.querySelector<HTMLInputElement>('[name="email"]');
     const name = nameEl ? nameEl.value.slice(0, 80) : "";
     const email = emailEl && !emailEl.disabled ? emailEl.value.slice(0, 120) : "";
     const key = phone.e164 + "\n" + name + "\n" + email;

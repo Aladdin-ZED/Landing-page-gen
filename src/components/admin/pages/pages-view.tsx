@@ -1,9 +1,9 @@
 "use client";
 
-import { ArchiveIcon, GlobeIcon, HomeIcon, PlusIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { ArchiveIcon, GlobeIcon, HomeIcon, PlusIcon, RadarIcon, SparklesIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { PreviewAssets } from "@/components/preview";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { runAction, type ActionResult } from "../lib/action-result";
 import { useQueryState } from "../lib/use-query-state";
 import { ExportDialog, PagePreviewDialog } from "../on-demand";
 import { editHref, PageCard, type PageAction, type PagePermissions } from "./page-card";
+import { livePageMissingPixels, useLivePixels } from "./page-pixels";
 
 export interface PageActions {
   duplicate: (id: string) => Promise<ActionResult<{ id: string; slug: string }>>;
@@ -61,6 +62,14 @@ export function PagesView({
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [preview, setPreview] = useState<PageListItem | null>(null);
   const [exporting, setExporting] = useState<PageListItem | null>(null);
+  // live pixels per page (chips) and the "No pixel" filter: live pages with no ids and no "No pixel"
+  const livePixels = useLivePixels();
+  const noPixelOnly = query.get("pixels") === "none";
+  const noPixelCount = useMemo(() => (livePixels ? pages.filter((p) => p.status === "published" && livePageMissingPixels(livePixels.pages[p.id])).length : 0), [pages, livePixels]);
+  const shownPages = useMemo(
+    () => (noPixelOnly && livePixels ? pages.filter((p) => p.status === "published" && livePageMissingPixels(livePixels.pages[p.id])) : pages),
+    [pages, livePixels, noPixelOnly],
+  );
 
   const urlFor = (slug: string) => `${origin ?? (typeof window !== "undefined" ? window.location.origin : "")}/${slug}`;
 
@@ -111,7 +120,7 @@ export function PagesView({
     }
   };
 
-  const filtersActive = !!query.get("q") || status !== "active";
+  const filtersActive = !!query.get("q") || status !== "active" || noPixelOnly;
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -128,6 +137,22 @@ export function PagesView({
           ]}
         />
         <div className="flex items-center gap-2">
+          {(noPixelCount > 0 || noPixelOnly) && (
+            <button
+              type="button"
+              aria-pressed={noPixelOnly}
+              onClick={() => query.set({ pixels: noPixelOnly ? null : "none" })}
+              title="Live pages that send no ad events"
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium ring-1 ring-inset outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+                noPixelOnly ? "bg-warn/15 text-warn-ink ring-warn/45" : "text-muted-foreground ring-foreground/10 hover:bg-foreground/[0.04] hover:text-foreground",
+              )}
+            >
+              <RadarIcon className="size-3.5" />
+              No pixel
+              <span className="tabular-nums opacity-80">{noPixelCount}</span>
+            </button>
+          )}
           <SearchField value={query.get("q")} onCommit={(q) => query.set({ q })} placeholder="Search pages" pending={query.pending} />
           <Select value={sort} onValueChange={(v) => query.set({ sort: v === "updated" ? null : v })}>
             <SelectTrigger className="h-9 w-[9.5rem] shrink-0 rounded-full" aria-label="Sort pages">
@@ -142,14 +167,14 @@ export function PagesView({
         </div>
       </div>
 
-      {pages.length === 0 ? (
+      {shownPages.length === 0 ? (
         filtersActive ? (
           <EmptyState
             illustration="search"
             title="No pages match"
             description="Try another name or address, or clear the filters."
             actions={
-              <button type="button" onClick={() => query.set({ q: null, status: null })} className="text-sm font-medium text-brand hover:underline">
+              <button type="button" onClick={() => query.set({ q: null, status: null, pixels: null })} className="text-sm font-medium text-brand hover:underline">
                 Clear filters
               </button>
             }
@@ -173,10 +198,11 @@ export function PagesView({
         )
       ) : (
         <div className={cn("grid grid-cols-1 gap-5 transition-opacity duration-300 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4", query.pending && "opacity-60")}>
-          {pages.map((page, i) => (
+          {shownPages.map((page, i) => (
             <PageCard
               key={page.id}
               page={page}
+              livePixels={livePixels ? { live: livePixels.pages[page.id], labels: livePixels.labels } : undefined}
               assets={assets}
               store={store}
               liveUrl={urlFor(page.slug)}

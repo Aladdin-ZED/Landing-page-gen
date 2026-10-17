@@ -14,7 +14,11 @@
  *  - shelf   — a lit display window: each pack stands on a cylinder podium whose height follows the
  *              quantity (a skyline: the bigger the pack, the higher it stands, "×3" set on its face),
  *              a spotlight that follows the selection, caption cards hanging off the window.
- * All money comes from bundleMath() (./packs): savings only when real, labels per offers.showSavings.
+ * All money comes from the shared offer model (src/landing/offers/model.ts, docs/OFFERS.md §E.7):
+ * the card price is `from` ("Dès" when choices can cost more), savings only when real, labels per
+ * offers.showSavings. Offers of one item ×n keep their art direction (stack, lineup, podium ×n);
+ * multi-item, choice and custom-visual offers show the composed visual (§E.6) in the same wells, and
+ * their short name ("Duo", "Au choix") where the quantity stood.
  */
 import { Fragment, type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
@@ -43,6 +47,7 @@ import { PlannedPhoto } from "../orderForm/photo";
 import { Plain } from "../orderForm/text";
 import { allFree, featuredOf, packsOf, type Pack } from "./packs";
 import { Lineup, Stack, copiesOf, lineupSpan, type ProductVisual } from "./visuals";
+import { OfferVisual } from "../../offers/visual";
 
 const VARIANT_IDS = ["stacked", "tickets", "shelf"] as const;
 type Variant = (typeof VARIANT_IDS)[number];
@@ -101,6 +106,26 @@ const Times = ({ ctx, qty, className }: { ctx: RenderContext; qty: number; class
   </span>
 );
 
+/** The quantity mark of one item ×n; the short name ("Duo", "Au choix") of any other offer. */
+const Mark = ({ ctx, p, className }: { ctx: RenderContext; p: Pack; className?: string }) =>
+  p.sameItem ? (
+    <Times ctx={ctx} qty={p.qty} className={className} />
+  ) : (
+    <span className={cx("lp-ofr__times lp-ofr__times--word", className)} aria-hidden="true">
+      <bdi>{p.short}</bdi>
+    </span>
+  );
+
+/** The composed visual (§E.6) of a multi-item / choice / custom offer, in a well of the variant. */
+const Composed = ({ ctx, p, sizes, className }: { ctx: RenderContext; p: Pack; sizes: string; className?: string }) => (
+  <span className={cx("lp-ov-host lp-ofr__ov", className)} aria-hidden="true">
+    <OfferVisual ctx={ctx} view={p} sizes={sizes} max={4} />
+  </span>
+);
+
+/** Shown by its composition: several items, a choice, or the owner's own visual. */
+const composed = (p: Pack) => p.imageLed || (!!p.image && !p.sameItem);
+
 /* ------------------------------------------------------------------ */
 /* Shared pieces                                                       */
 /* ------------------------------------------------------------------ */
@@ -135,7 +160,7 @@ function PackLink({
       data-badge={p.badge?.kind}
       data-bg={paper}
       style={style}
-      aria-labelledby={p.titled ? `${k.n} ${k.q} ${k.p} ${k.c}` : `${k.n} ${k.p} ${k.c}`}
+      aria-labelledby={p.titled || p.contentsText ? `${k.n} ${k.q} ${k.p} ${k.c}` : `${k.n} ${k.p} ${k.c}`}
       aria-describedby={k.d}
     >
       {children}
@@ -147,10 +172,10 @@ function Name({ ctx, p, k }: { ctx: RenderContext; p: Pack; k: Ids }) {
   return (
     <span className="lp-ofr__id">
       <Plain ctx={ctx} className="lp-ofr__name" id={k.n} text={p.name} />
-      {p.titled || p.subtitle ? (
+      {p.titled || p.subtitle || p.contentsText ? (
         <span className="lp-ofr__meta">
-          {p.titled ? <bdi id={k.q}>{p.qtyLabel}</bdi> : null}
-          {p.titled && p.subtitle ? <span aria-hidden="true"> · </span> : null}
+          {p.titled || p.contentsText ? <bdi id={k.q}>{p.contentsText || p.qtyLabel}</bdi> : null}
+          {(p.titled || p.contentsText) && p.subtitle ? <span aria-hidden="true"> · </span> : null}
           {p.subtitle ? <Plain ctx={ctx} text={p.subtitle} /> : null}
         </span>
       ) : null}
@@ -163,6 +188,7 @@ function Price({ ctx, p, k }: { ctx: RenderContext; p: Pack; k: Ids }) {
   return (
     <span className="lp-ofr__price" id={k.p}>
       <span className="lp-ofr__now">
+        {p.fromWord ? <span className="lp-ofr__from">{p.fromWord} </span> : null}
         <Money ctx={ctx} amount={p.m.total} />
       </span>
       {p.reference ? (
@@ -291,13 +317,15 @@ function Stacked({ id, ctx, packs, visual, cta, featured, paper }: Common) {
         const k = idsOf(id, p);
         const isFeat = p.id === featured;
         const asset = p.image ?? visual.asset;
-        const look = !asset ? "none" : asset.alpha ? "line" : "stack";
+        const look = composed(p) ? "ov" : !asset ? "none" : asset.alpha ? "line" : "stack";
         const sizes = isFeat ? "(min-width: 64rem) 16rem, 34vw" : "(min-width: 64rem) 11rem, 30vw";
         return (
           <li key={p.id} className="lp-ofr__li" data-feat={isFeat ? "" : undefined} data-reveal={isFeat ? "scale-in" : "rise"}>
             <PackLink id={id} p={p} className="lp-ofr__card lp-ofr__raised lp-stk__card" featured={isFeat} paper={paper}>
               <span className="lp-stk__media" data-look={look}>
-                {look === "none" ? (
+                {look === "ov" ? (
+                  <Composed ctx={ctx} p={p} sizes={sizes} className="lp-stk__ov" />
+                ) : look === "none" ? (
                   <Times ctx={ctx} qty={p.qty} className="lp-stk__num" />
                 ) : (
                   <>
@@ -355,7 +383,7 @@ function Passes({ id, ctx, packs, visual, cta, featured, bg, paper }: Common) {
         const k = idsOf(id, p);
         const isFeat = p.id === featured;
         const asset = p.image ?? visual.asset;
-        const art = !asset ? "none" : asset.alpha ? "cutout" : "photo";
+        const art = composed(p) ? "ov" : !asset ? "none" : asset.alpha ? "cutout" : "photo";
         const plan = art === "photo" ? photoPlan(asset) : null;
         return (
           <li key={p.id} className="lp-ofr__li" data-feat={isFeat ? "" : undefined} data-reveal="tilt-in">
@@ -365,14 +393,19 @@ function Passes({ id, ctx, packs, visual, cta, featured, bg, paper }: Common) {
                 <bdi className="lp-pass__brand">{brand}</bdi>
                 {p.badge ? <bdi className="lp-pass__badge">{p.badge.text}</bdi> : null}
               </span>
-              <span className="lp-pass__hero" data-art={art}>
+              <span className="lp-pass__hero" data-art={art === "ov" ? "photo" : art} data-ov={art === "ov" ? "" : undefined}>
                 <span className="lp-pass__primary">
                   <span className="lp-pass__label" aria-hidden="true">
                     {L.qty}
                   </span>
-                  <Times ctx={ctx} qty={p.qty} className="lp-pass__x" />
+                  <Mark ctx={ctx} p={p} className="lp-pass__x" />
                   <Name ctx={ctx} p={p} k={k} />
                 </span>
+                {art === "ov" ? (
+                  <span className="lp-pass__thumb lp-pass__thumb--ov" aria-hidden="true">
+                    <Composed ctx={ctx} p={p} sizes="(min-width: 64rem) 10rem, 36vw" />
+                  </span>
+                ) : null}
                 {art === "photo" && asset && plan ? (
                   <span className="lp-pass__thumb" data-wide={plan.wide ? "" : undefined} aria-hidden="true">
                     <PlannedPhoto asset={asset} sizes="(min-width: 64rem) 10rem, 36vw" plan={plan} />
@@ -396,9 +429,7 @@ function Passes({ id, ctx, packs, visual, cta, featured, bg, paper }: Common) {
                   {p.unitPrice ? (
                     <span className="lp-pass__f" aria-hidden="true">
                       <span className="lp-pass__label">{L.unit}</span>
-                      <span className="lp-pass__v">
-                        <Money ctx={ctx} amount={p.m.perUnit} />
-                      </span>
+                      <bdi className="lp-pass__v">{p.unitPrice}</bdi>
                     </span>
                   ) : null}
                   {p.savePct || p.saveMoney ? (
@@ -477,12 +508,14 @@ function tileFrame(ctx: RenderContext): { shape: "arch" | "pill" | "circle" | "r
 
 function Shelf({ id, ctx, packs, visual, cta, featured, paper }: Common) {
   const shared = allFree(packs);
-  // podium height by quantity rank: the bigger the pack, the higher it stands
+  // podium height by quantity rank: the bigger the pack, the higher it stands (contents count by units)
   const qtys = [...new Set(packs.map((p) => p.qty))].sort((a, b) => a - b);
   const lvlOf = (p: Pack) => (qtys.length > 1 ? round(qtys.indexOf(p.qty) / (qtys.length - 1), 3) : 0.5);
   // one product scale for the whole window: every group is sized against the widest one
   const groupOf = (p: Pack) => {
     const a = p.image ?? visual.asset;
+    // a composition (several items, a choice) stands as one landscape group
+    if (composed(p)) return 1.8;
     return a?.alpha && !p.image ? 1 + lineupSpan(copiesOf(p.qty, SHELF_MAX)) : 1;
   };
   const widest = Math.max(...packs.map(groupOf));
@@ -495,7 +528,7 @@ function Shelf({ id, ctx, packs, visual, cta, featured, paper }: Common) {
         const isFeat = p.id === featured;
         const asset = p.image ?? visual.asset;
         const gs = groupOf(p);
-        const look = !asset ? "none" : asset.alpha ? "cutout" : "photo";
+        const look = composed(p) ? "ov" : !asset ? "none" : asset.alpha ? "cutout" : "photo";
         return (
           <li key={p.id} className="lp-shf__slot" data-reveal="rise" data-wide={look === "photo" && shelfPlan(asset, tile).wide ? "" : undefined}>
             <PackLink
@@ -505,13 +538,17 @@ function Shelf({ id, ctx, packs, visual, cta, featured, paper }: Common) {
               featured={isFeat}
               style={cssVars({ "--lvl": lvlOf(p), "--gs": round(gs, 3), "--gr": round(gs * 0.8, 4) })}
             >
-              <span className="lp-shf__stage" data-look={look} data-flag={p.badge && look === "photo" ? flagSide(ctx, asset, shelfPlan(asset, tile), tile) : undefined}>
+              <span className="lp-shf__stage" data-look={look === "ov" ? "photo" : look} data-ov={look === "ov" ? "" : undefined} data-flag={p.badge && look === "photo" ? flagSide(ctx, asset, shelfPlan(asset, tile), tile) : undefined}>
                 <span className="lp-shf__plinth" aria-hidden="true">
-                  {look === "none" ? null : <Times ctx={ctx} qty={p.qty} className="lp-shf__face" />}
+                  {look === "none" ? null : <Mark ctx={ctx} p={p} className="lp-shf__face" />}
                 </span>
                 <span className="lp-shf__group">
                   {look === "cutout" ? (
                     <Lineup ctx={ctx} pack={p} visual={visual} sizes={sizes} max={SHELF_MAX} width={round(1 / gs, 4)} />
+                  ) : look === "ov" ? (
+                    <span className="lp-shf__tile lp-shf__tile--ov" aria-hidden="true">
+                      <Composed ctx={ctx} p={p} sizes={sizes} />
+                    </span>
                   ) : look === "photo" ? (
                     <span className="lp-shf__tile" aria-hidden="true">
                       {asset ? <PlannedPhoto asset={asset} sizes={sizes} plan={shelfPlan(asset, tile)} shape={tile.shape} /> : null}

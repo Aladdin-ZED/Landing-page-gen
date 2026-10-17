@@ -19,7 +19,7 @@
     "pretypecheck": "node scripts/build-landing-assets.mjs",
     "theme:check": "tsx scripts/check-theme.ts",
     "pretest": "node scripts/build-landing-assets.mjs",
-    "test": "npm run theme:check && npm run test:runtime && npm run test:generator && npm run test:render && npm run test:money && npm run test:conversions",
+    "test": "npm run theme:check && npm run test:runtime && npm run test:generator && npm run test:render && npm run test:money && npm run test:conversions && npm run test:offers && npm run test:orders",
     "test:runtime": "tsx src/landing/runtime/selftest.ts",
     "test:generator": "tsx src/lib/generator/selftest.ts",
     "test:render": "tsx scripts/qa/render-check.ts",
@@ -27,6 +27,11 @@
     "test:turnstile": "tsx scripts/qa/turnstile-e2e.ts",
     "test:pixels": "tsx scripts/qa/pixels-e2e.ts",
     "test:conversions": "tsx scripts/qa/conversions-check.ts",
+    "test:offers": "tsx scripts/qa/offers-check.ts",
+    "test:pixels-publish": "tsx scripts/qa/pixels-publish-check.ts",
+    "test:php": "tsx scripts/qa/php-parity.ts",
+    "test:orders": "tsx src/lib/orders/selftest.ts",
+    "qa:upgrade-dry-run": "tsx scripts/qa/upgrade-dry-run.ts",
     "check": "npm run typecheck && npm run lint && npm test"
   },
   "dependencies": {

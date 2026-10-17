@@ -24,7 +24,7 @@ export type { VariantGroup, VariantOption, VariantPreset };
 
 /** A group with no option yet (being set up). */
 export function newGroup(preset: VariantPreset, locale: Locale, taken: readonly string[]): VariantGroup {
-  return { id: variantId("g", taken), name: presetName(preset, locale), kind: presetKind(preset), perUnit: true, options: [] };
+  return { id: variantId("g", taken), name: presetName(preset, locale), kind: presetKind(preset), perUnit: true, display: "auto", options: [] };
 }
 
 /** Whether a group's options name colors (swatches follow their names). */

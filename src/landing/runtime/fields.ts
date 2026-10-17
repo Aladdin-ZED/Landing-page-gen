@@ -8,7 +8,7 @@ import { flag, setText } from "./core";
 import { normalizePhone } from "./phone";
 import type { RuntimeStringKey } from "./strings";
 import { str } from "./strings";
-import { missingVariants, variantMessage } from "./variants";
+import { groupMessage, unitsApi } from "./units";
 
 export const FIELDS = ["name", "phone", "city", "address", "email", "note"] as const;
 export type FieldName = (typeof FIELDS)[number];
@@ -89,8 +89,9 @@ export function showError(el: Ctl, msg: string): void {
 export const byDomOrder = (a: Element, b: Element) => (a.compareDocumentPosition(b) & 4 ? -1 : 1);
 
 /**
- * Validate every field (and required variant pickers). With `show`, errors are rendered.
- * Returns the invalid controls in document order.
+ * Validate every field, and the units' item choosers, options and typed values (units.ts problems():
+ * required, duplicate, too_long, invalid — the server's codes). With `show`, errors are rendered with
+ * each group's own words (data-msg*). Returns the invalid controls in document order.
  */
 export function validateForm(c: Ctx, form: HTMLFormElement, show: boolean): Ctl[] {
   const bad: Ctl[] = [];
@@ -101,10 +102,11 @@ export function validateForm(c: Ctx, form: HTMLFormElement, show: boolean): Ctl[
     if (key) bad.push(el);
     if (show) showError(el, key ? str(c.cfg, key) : "");
   }
-  for (const el of missingVariants(form)) {
-    bad.push(el);
-    // the group's own words: "Choisissez votre taille"
-    if (show) showError(el, variantMessage(el, "required", str(c.cfg, "form.errRequired")));
+  const api = unitsApi(c.doc);
+  for (const p of api ? api.problems() : []) {
+    bad.push(p.el);
+    // the group's own words: "Choisissez votre taille" / "12 caractères maximum"
+    if (show) showError(p.el, groupMessage(p.el, p.code, str(c.cfg, "form.errRequired")));
   }
   return bad.sort(byDomOrder);
 }

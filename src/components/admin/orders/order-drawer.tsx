@@ -32,41 +32,8 @@ import { RelativeTime } from "../common/time";
 import { runAction, type ActionResult } from "../lib/action-result";
 import { dateTime, money, phone as fmtPhone } from "../lib/format";
 import { orderStatusMeta, riskFlagLabel, riskLevel, SHEET_STATUS_META } from "../lib/status";
+import { OrderContents } from "./order-contents";
 import { StatusMenu } from "./status-menu";
-
-/**
- * The chosen product options: the one-line summary the call center and the sheet read
- * ("2 × Noir/M + Beige/L"), then each unit's choices as labelled chips when the order has several.
- */
-function OptionsBlock({ options, units }: { options: string; units: Record<string, string>[] }) {
-  const chips = (v: Record<string, string>) =>
-    Object.entries(v).map(([group, label]) => (
-      <span key={group} className="inline-flex items-baseline gap-1 rounded-full bg-background px-2 py-0.5 ring-1 ring-border/70 ring-inset">
-        <span className="text-muted-foreground">{group}</span>
-        <bdi className="font-medium text-foreground">{label}</bdi>
-      </span>
-    ));
-  return (
-    <div className="grid grid-cols-1 gap-2.5 rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/60 ring-inset">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="shrink-0 text-xs font-medium text-muted-foreground">Options</span>
-        <bdi className="min-w-0 text-end text-sm font-medium [overflow-wrap:anywhere]">{options}</bdi>
-      </div>
-      {units.length > 1 ? (
-        <ul className="grid grid-cols-1 gap-1.5 border-t border-border/60 pt-2.5">
-          {units.map((v, i) => (
-            <li key={i} className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="w-12 shrink-0 font-medium text-muted-foreground tabular-nums">Unit {i + 1}</span>
-              {chips(v)}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="flex flex-wrap gap-1.5 text-xs">{chips(units[0] ?? {})}</div>
-      )}
-    </div>
-  );
-}
 
 export interface OrderDrawerActions {
   get: (id: string) => Promise<ActionResult<OrderDetailJson>>;
@@ -232,27 +199,7 @@ export function OrderDrawer({
               </Block>
 
               <Block title="Order">
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="grid min-w-0 gap-0.5">
-                      <span className="font-medium [overflow-wrap:anywhere]">{order.productName}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {order.items.bundleLabel} · {order.items.qty} × {money(order.items.unitPrice, order.currency)}
-                      </span>
-                    </div>
-                  </div>
-                  {order.items.variants.length > 0 && <OptionsBlock options={order.options} units={order.items.variants} />}
-                  <dl className="grid grid-cols-1 gap-1.5 border-t border-border/60 pt-3 text-sm">
-                    <Line label="Subtotal" value={money(order.subtotal, order.currency)} />
-                    {order.items.bump && <Line label={`+ ${order.items.bump.title}`} value={money(order.items.bump.price, order.currency)} />}
-                    {order.items.upsell && <Line label={`+ ${order.items.upsell.title} (after order)`} value={money(order.items.upsell.price, order.currency)} />}
-                    <Line label="Delivery" value={order.shipping ? money(order.shipping, order.currency) : "Free"} />
-                    <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-border/60 pt-2">
-                      <dt className="min-w-0 font-medium">Total to collect</dt>
-                      <dd className="shrink-0 text-lg font-semibold tabular-nums">{money(order.total, order.currency)}</dd>
-                    </div>
-                  </dl>
-                </div>
+                <OrderContents order={order} />
               </Block>
 
               <Block

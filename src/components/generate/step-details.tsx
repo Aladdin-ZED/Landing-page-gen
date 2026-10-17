@@ -3,8 +3,10 @@
  * Step 3 — product details: name, price, the product's options right under them (colors, sizes…:
  * the shared options editor, src/components/admin/variants), category (pre-filled by the AI), the
  * 3–5 facts the merchant can stand behind, page language and market, whether the on-device model
- * writes the copy, and which store ad pixels the page fires. A live summary card mirrors what the
- * page will promise.
+ * writes the copy, and — until per-page pixels (PAGE_PIXELS) move the answer to the Directions
+ * step — which store ad pixels the page fires. The options editor takes combined options and
+ * custom fields when their editor features are on. A live summary card mirrors what the page will
+ * promise. More products and the offers come next (Offers step).
  */
 import { LanguagesIcon, MinusIcon, PenLineIcon, PlusIcon, RadarIcon, ShoppingBagIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -17,7 +19,8 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Switch } from "@/components/ui/switch";
 import { Dot, VariantsEditor, type VariantPhoto } from "@/components/admin/variants";
 import { formatMoney, marketName } from "@/lib/markets/info";
-import { MARKETS, dirOf, type Market, type ProductCategory } from "@/lib/page/schema";
+import { feature } from "@/lib/page/features";
+import { MARKETS, dirOf, isChoiceGroup, isMatrixGroup, type Market, type ProductCategory } from "@/lib/page/schema";
 import type { VariantPreset } from "@/lib/page/variant-presets";
 import { cn } from "@/lib/utils";
 import { CATEGORY_GROUPS, CATEGORY_LABELS, PAGE_LOCALES, type PageLocale } from "./labels";
@@ -106,7 +109,7 @@ export function StepDetails({ details, onChange, currency, main, cutoutUrl, sugg
                 </div>
                 <p className="text-[0.8rem] leading-relaxed text-pretty text-muted-foreground">Does it come in colors or sizes? Customers pick on the order form, for each piece of a pack.</p>
               </div>
-              <VariantsEditor value={details.variants} onChange={(variants) => onChange({ variants })} locale={details.locale} photos={variantPhotos} suggest={variantSuggest} />
+              <VariantsEditor value={details.variants} onChange={(variants) => onChange({ variants })} locale={details.locale} currency={currency} photos={variantPhotos} suggest={variantSuggest} />
               {lead ? (
                 <p className="flex items-center gap-2 text-[0.75rem] text-muted-foreground">
                   {lead.url ? (
@@ -232,6 +235,7 @@ export function StepDetails({ details, onChange, currency, main, cutoutUrl, sugg
             </label>
           </Group>
 
+          {feature("PAGE_PIXELS") ? null : (
           <Group
             title="Ad tracking"
             icon={<RadarIcon />}
@@ -239,6 +243,7 @@ export function StepDetails({ details, onChange, currency, main, cutoutUrl, sugg
           >
             <TrackingBlock store={pixels} off={details.pixelsOff} onChange={(pixelsOff) => onChange({ pixelsOff })} />
           </Group>
+          )}
         </div>
       </Panel>
 
@@ -289,8 +294,8 @@ function Field({ id, label, hint, error, children }: { id: string; label: string
 
 /** "2 groups · 9 options" */
 function optionCount(groups: Details["variants"]): string {
-  const n = groups.reduce((sum, g) => sum + g.options.length, 0);
-  return `${groups.length} group${groups.length === 1 ? "" : "s"} · ${n} option${n === 1 ? "" : "s"}`;
+  const n = groups.reduce((sum, g) => sum + (isChoiceGroup(g) ? g.options.length : isMatrixGroup(g) ? g.dims.reduce((x, d) => x * d.values.length, 1) : 1), 0);
+  return `${groups.length} group${groups.length === 1 ? "" : "s"} · ${n} choice${n === 1 ? "" : "s"}`;
 }
 
 function Summary({ details, price, currency, main, cutoutUrl }: { details: Details; price: number; currency: string; main: Photo | null; cutoutUrl: string | null }) {
@@ -327,7 +332,14 @@ function Summary({ details, price, currency, main, cutoutUrl }: { details: Detai
                   {g.name}
                 </dt>
                 <dd dir={dir} className="flex flex-wrap items-center gap-1">
-                  {g.options.slice(0, 8).map((o) => (
+                  {isMatrixGroup(g) ? (
+                    <span className="inline-flex h-6 items-center rounded-full bg-foreground/[0.05] px-2 text-[0.75rem]">
+                      <bdi>{g.dims.map((d) => `${d.name} ${d.values.length}`).join(" × ")}</bdi>
+                    </span>
+                  ) : !isChoiceGroup(g) ? (
+                    <span className="inline-flex h-6 items-center rounded-full bg-foreground/[0.05] px-2 text-[0.75rem] text-muted-foreground">Typed by the customer{g.required ? "" : " · optional"}</span>
+                  ) : null}
+                  {(isChoiceGroup(g) ? g.options : []).slice(0, 8).map((o) => (
                     <span
                       key={o.id}
                       className={cn(
@@ -340,7 +352,7 @@ function Summary({ details, price, currency, main, cutoutUrl }: { details: Detai
                       <bdi>{o.label}</bdi>
                     </span>
                   ))}
-                  {g.options.length > 8 && <span className="px-1 text-[0.72rem] text-muted-foreground tabular-nums">+{g.options.length - 8}</span>}
+                  {isChoiceGroup(g) && g.options.length > 8 && <span className="px-1 text-[0.72rem] text-muted-foreground tabular-nums">+{g.options.length - 8}</span>}
                 </dd>
               </div>
             ))}

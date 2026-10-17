@@ -1,6 +1,8 @@
 /**
  * Abandoned-lead capture: once the phone is valid, after ~1.2 s without typing (or when the page is
  * hidden / left), POST endpoints.lead once per idempotency key with keepalive. Never after/while ordering.
+ * Carries the selection so far (v2, tolerant on the server: docs/OFFERS.md §G.1 LeadPayload): the
+ * offer, its units' items / options / typed values, the extras.
  */
 import type { Ctx } from "./core";
 import { getForm } from "./core";
@@ -38,7 +40,16 @@ export function lead(c: Ctx): void {
       ...(city ? { city } : {}),
       ...(st.bundleId ? { bundleId: st.bundleId } : {}),
       utm: st.utm,
+      v: 2,
+      ...(/^[A-Za-z0-9]{26}$/.test(cfg.ver || "") ? { ver: cfg.ver } : {}),
+      ...selection(),
     });
+  };
+  const selection = () => {
+    const sel = st.sel();
+    const offer = cfg.bundles.find((b) => b.id === sel.offerId);
+    const units = sel.units.slice(0, 20).map((u, k) => ({ ...(offer && offer.units[k] && !offer.units[k]!.item && u.item ? { item: u.item } : {}), o: u.options, f: u.fields }));
+    return { units, extras: sel.extras };
   };
   const schedule = () => {
     win.clearTimeout(timer);

@@ -5,7 +5,10 @@
  * button[type=submit][data-lp-submit] + [data-lp-submit-label], [data-lp-status][aria-live].
  */
 import type { ReactElement } from "react";
-import { orderTotals } from "@/lib/page/pricing";
+import { itemById } from "@/lib/page/catalog";
+import { bumpOffered, emptySelection, everyOfferFree, fromCents, orderTotals } from "@/lib/page/pricing";
+import { defaultOfferView } from "../../offers/model";
+import { unitVisual } from "../../offers/visual";
 import {
   Checkbox,
   FieldShell,
@@ -25,10 +28,28 @@ import {
 } from "../../primitives";
 import type { RenderContext, ResolvedAsset, SectionBg } from "../../types";
 import { orderMessage, whatsappHref, whatsappNumber } from "../whatsappFloat/wa";
-import { optionalLabel, uiLabels } from "./copy";
-import type { Pack } from "./packs";
+import { offerWord, optionalLabel, uiLabels, unitWord } from "./copy";
+import type { Pack } from "./picker";
 import { Plain } from "./text";
-import { OptionsSummary, VariantSlot, formVisual } from "./variants";
+import { BumpBody, OptionsSummary } from "./units";
+
+/**
+ * The visual the receipt thumbnail starts on: unit 1 of the default offer (its item, or the photo of
+ * the option it starts on), and the swap layer the runtime cross-fades the chosen unit's photo into.
+ */
+export function receiptVisual(ctx: RenderContext): { asset: ResolvedAsset | null; kind: "cutout" | "photo" | "empty"; key: string; item: string } {
+  const view = defaultOfferView(ctx);
+  const line = view?.offer.lines[0];
+  const id = line ? ("item" in line.pick ? line.pick.item : line.pick.choice[0]!) : ctx.lead.id;
+  const item = itemById(ctx.doc, id) ?? ctx.lead;
+  const v = unitVisual(ctx, item, line?.rules);
+  return { asset: v.asset, kind: v.asset ? (v.asset.alpha ? "cutout" : "photo") : "empty", key: v.key, item: item.id };
+}
+
+/** The receipt thumbnail's swap layer (runtime-filled; React never renders into it). */
+function ThumbSlot({ base, item }: { base: string; item: string }) {
+  return <span className="lp-vslot" data-lp-vslot="thumb" data-unit={0} data-item={item} data-base={base} aria-hidden="true" />;
+}
 
 export interface HeadData {
   kicker: string;
@@ -87,7 +108,7 @@ export function StepTitle({ ctx, n, text, path }: { ctx: RenderContext; n: numbe
  * The thumbnail shows the option the shopper is choosing (the runtime cross-fades its photo in).
  */
 export function OrderLine({ ctx, packs, total, className }: { ctx: RenderContext; packs: Pack[]; total: number; className?: string }): ReactElement {
-  const visual = formVisual(ctx);
+  const visual = receiptVisual(ctx);
   return (
     <div className={cx("lp-of__line", className)}>
       <span
@@ -105,7 +126,7 @@ export function OrderLine({ ctx, packs, total, className }: { ctx: RenderContext
             imgClassName={visual.kind === "cutout" ? "lp-of__line-cut" : undefined}
           />
         ) : null}
-        {visual.asset ? <VariantSlot ctx={ctx} kind="thumb" /> : null}
+        {visual.asset ? <ThumbSlot base={visual.key} item={visual.item} /> : null}
         <span className="lp-of__line-qty" aria-hidden="true">
           {packs.map((p) => (
             <bdi key={p.id} dir="ltr" className="lp-of__swap" data-bundle-card={p.id} data-selected={p.selected ? "" : undefined}>
@@ -114,7 +135,7 @@ export function OrderLine({ ctx, packs, total, className }: { ctx: RenderContext
           ))}
         </span>
       </span>
-      <span className="lp-of__line-txt">
+      <span className="lp-of__line-txt" data-multi={ctx.items.length > 1 ? "" : undefined}>
         <span className="lp-of__line-k">{uiLabels(ctx.locale).yourOrder}</span>
         {/* bdi: a Latin name on an Arabic page takes its own direction, so the 2-line clamp ends
             it with "…" after its last word, never "…prière avec" (its start looking cut) */}
@@ -219,24 +240,48 @@ export function Fields({ ctx, float }: { ctx: RenderContext; float?: boolean }) 
   );
 }
 
-/** Order bump: a soft add-on card with a real checkbox; it lights up with the accent once ticked. */
-export function Bump({ ctx, surface }: { ctx: RenderContext; surface?: SectionBg }) {
+/**
+ * Order bump: a soft add-on card with a real checkbox; it lights up with the accent once ticked. A bump
+ * that is a catalog item (orderBump.item) reveals that item's options under the card once ticked
+ * ([data-lp-bump-body], names b.<gid>, disabled until then); a bump limited to some offers
+ * (orderBump.offers) carries their ids in data-offers and starts hidden when the default offer is not
+ * one of them (the runtime follows the selected offer).
+ */
+export function Bump({ ctx, surface, offerId }: { ctx: RenderContext; surface?: SectionBg; offerId?: string }) {
   const bump = ctx.offers.orderBump;
   if (!bump?.enabled) return null;
-  const img = ctx.asset(bump.image);
-  return (
+  const item = bump.item ? itemById(ctx.doc, bump.item) : undefined;
+  const own = ctx.asset(bump.image);
+  const iv = !own && item ? unitVisual(ctx, item) : null;
+  const img = own ?? iv?.asset ?? null;
+  const title = bump.title.trim() || (item ? item.name.trim() || ctx.product.name : "");
+  const card = (
     <label className={cx("lp-bump", img && "lp-bump--pic")} data-bg={surface} data-reveal="rise">
       <Checkbox name="bump" value="1" className="lp-bump__check" />
-      {img ? <Picture asset={img} sizes="4.5rem" alt="" ratio={1} className="lp-bump__pic" /> : null}
+      {img ? (
+        iv?.box ? (
+          <Picture asset={img} box={iv.box} ratio={1} sizes="4.5rem" alt="" className="lp-bump__pic" />
+        ) : (
+          <Picture asset={img} sizes="4.5rem" alt="" ratio={1} fit={img.alpha ? "contain" : "cover"} className="lp-bump__pic" />
+        )
+      ) : null}
       <span className="lp-bump__body">
         <span className="lp-bump__add">{ctx.t("form.bumpAdd")}</span>
-        <Plain ctx={ctx} className="lp-bump__title" text={bump.title} />
+        <Plain ctx={ctx} className="lp-bump__title" text={title} />
         {bump.description ? <Plain ctx={ctx} className="lp-bump__desc" text={bump.description} /> : null}
       </span>
       <span className="lp-bump__price">
         <bdi>+{ctx.money(bump.price)}</bdi>
       </span>
     </label>
+  );
+  if (!item && !bump.offers) return card;
+  const shown = offerId ? bumpOffered(ctx.doc, offerId) : true;
+  return (
+    <div className="lp-bump-wrap" data-lp-bump="" data-offers={bump.offers?.join(" ")} hidden={!shown}>
+      {card}
+      {item ? <BumpBody ctx={ctx} item={item} /> : null}
+    </div>
   );
 }
 
@@ -258,12 +303,18 @@ export function Summary({
   surface?: SectionBg;
   subtotal?: boolean;
 }) {
-  const totals = orderTotals(ctx.product, ctx.offers, bundleId, false);
-  if (!totals) return null;
+  const cents = orderTotals(ctx.doc, emptySelection(bundleId));
+  if (!cents) return null;
+  const totals = { subtotal: fromCents(cents.subtotal), shipping: fromCents(cents.shipping), total: fromCents(cents.total) };
   const bump = ctx.offers.orderBump?.enabled ? ctx.offers.orderBump : null;
   const free = totals.shipping <= 0;
+  const allFree = everyOfferFree(ctx.doc);
   return (
     <dl className={cx("lp-sum", className)} data-bg={surface} data-reveal="fade">
+      <div className="lp-sum__row lp-sum__row--stale" hidden>
+        <dt className="lp-visually-hidden">{unitWord(ctx.locale, "stale")}</dt>
+        <dd className="lp-of__stale" data-lp-stale="" data-msg={unitWord(ctx.locale, "stale")} role="status" aria-live="polite" />
+      </div>
       {subtotal ? (
         <div className="lp-sum__row">
           <dt>{ctx.t("form.subtotal")}</dt>
@@ -275,7 +326,7 @@ export function Summary({
       {bump ? (
         <div className="lp-sum__row lp-sum__row--bump">
           <dt>
-            <Plain ctx={ctx} text={bump.title} />
+            <Plain ctx={ctx} text={bump.title.trim() || (bump.item ? (itemById(ctx.doc, bump.item)?.name.trim() || ctx.product.name) : "")} />
           </dt>
           <dd>
             <bdi data-lp-sum="bump" data-zero="">
@@ -287,7 +338,7 @@ export function Summary({
       <div className="lp-sum__row">
         <dt>{ctx.t("form.shipping")}</dt>
         <dd>
-          <bdi data-lp-sum="shipping" data-zero={free ? "" : undefined}>
+          <bdi data-lp-sum="shipping" data-zero={free ? "" : undefined} data-all-free={allFree ? offerWord(ctx.locale, "allFree") : undefined}>
             {free ? ctx.t("form.free") : ctx.money(totals.shipping)}
           </bdi>
         </dd>

@@ -14,7 +14,8 @@ import type { ReactElement } from "react";
 import type { Archetype } from "@/lib/page/schema";
 import { GlowOrb, estimateEm, glyph, hasArabic, illId, isolateNumbers, type GlyphKind } from "@/landing/illustrations";
 import { Cta, Price, SectionHeader, cx, plainText, reveal } from "@/landing/primitives";
-import { defaultBundleId } from "@/lib/page/pricing";
+import { fromCents } from "@/lib/page/pricing";
+import { defaultOfferView } from "../../offers/model";
 import { stampDisc, tagZone } from "./fit";
 import { pickVisual, ringPhrases, titleScale, type ViewProps } from "./model";
 import { Ambient, Points, ProductPic } from "./parts";
@@ -146,8 +147,9 @@ export function Stamp({ ctx, data, id, titleId }: ViewProps): ReactElement {
   const visual = pickVisual(ctx, data, { preferCutout: true, frameOf: () => stampDisc(ctx.dir) });
   const kind = visual.asset ? (visual.cutout ? "cutout" : "photo") : "none";
   const ring = ringPhrases(data, ctx.t("trust.cod"));
-  const bundle = ctx.offers.bundles.find((b) => b.id === defaultBundleId(ctx.offers));
-  const price = bundle?.price ?? ctx.product.price;
+  // the default offer's card price (`from`, docs/OFFERS.md §B.2); the runtime keeps it live
+  const def = defaultOfferView(ctx);
+  const price = def ? fromCents(def.math.from) : ctx.lead.price;
   // the disc holds a short label: the merchant's when it fits, else the built-in “order” verb
   const own = data.ctaLabel.trim();
   const label = own && plainText(own).length <= ORB_LABEL_MAX ? own : ctx.t("cta.order");

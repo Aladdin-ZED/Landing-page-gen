@@ -1,0 +1,407 @@
+/* ==========================================================================
+   Offer visual composition (src/landing/offers/visual.tsx, docs/OFFERS.md §E.6) — imported by the
+   order form and the offer section. A composition is a box of its own ratio (--ov-r = width /
+   height, computed from its photos); inside a media well (.lp-ov-host, a size container) it keeps
+   that ratio and fits the well. Cells: rounded windows on the chip backdrop, widths following each
+   photo's ratio (flex-grow --g); "+" chips sit on the seams; a gift chip marks free tiles.
+   Sizing is plain percentages: a host declares its ratio (--host-r, also its aspect-ratio) and the
+   composition takes min(1, --ov-r / --host-r) of its width — no container-query units (a size
+   container inside a subgrid row could lay the composition out at zero size until the next style
+   change).
+   Colors are tokens only (no hue of its own — owner rule: no orange).
+   ========================================================================== */
+.lp-ov-host {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-inline-size: 0;
+  aspect-ratio: var(--host-r, 1);
+}
+
+.lp-ov-host > .lp-ov {
+  inline-size: calc(min(1, var(--ov-r, 1) / var(--host-r, 1)) * 100%);
+}
+
+.lp-ov-host > .lp-pv {
+  inline-size: calc(min(1, 1 / var(--host-r, 1)) * 100%);
+}
+
+.lp-ov {
+  --ov-cell-r: calc(min(max(var(--lp-radius-s), 0.7rem), 0.95rem) * var(--lp-corner-k));
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  column-gap: 3%;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  aspect-ratio: var(--ov-r, 1);
+  isolation: isolate;
+}
+
+.lp-ov__cell {
+  /* chips inside a tile size from the tile (a small tile of a trio gets a small "Offert") */
+  container-type: inline-size;
+  position: relative;
+  flex: var(--g, 1) 1 0;
+  min-inline-size: 0;
+  border-radius: var(--ov-cell-r);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-chip);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px var(--mx-hair),
+    0 0.6rem 1.2rem -0.9rem color-mix(in oklab, var(--sec-ink) 40%, transparent);
+}
+
+.lp-ov__cell > .lp-pic,
+.lp-ov__card > .lp-pic {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+}
+
+/* a photo shown whole (a group photo, a ratio too far from its cell): the chip backdrop around it */
+.lp-ov__pic--whole {
+  background: transparent;
+}
+
+.lp-ov__pic--whole .lp-pic__img {
+  object-fit: contain;
+}
+
+/* a crop shown whole: centred at its own ratio */
+.lp-ov__inset {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 4%;
+}
+
+.lp-ov__inset > .lp-pic {
+  inline-size: var(--iw, 92%);
+  aspect-ratio: var(--ir, 1);
+  border-radius: calc(var(--ov-cell-r) * 0.7);
+}
+
+/* no photo: the item's initial on the chip, set like a monogram */
+.lp-ov__mono {
+  container-type: inline-size;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(75% 60% at 50% 30%, var(--mx-tint-2), transparent), var(--sec-chip);
+  color: var(--sec-accent);
+  font-family: var(--lp-font-display);
+  font-size: 1.6rem;
+  font-weight: var(--lp-display-weight);
+  line-height: 1;
+}
+
+.lp-ov__mono > span {
+  font-size: clamp(1rem, 40cqi, 2.6rem);
+}
+
+/* cutouts only: products stand on one shared floor, no windows */
+.lp-ov[data-kind="cutout"] .lp-ov__cell {
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.lp-ov[data-kind="cutout"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 8% 3%;
+  z-index: -1;
+  block-size: 6%;
+  background: var(--lp-shadow-product);
+}
+
+.lp-ov[data-kind="cutout"] .lp-pic__img {
+  object-position: 50% 100%;
+}
+
+/* "+" on the seam between two cells */
+.lp-ov__plus {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: var(--at);
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  inline-size: clamp(1.25rem, 13cqi, 1.75rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--sec-card);
+  box-shadow:
+    0 0 0 1px var(--mx-line),
+    0 4px 10px -4px color-mix(in oklab, var(--sec-ink) 35%, transparent);
+  color: var(--sec-ink);
+  translate: calc(-50% * var(--lp-x)) -50%;
+}
+
+.lp-ov__plus svg {
+  inline-size: 58%;
+  block-size: 58%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* "×2" on a cell, "+n" beyond the drawn ones, "Offert" on a free tile, "2 au choix" */
+.lp-ov__x,
+.lp-ov__more,
+.lp-ov__free,
+.lp-ov__any {
+  position: absolute;
+  z-index: 4;
+  padding: 0.2em 0.55em;
+  border-radius: 999px;
+  font-size: max(0.62rem, min(0.75rem, 9cqi));
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.lp-ov__x,
+.lp-ov__more {
+  inset-block-end: 6%;
+  inset-inline-end: 6%;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+}
+
+.lp-ov > .lp-ov__more {
+  inset-block-end: 4%;
+  inset-inline-end: 4%;
+}
+
+.lp-ov__free {
+  inset-block-start: 6%;
+  inset-inline-start: 6%;
+  max-inline-size: 88%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-ov__free-ico {
+  display: none;
+}
+
+/* a tile too narrow for the word (the gift of a trio on a phone): the gift glyph in a round chip */
+@container (max-width: 3.25rem) {
+  .lp-ov__cell .lp-ov__free {
+    display: grid;
+    place-items: center;
+    padding: 0.32em;
+    font-size: 0.7rem;
+  }
+
+  .lp-ov__cell .lp-ov__free-ico {
+    display: block;
+  }
+
+  .lp-ov__cell .lp-ov__free-t {
+    display: none;
+  }
+}
+
+.lp-pv > .lp-ov__free {
+  inset-block-start: 8%;
+  inset-inline-start: 8%;
+}
+
+.lp-ov__any {
+  /* above the fan's front card (z-index 5 - i) */
+  z-index: 6;
+  inset-block-end: 2%;
+  inset-inline: 0;
+  inline-size: max-content;
+  margin-inline: auto;
+  background: var(--sec-card);
+  box-shadow: 0 0 0 1px var(--mx-line);
+  color: var(--sec-ink);
+}
+
+/* lead + side (custom, 2 photos): the group photo leads, the other rides beside it */
+.lp-ov[data-mode="lead"] .lp-ov__cell:last-of-type {
+  align-self: center;
+  block-size: 86%;
+}
+
+/* overlap: the second photo laid 12% over the first, lifted */
+.lp-ov[data-mode="overlap"] {
+  display: block;
+}
+
+.lp-ov[data-mode="overlap"] .lp-ov__cell {
+  position: absolute;
+  inset-block: 6%;
+  inline-size: 56%;
+}
+
+.lp-ov[data-mode="overlap"] .lp-ov__cell[data-i="0"] {
+  inset-inline-start: 0;
+}
+
+.lp-ov[data-mode="overlap"] .lp-ov__cell[data-i="1"] {
+  inset-inline-start: 44%;
+  inset-block: 0;
+  z-index: 2;
+  box-shadow:
+    0 0 0 2px var(--sec-card),
+    0 0.9rem 1.6rem -0.9rem color-mix(in oklab, var(--sec-ink) 50%, transparent);
+}
+
+.lp-ov[data-mode="overlap"] .lp-ov__cell:nth-child(n + 3) {
+  display: none;
+}
+
+/* 3 photos: lead + two stacked · 2 × 2 grid */
+.lp-ov[data-mode="lead3"],
+.lp-ov[data-mode="grid"] {
+  display: grid;
+  gap: 3%;
+}
+
+.lp-ov[data-mode="lead3"] {
+  grid-template-columns: 1.6fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.lp-ov[data-mode="lead3"] .lp-ov__cell[data-i="0"] {
+  grid-row: 1 / -1;
+}
+
+.lp-ov[data-mode="grid"] {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.lp-ov[data-mode="lead3"] .lp-ov__cell,
+.lp-ov[data-mode="grid"] .lp-ov__cell {
+  flex: none;
+}
+
+/* choice: the first card in front, the second peeking behind (70%), an "ou" chip on the seam; a fan
+   of up to four for 3+ choices */
+.lp-ov--choice {
+  display: block;
+}
+
+.lp-ov__card {
+  position: absolute;
+  inset-block-start: 4%;
+  block-size: 92%;
+  aspect-ratio: var(--cr, 0.8);
+  border-radius: var(--ov-cell-r);
+  corner-shape: var(--lp-corner);
+  background: var(--sec-chip);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px var(--mx-hair),
+    0 0.8rem 1.4rem -0.9rem color-mix(in oklab, var(--sec-ink) 45%, transparent);
+  transition:
+    translate var(--lp-dur-l) var(--lp-spring),
+    scale var(--lp-dur-l) var(--lp-spring);
+}
+
+.lp-ov--choice[data-n="2"] .lp-ov__card[data-i="0"] {
+  inset-inline-start: 6%;
+  z-index: 2;
+}
+
+.lp-ov--choice[data-n="2"] .lp-ov__card[data-i="1"] {
+  inset-inline-end: 6%;
+  inset-block-start: 17%;
+  block-size: 66%;
+  filter: saturate(0.92);
+}
+
+.lp-ov--choice[data-n="2"] .lp-ov__card[data-i="1"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--sec-bg) 22%, transparent);
+  pointer-events: none;
+}
+
+.lp-ov__or {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: var(--at, 58%);
+  z-index: 3;
+  padding: 0.28em 0.7em;
+  border-radius: 999px;
+  background: var(--sec-card);
+  box-shadow:
+    0 0 0 1px var(--mx-line),
+    0 4px 10px -4px color-mix(in oklab, var(--sec-ink) 35%, transparent);
+  color: var(--sec-ink);
+  font-size: max(0.64rem, min(0.78rem, 8cqi));
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.1;
+  translate: calc(-50% * var(--lp-x)) -50%;
+}
+
+/* 3–4 choices: a fan of cards, each a step to the inline end and back */
+.lp-ov--choice:not([data-n="2"]) .lp-ov__card {
+  inset-block-start: calc(8% + var(--i) * 3%);
+  block-size: calc(84% - var(--i) * 6%);
+  inset-inline-start: calc(4% + var(--i) * 18%);
+  z-index: calc(5 - var(--i));
+}
+
+.lp-ov--choice:not([data-n="2"]) .lp-ov__card:not([data-i="0"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--sec-bg) calc(var(--i) * 12%), transparent);
+  pointer-events: none;
+}
+
+/* selection opens the composition a touch */
+.lp-pack[data-selected] .lp-ov--choice[data-n="2"] .lp-ov__card[data-i="1"] {
+  translate: calc(3% * var(--lp-x)) 0;
+}
+
+/* a small square thumbnail of one item (item chooser, contents, box tiles, steps) */
+.lp-ithumb {
+  position: relative;
+  display: block;
+  flex: none;
+  aspect-ratio: 1;
+  border-radius: calc(max(var(--lp-radius-s), 0.55rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--sec-chip);
+  overflow: hidden;
+}
+
+.lp-ithumb > .lp-pic,
+.lp-ithumb > .lp-ov__inset {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-ithumb .lp-ov__mono {
+  font-size: 1.05rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-ov__card {
+    transition: none;
+  }
+}

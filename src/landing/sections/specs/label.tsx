@@ -19,7 +19,7 @@ export const CARD_ROWS = 7;
 export function Label({ ctx, data, id, titleId, bg }: ViewProps): ReactElement {
   const img = visuals(ctx, data)[0] ?? null;
   const p = ctx.product;
-  const sku = p.sku?.trim();
+  const sku = ctx.lead.sku?.trim();
   const decor = density(ctx);
   const rot = seededRotation(ctx, `${id}:card`, 0.45);
   const fit = img ? fitOf(img) : null;

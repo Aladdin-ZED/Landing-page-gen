@@ -99,7 +99,7 @@ export function Buy({
   cod?: boolean;
 }): ReactElement | null {
   if (!data.cta && !always) return null;
-  const p = ctx.product;
+  const p = ctx.lead;
   return (
     <div className={cx("lp-specs__buy", `lp-specs__buy--${look}`)} {...reveal("rise", delay)}>
       <Price ctx={ctx} amount={p.price} compareAt={p.compareAt} size="m" className="lp-specs__price" />
@@ -406,7 +406,7 @@ export function Tile({
   variant: "sheet" | "accordion";
   className?: string;
 }): ReactElement {
-  const sku = ctx.product.sku?.trim();
+  const sku = ctx.lead.sku?.trim();
   const decor = density(ctx) > 0;
   const kf = keyFigure(data.rows);
   const page = pageShape(ctx);

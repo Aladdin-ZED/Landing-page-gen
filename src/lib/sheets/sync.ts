@@ -5,8 +5,14 @@ import "server-only";
  * syncPendingOrders(): pending orders (+ failed ones whose backoff elapsed) are claimed (attempts + 1),
  * then written in ONE append request. Whenever a batch may already be partly in the sheet — a retry
  * after a timeout, a requeue, or an order whose upsell was accepted after it was written — column A is
- * read first: ids already present are not appended again (upsell orders get their Produit/Total cells
- * updated instead). Runs are serialized in-process and across processes (MySQL GET_LOCK).
+ * read first: ids already present are not appended again (upsell orders get their Produit / Variante /
+ * Total cells, and the optional SKU / Articles cells, updated instead). Runs are serialized in-process
+ * and across processes (MySQL GET_LOCK).
+ *
+ * Row content lives in ./row.ts (pure, docs/OFFERS.md §G.4): the 13 contract columns A–M never move;
+ * optional columns "SKU", "Articles", "Livraison", "Prix pack" are filled only when the owner added
+ * those headers after column M (read once per sheet per 10 min, and again after a failed write). The
+ * append sends `null` for every other cell after M, so columns the call center fills are untouched.
  *
  * pullStatuses(): statuses set by call-center agents in the sheet flow back to the database for
  * orders that are fully synced (the sheet is the source of truth for statuses once connected).
@@ -14,96 +20,97 @@ import "server-only";
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { RowDataPacket } from "mysql2/promise";
 import { db, pool } from "@/lib/db/client";
-import { orders, type OrderItems } from "@/lib/db/schema";
-import { variantText as optionsText, type OrderStatus } from "@/lib/orders/contract";
-import { phoneToNational } from "@/lib/markets/phone";
+import { orders } from "@/lib/db/schema";
+import type { OrderStatus } from "@/lib/orders/contract";
 import { rateLimit } from "@/lib/security/rate-limit";
-import { isSheetsConfigured, serviceAccountEmail, type GapiOptions } from "./client";
+import { gapi, isSheetsConfigured, serviceAccountEmail, type GapiOptions } from "./client";
 import { activeSheet, getSheetsConfig, type SheetsConfig } from "./config";
-import { cleanText, colLetter, toSheetsSerial } from "./format";
+import { a1, colLetter } from "./format";
+import { COL, explain, readOrderRows, readStatuses, statusLabel, updateCells, type Cell } from "./orders-sheet";
 import {
-  appendRows,
-  COL,
-  COLUMNS,
-  explain,
-  readOrderRows,
-  readStatuses,
-  statusLabel,
-  updateCells,
-  type Cell,
-} from "./orders-sheet";
+  CONTRACT_WIDTH,
+  extraColumnsOf,
+  extraValues,
+  orderToRow as rowOf,
+  productText,
+  sourceText,
+  variantCell,
+  wideRow,
+  type ExtraColumn,
+  type ExtraColumns,
+} from "./row";
 
 type OrderRow = typeof orders.$inferSelect;
 
 /** Wall-clock zone for the Date column (Morocco by default). */
 const SHEET_TZ = process.env.APP_TIMEZONE || "Africa/Casablanca";
 const LOCK_NAME = "cod:sheets-sync";
-/** risk score from which the row is prefixed "[À vérifier]" for the call center */
-const REVIEW_SCORE = 50;
 
 /* ------------------------------------------------------------------ */
-/* row content                                                         */
+/* row content (pure: ./row.ts)                                        */
 /* ------------------------------------------------------------------ */
 
-export function productText(o: Pick<OrderRow, "productName" | "items">): string {
-  const parts = [`${o.productName} — ${o.items.bundleLabel}`];
-  if (o.items.bump) parts.push(o.items.bump.title);
-  if (o.items.upsell) parts.push(o.items.upsell.title);
-  return parts.join(" + ");
+export { productText, sourceText };
+
+/** "Variante" cell: the warehouse order text (§G.4, = order.php cod_units_text). */
+export function variantText(o: Pick<OrderRow, "id" | "items">): string {
+  return variantCell(o);
 }
 
-/** "Variante" cell: "Noir/M", "2 × Noir/M", "Noir/M + Beige/L" (contract variantText, = order.php). */
-export function variantText(items: OrderItems): string {
-  return optionsText(items.variants);
-}
-
-export function sourceText(o: Pick<OrderRow, "utm" | "source" | "ref">): string {
-  const u = o.utm ?? {};
-  let s =
-    u.source ? [u.source, u.campaign].filter(Boolean).join(" · ")
-    : u.fbclid ? "facebook"
-    : u.ttclid ? "tiktok"
-    : u.sccid ? "snapchat"
-    : u.gclid ? "google"
-    : "direct";
-  if (o.source !== "live") {
-    let host = "";
-    try {
-      host = o.ref ? new URL(o.ref).hostname : "";
-    } catch {
-      host = "";
-    }
-    s = `${s} (${host || o.source})`;
-  }
-  return s;
-}
-
-/** One sheet row in COLUMNS order. */
+/** One sheet row: the 13 contract columns (A–M). */
 export function orderToRow(o: OrderRow): Cell[] {
-  const note = [
-    o.riskScore >= REVIEW_SCORE ? "[À vérifier]" : "",
-    o.note ?? "",
-    o.email ? `E-mail : ${o.email}` : "",
-  ]
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .join(" · ");
-  const row: Cell[] = new Array<Cell>(COLUMNS.length).fill("");
-  row[COL.id] = cleanText(o.id, 40);
-  row[COL.date] = toSheetsSerial(o.createdAt, SHEET_TZ);
-  row[COL.status] = statusLabel(o.status);
-  row[COL.name] = cleanText(o.name, 120);
-  row[COL.phone] = phoneToNational(o.phone); // RAW text: leading zero kept
-  row[COL.city] = cleanText(o.city, 80);
-  row[COL.address] = cleanText(o.address, 300);
-  row[COL.product] = cleanText(productText(o), 250);
-  row[COL.variant] = cleanText(variantText(o.items), 200);
-  row[COL.qty] = Math.max(1, Math.trunc(o.qty));
-  row[COL.total] = Math.round(Number(o.total) * 100) / 100;
-  row[COL.note] = cleanText(note, 500);
-  row[COL.source] = cleanText(sourceText(o), 120);
-  return row;
+  return rowOf(o, statusLabel, SHEET_TZ);
 }
+
+/* ------------------------------------------------------------------ */
+/* optional columns (by header)                                        */
+/* ------------------------------------------------------------------ */
+
+type Tab = Pick<SheetsConfig, "spreadsheetId" | "sheetTitle">;
+
+const HEADER_TTL_MS = 10 * 60_000;
+/** N1:AZ1: up to 39 columns after the contract */
+const EXTRA_RANGE = `${colLetter(CONTRACT_WIDTH)}1:AZ1`;
+
+declare global {
+  var __codSheetsHeaders: Map<string, { at: number; cols: ExtraColumns }> | undefined;
+}
+const headerCache = () => (globalThis.__codSheetsHeaders ??= new Map());
+const headerKey = (tab: Tab) => `${tab.spreadsheetId}|${tab.sheetTitle}`;
+const tabPath = (tab: Tab, range: string) => `/${encodeURIComponent(tab.spreadsheetId)}/values/${encodeURIComponent(a1(tab.sheetTitle, range))}`;
+
+/** The optional columns the tab has ("SKU", "Articles", "Livraison", "Prix pack" after column M). */
+async function extraColumns(tab: Tab, opts: GapiOptions): Promise<ExtraColumns> {
+  const cache = headerCache();
+  const hit = cache.get(headerKey(tab));
+  if (hit && Date.now() - hit.at < HEADER_TTL_MS) return hit.cols;
+  const r = await gapi<{ values?: unknown[][] }>(tabPath(tab, EXTRA_RANGE), {}, opts);
+  const cols = extraColumnsOf(r.values?.[0] ?? []);
+  cache.set(headerKey(tab), { at: Date.now(), cols });
+  while (cache.size > 20) cache.delete(cache.keys().next().value!);
+  return cols;
+}
+
+/** A failed write: the layout may have changed, read the headers again next time. */
+const forgetHeaders = (tab: Tab) => void headerCache().delete(headerKey(tab));
+
+/** Append rows in ONE request (RAW: stored literally). `null` cells are skipped by the API. */
+async function appendWide(tab: Tab, rows: (Cell | null)[][], opts: GapiOptions): Promise<void> {
+  if (!rows.length) return;
+  await gapi(
+    `${tabPath(tab, "A1")}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    { method: "POST", body: JSON.stringify({ majorDimension: "ROWS", values: rows }) },
+    opts,
+  );
+}
+
+/** The append row of an order: contract cells + the optional columns the tab has. */
+function fullRow(o: OrderRow, extras: ExtraColumns): (Cell | null)[] {
+  return wideRow(orderToRow(o), extras, extraValues(o));
+}
+
+/** Cells rewritten when an upsell is accepted after the row was written. */
+const UPSELL_EXTRAS: readonly ExtraColumn[] = ["sku", "articles"];
 
 /* ------------------------------------------------------------------ */
 /* locking                                                             */
@@ -193,20 +200,26 @@ async function syncOnce(sheet: SheetsConfig, opts: SyncOptions): Promise<SyncRes
     const needLookup = batch.some((o) => o.sheetAttempts > 0 || !!o.items.upsell);
     const existing = needLookup ? await readOrderRows(sheet.spreadsheetId, sheet.sheetTitle, gopts) : new Map<string, number>();
     const toAppend = batch.filter((o) => !existing.has(o.id));
+    const extras = await extraColumns(sheet, gopts);
     const updates: { range: string; values: Cell[][] }[] = [];
     for (const o of batch) {
       const rowNo = existing.get(o.id);
       if (!rowNo) continue;
       if (o.items.upsell) {
+        // the upsell changes what the warehouse packs: Produit, Variante, Total (+ SKU / Articles)
         const row = orderToRow(o);
-        updates.push({ range: `${colLetter(COL.product)}${rowNo}`, values: [[row[COL.product]!]] });
-        updates.push({ range: `${colLetter(COL.total)}${rowNo}`, values: [[row[COL.total]!]] });
+        for (const c of [COL.product, COL.variant, COL.total]) updates.push({ range: `${colLetter(c)}${rowNo}`, values: [[row[c]!]] });
+        const values = extraValues(o);
+        for (const k of UPSELL_EXTRAS) {
+          const c = extras[k];
+          if (c !== undefined) updates.push({ range: `${colLetter(c)}${rowNo}`, values: [[values[k]]] });
+        }
         result.updated++;
       } else {
         result.skipped++;
       }
     }
-    await appendRows(sheet.spreadsheetId, sheet.sheetTitle, toAppend.map(orderToRow), gopts);
+    await appendWide(sheet, toAppend.map((o) => fullRow(o, extras)), gopts);
     result.appended = toAppend.length;
     await updateCells(sheet.spreadsheetId, sheet.sheetTitle, updates, gopts);
 
@@ -218,6 +231,7 @@ async function syncOnce(sheet: SheetsConfig, opts: SyncOptions): Promise<SyncRes
       .where(and(inArray(orders.id, ids), or(...unchanged)));
     return result;
   } catch (err) {
+    forgetHeaders(sheet);
     const message = explain(err, serviceAccountEmail()).slice(0, 500);
     await db
       .update(orders)

@@ -53,7 +53,7 @@ function stats(ctx: RenderContext, showRating: boolean): Stat[] {
       node: <Counter ctx={ctx} to={r.value} decimals={1} suffix={micro(ctx.locale, "outOf")} delay={300} />,
     });
   }
-  const s = savingsOf(ctx.product.price, ctx.product.compareAt);
+  const s = savingsOf(ctx.lead.price, ctx.lead.compareAt);
   if (s && ctx.offers.showSavings !== "none") {
     out.push({ key: "save", label: micro(ctx.locale, "off"), node: <Counter ctx={ctx} to={s.pct} prefix="−" suffix="%" delay={420} /> });
   }
@@ -61,7 +61,7 @@ function stats(ctx: RenderContext, showRating: boolean): Stat[] {
   if (best) {
     out.push({
       key: "pack",
-      label: micro(ctx.locale, "onPack", { qty: best.qty }),
+      label: best.sameItem ? micro(ctx.locale, "onPack", { qty: best.qty }) : best.label,
       node: <Counter ctx={ctx} to={best.pct} prefix="−" suffix="%" delay={540} />,
       bundleId: best.bundleId,
     });
@@ -79,7 +79,7 @@ export function SpecHero({ id, variant, bg, data, ctx }: HeroProps): ReactElemen
   const R = frameAspect(facts, 1, 1.3);
   const specs = heroNotes(data, 4);
   // a reference is printed only when the merchant has one: never a made-up code
-  const ref = ctx.product.sku?.trim() ?? "";
+  const ref = ctx.lead.sku?.trim() ?? "";
   const kicker = data.kicker.trim();
   const figures = stats(ctx, data.showRating);
 

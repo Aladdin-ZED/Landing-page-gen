@@ -427,6 +427,24 @@
   line-height: 1;
 }
 
+/* multi-item offers: the short name ("Duo", "Au choix") where the quantity stands; "Dès" before a price that can rise */
+.lp-hero__opt-q--word {
+  max-inline-size: 100%;
+  overflow: hidden;
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step-0) * 1.02 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-hero__opt-from {
+  font-size: 0.82em;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
 /* ==========================================================================
    motion — choreography on top of the reveal system (motion allowed only)
    ========================================================================== */

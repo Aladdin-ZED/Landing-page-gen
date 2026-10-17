@@ -10,54 +10,52 @@
  * every slide and thumbnail fitted subject-first to that exact frame.
  */
 import type { ReactElement } from "react";
-import { bundleMath, defaultBundleId } from "@/lib/page/pricing";
+import { offerViews } from "../../offers/model";
 import { cssVars, cx, Icon, Money, Picture, pictureCrop, quietCorner, reveal, RichText, savingsOf, SectionShell } from "../../primitives";
-import type { Bundle, RenderContext, ResolvedAsset } from "../../types";
+import type { RenderContext, ResolvedAsset } from "../../types";
 import { micro } from "./copy";
 import { visualFacts } from "./framing";
-import { HeroCta, HeroLead, HeroMeta, HeroPrice, HeroTitle, HeroTrust, heroNotes, heroPhotos, NoteText, titleId, type HeroProps } from "./parts";
-
-function badgeOf(ctx: RenderContext, b: Bundle): string {
-  if (b.badge === "custom") return b.badgeText?.trim() ?? "";
-  if (b.badge === "popular") return ctx.t("bundle.popular");
-  if (b.badge === "best") return ctx.t("bundle.best");
-  return "";
-}
+import { HeroCta, HeroLead, HeroMeta, HeroPrice, HeroTitle, HeroTrust, heroNotes, heroPhotos, heroPrice, NoteText, titleId, type HeroProps } from "./parts";
 
 function Packs({ ctx, id }: { ctx: RenderContext; id: string }): ReactElement | null {
-  const bundles = ctx.offers.bundles;
-  if (bundles.length < 2) return null;
-  const selected = defaultBundleId(ctx.offers);
+  // the shared offer model: `from` prices, genuine savings, short names ("Duo", "Au choix")
+  const views = offerViews(ctx).filter((v) => !v.soldOut);
+  if (views.length < 2) return null;
   const labelId = `${id}-packs`;
   return (
     <div className="lp-hero__packs-pick" role="group" aria-labelledby={labelId} {...reveal("rise", 160)}>
       <p className="lp-hero__pick-label" id={labelId}>
         {micro(ctx.locale, "choose")}
       </p>
-      <div className="lp-hero__opts" data-n={Math.min(bundles.length, 4)}>
-        {bundles.map((b) => {
-          const m = bundleMath(b, ctx.product.price);
-          const badge = badgeOf(ctx, b);
+      <div className="lp-hero__opts" data-n={Math.min(views.length, 4)}>
+        {views.map((v) => {
+          const badge = v.badge?.text ?? "";
           return (
             <a
-              key={b.id}
+              key={v.id}
               href="#order"
               className={cx("lp-hero__opt", badge && "lp-hero__opt--badged")}
               data-action="order"
-              data-bundle={b.id}
-              data-bundle-card={b.id}
-              data-selected={b.id === selected ? "" : undefined}
+              data-bundle={v.id}
+              data-bundle-card={v.id}
+              data-selected={v.selected ? "" : undefined}
+              aria-label={`${v.name} · ${v.fromWord ? `${v.fromWord} ` : ""}${v.total}`}
             >
               {badge ? <RichText as="span" className="lp-hero__opt-badge" text={badge} ctx={ctx} decorate={false} /> : null}
-              <bdi className="lp-hero__opt-q" dir="ltr">
-                ×{b.qty}
-              </bdi>
+              {v.sameItem ? (
+                <bdi className="lp-hero__opt-q" dir="ltr">
+                  ×{ctx.num(v.qty)}
+                </bdi>
+              ) : (
+                <bdi className="lp-hero__opt-q lp-hero__opt-q--word">{v.short}</bdi>
+              )}
               <span className="lp-hero__opt-total">
-                <Money ctx={ctx} amount={m.total} />
+                {v.fromWord ? <span className="lp-hero__opt-from">{v.fromWord} </span> : null}
+                <Money ctx={ctx} amount={v.m.total} />
               </span>
-              {m.showReference && m.savingsPct > 0 ? (
+              {v.math.showReference && v.math.savingsPct > 0 && ctx.offers.showSavings !== "none" ? (
                 <span className="lp-hero__opt-save">
-                  <bdi dir="ltr">{ctx.t("bundle.savePct", { pct: m.savingsPct })}</bdi>
+                  <bdi dir="ltr">{ctx.t("bundle.savePct", { pct: v.math.savingsPct })}</bdi>
                 </span>
               ) : (
                 <span className="lp-hero__opt-unit">{micro(ctx.locale, "unit")}</span>
@@ -89,7 +87,8 @@ export function SplitHero({ id, variant, bg, data, ctx }: HeroProps): ReactEleme
   const slides = photos.length ? photos : [null];
   const many = photos.length > 1;
   const bullets = heroNotes(data, 3);
-  const saving = savingsOf(ctx.product.price, ctx.product.compareAt);
+  const hp = heroPrice(ctx);
+  const saving = savingsOf(hp.amount, hp.compareAt);
   const pct = saving && ctx.offers.showSavings !== "none" ? ctx.t("bundle.savePct", { pct: saving.pct }) : null;
   const lead = slides[0] ?? null;
   const [phoneR, deskR] = galleryRatios(lead);

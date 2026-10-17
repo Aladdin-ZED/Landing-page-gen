@@ -6,7 +6,9 @@
  *    legal documents; style attributes only carry custom properties; lp-config parses;
  *  - every BuiltTheme attribute the CSS switches on is on <html>;
  *  - dividers are v2 kinds only, never the same shape twice in a row, none on "panels" pages;
- *  - a v1 document (paper texture, hard shadow, torn/scallop dividers…) is migrated, not rejected.
+ *  - a v1 document (paper texture, hard shadow, torn/scallop dividers…) is migrated, not rejected;
+ *  - runtime size budgets (docs/OFFERS.md §F.9, src/landing/runtime/budgets.json): every chunk and the
+ *    heaviest page (every optional chunk + landing, in one document) at most the recorded gzip + 5%.
  *
  *   npx tsx scripts/qa/render-check.ts        (exit code 1 on any failure)
  */
@@ -15,6 +17,13 @@ import { FIXTURE_NAMES, fixtureAssets, getFixture } from "@/lib/page/fixtures";
 import { DIVIDERS } from "@/lib/page/schema";
 import { validateDoc } from "@/lib/page/validate";
 import { inlineHashes, renderLandingHtml, renderLegalHtml, renderThankYouHtml, styleAttrViolations } from "@/lib/render/core";
+import { runtimeScripts } from "@/landing/document";
+import { runtimeChunks, type RuntimeChunk } from "@/landing/generated/assets";
+import type { LandingRuntimeConfig } from "@/landing/runtime/config";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { gzipSync } from "node:zlib";
 /** Same values as PUBLIC_ENDPOINTS in src/lib/render/publish.server.ts (server-only, not importable here). */
 const PUBLIC_ENDPOINTS = { order: "/api/public/order", lead: "/api/public/lead", event: "/api/public/event", upsell: "/api/public/upsell" };
 
@@ -58,8 +67,16 @@ async function main() {
         if (r.issues.length) fail(`${tag}: failed sections ${r.issues.map((i) => i.sectionId + ":" + i.message).join("; ")}`);
         for (const h of [...scripts, ...styles]) if (!r.csp.includes(`'${h}'`)) fail(`${tag}: hash missing from CSP ${h}`);
         const styleCount = (r.html.match(/<style\b/g) ?? []).length;
-        const expectScripts = kind === "landing" || kind === "merci" ? 1 : 0;
-        if (scripts.length !== expectScripts) fail(`${tag}: ${scripts.length} executable scripts (expected ${expectScripts})`);
+        // Offers v2 (§F.9): the core chunk plus exactly the feature / pixels / turnstile chunks the page's config needs
+        const pageCfg = /<script type="application\/json" id="lp-config">([\s\S]*?)<\/script>/.exec(r.html)?.[1];
+        const want =
+          kind === "landing" || kind === "merci"
+            ? pageCfg
+              ? runtimeScripts(kind === "landing" ? "landing" : "thanks", JSON.parse(pageCfg) as LandingRuntimeConfig).map((js) => `sha256-${createHash("sha256").update(js.replace(/\r\n?/g, "\n"), "utf8").digest("base64")}`)
+              : null
+            : [];
+        if (want === null) fail(`${tag}: no #lp-config`);
+        else if (scripts.length !== want.length || want.some((h) => !scripts.includes(h))) fail(`${tag}: ${scripts.length} executable scripts, expected exactly the ${want.length} chunk(s) its config needs`);
         if (styleCount < 1) fail(`${tag}: no <style>`);
         const v = styleAttrViolations(r.html);
         if (v.length) fail(`${tag}: style attr violations ${v.slice(0, 3).join(" | ")}`);
@@ -75,7 +92,7 @@ async function main() {
           for (let i = 1; i < kinds.length; i++) if (kinds[i] === kinds[i - 1]) fail(`${tag}: same divider twice in a row (${kinds[i]})`);
           console.log(`   ${surfaces} dividers: ${kinds.join(" ") || "-"} · ${Math.round(r.html.length / 1024)} KB`);
           const cfg = /<script type="application\/json" id="lp-config">([\s\S]*?)<\/script>/.exec(r.html)?.[1];
-          if (!cfg || JSON.parse(cfg).v !== 1) fail(`${tag}: lp-config missing`);
+          if (!cfg || JSON.parse(cfg).v !== 2) fail(`${tag}: lp-config missing or not v2`);
         }
       }
     }
@@ -98,6 +115,20 @@ async function main() {
     if (v.doc.sections[3]!.divider !== "auto" || v.doc.sections[4]!.bg !== "base") fail("legacy section values not migrated");
     console.log(`legacy migration: ${v.issues.filter((i) => i.message.startsWith("Retired")).length} retired values repaired`);
   }
+
+  // runtime budgets: gzip -9 of each chunk, and of the heaviest page's scripts in one document
+  const budgets = JSON.parse(readFileSync(join(__dirname, "..", "..", "src", "landing", "runtime", "budgets.json"), "utf8")) as Record<string, number>;
+  const gz = (s: string) => gzipSync(Buffer.from(s, "utf8"), { level: 9 }).length;
+  const sizes: Record<string, number> = {};
+  for (const [name, js] of Object.entries(runtimeChunks)) sizes[name] = gz(js);
+  const heaviest: RuntimeChunk[] = ["pixels", "turnstile", "units-matrix", "units-fields", "fill-steps-box", "landing"];
+  sizes.page = gz(heaviest.map((n) => runtimeChunks[n]).join("\n"));
+  for (const [name, size] of Object.entries(sizes)) {
+    const budget = budgets[name];
+    if (typeof budget !== "number") fail(`runtime ${name}: no budget in budgets.json`);
+    else if (size > budget * 1.05) fail(`runtime ${name} is ${size} B gzip — over its ${budget} B budget + 5%`);
+  }
+  console.log(`runtime budgets: ${Object.entries(sizes).map(([k, v]) => `${k} ${v}/${budgets[k]}`).join(" · ")}`);
   console.log(failures ? `${failures} FAILURE(S)` : "ALL OK");
   process.exit(failures ? 1 : 0);
 }

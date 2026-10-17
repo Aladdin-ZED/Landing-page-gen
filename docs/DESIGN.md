@@ -185,5 +185,6 @@ Run this on every section and every page before calling it done:
 
 ## 10. Accessibility & performance
 AA contrast via tokens (glass chips must keep AA over the image — add a scrim). Hit targets ≥ 44px; visible focus
-rings. JS ≤ 20KB gz; CSS inlined per used section; `backdrop-filter` with opaque fallback; no layout thrash.
+rings. JS within the runtime budgets of docs/OFFERS.md §F.9 (page cap 32 KB gz with pixels, Turnstile and every
+feature chunk; the core alone ≈ 24 KB); CSS inlined per used section; `backdrop-filter` with opaque fallback; no layout thrash.
 Logical properties only (RTL). Works from 320px. Mobile is the primary canvas.

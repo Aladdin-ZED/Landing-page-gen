@@ -2,20 +2,52 @@
  * Thank-you page (config.page === "thanks"):
  *  - fills [data-ty="name|orderId|total|items"] from sessionStorage "lp-order" (only when it matches
  *    ?o=<orderId>); server-rendered fallback text stays when there is nothing to show,
- *  - draws the chosen product options into [data-ty="options"] (like the form's live summary),
+ *  - draws the order's groups into [data-ty="options"] (item names, color dots, typed values in « »,
+ *    "Offert" — the element's data-free word —, "Cadeau : …" — its data-gift format "{label}" —, the
+ *    page extras with their surcharge "+15 DH"),
  *  - sets <html data-ty-state="filled|partial|empty"> for CSS,
- *  - emits the Purchase pixel event once per orderId,
+ *  - emits the Purchase pixel event once per orderId, contents per content id from the groups,
  *  - runs the one-click upsell ([data-ty-upsell] with [data-ty-upsell-accept|decline], its
  *    [data-countdown] window anchored to the order time, optional [data-ty-upsell-status]).
  */
 import type { Ctx } from "./core";
 import { $$, closest, disable, setStatus, setText, sget, sset } from "./core";
 import { postJson } from "./http";
-import { formatMoney } from "./money";
-import type { OrderRecord } from "./order-store";
+import { fmtCents, formatMoney, type MoneyFormat } from "./money";
+import type { OrderGroup, OrderRecord } from "./order-store";
 import { ORDER_ID_RE, readOrder, writeOrder } from "./order-store";
 import { str } from "./strings";
-import { drawSummary } from "./variants";
+
+/** Draw the order's groups: "2 × Crème jour · ● Noir / M + Sérum · Offert + Cadeau : Trousse + Emballage ·
+ *  Emballage cadeau +15 DH" (`money` formats an extra's surcharge; without it the surcharge is left out). */
+export function drawGroups(doc: Document, el: Element, groups: readonly OrderGroup[], money?: MoneyFormat): void {
+  const free = el.getAttribute("data-free") || "";
+  const gift = el.getAttribute("data-gift") || "{label}";
+  const add = (to: Element, cls: string, t: string, tag?: string) => {
+    if (to.lastChild) to.appendChild(doc.createTextNode(" "));
+    const s = to.appendChild(doc.createElement(tag || "span"));
+    s.className = "lp-vsum__" + cls;
+    s.textContent = t;
+    return s;
+  };
+  while (el.firstChild) el.removeChild(el.firstChild);
+  const multi = groups.some((g) => !!g.item && !g.k);
+  groups.forEach((g, i) => {
+    if (i) add(el, "plus", "+");
+    const u = add(el, "u", "");
+    if (g.k === "gift") return void add(u, "gift", gift.replace("{label}", g.item || ""), "bdi");
+    if (g.k !== "extra" && (multi || g.n > 1 || g.k === "bump")) add(u, "n", g.n + " ×", "bdi").setAttribute("dir", "ltr");
+    if (g.item) add(u, "i", g.item, "bdi");
+    g.parts.forEach((p, j) => {
+      if (j || g.item) add(u, "sep", j ? "/" : "·");
+      if (p.sw && /^#[0-9a-fA-F]{6}$/.test(p.sw)) (add(u, "dot", "") as HTMLElement).style.setProperty("--sw", p.sw);
+      add(u, "l", p.label, "bdi");
+    });
+    for (const f of g.fields || []) add(u, "f", f.name + " « " + f.value + " »", "bdi");
+    if (g.free && free) add(u, "free", free);
+    if (g.k === "extra" && g.p && money) add(u, "d", "+" + fmtCents(g.p, money), "bdi");
+  });
+}
 
 const fired: Record<string, true> = {};
 
@@ -24,12 +56,26 @@ function purchaseOnce(c: Ctx, rec: OrderRecord): void {
   if (fired[key] || sget(c.win, "localStorage", key) || sget(c.win, "sessionStorage", key)) return;
   fired[key] = true;
   if (!sset(c.win, "localStorage", key, "1")) sset(c.win, "sessionStorage", key, "1");
+  // contents per content id: quantity, allocated unit price (free units 0; the bump at its price)
+  const by: Record<string, { id: string; q: number; p: number }> = {};
+  const contents: { id: string; q: number; p: number }[] = [];
+  for (const g of rec.groups || []) {
+    if (g.k === "gift" || !g.cid) continue;
+    const x = by[g.cid] || (by[g.cid] = contents[contents.push({ id: g.cid, q: 0, p: 0 }) - 1]!);
+    x.q += g.n;
+    x.p += (g.p || 0) * g.n;
+  }
+  for (const x of contents) x.p = Math.round(x.p / x.q);
+  // multi-item pages name the offer (§G.7, as the server events and the landing events do)
+  const multi = (rec.groups || []).some((g) => !!g.item && !g.k);
   c.emit("purchase", {
     orderId: rec.orderId,
     value: rec.total,
     currency: rec.currency || c.cfg.currency,
     eventId: rec.eventId,
     qty: rec.qty,
+    ...(contents.length ? { contents } : {}),
+    ...(multi && rec.bundleLabel ? { name: rec.bundleLabel } : {}),
   });
 }
 
@@ -86,7 +132,7 @@ function upsell(c: Ctx, rec: OrderRecord | null): void {
       added(0);
       return;
     }
-    const price = up.price;
+    const price = up.price / 100;
     state("sending");
     busy(true);
     status("", "");
@@ -133,7 +179,7 @@ export function thankyou(c: Ctx): void {
     const v = values.get(el.getAttribute("data-ty") || "");
     if (v) setText(el, v);
   }
-  if (rec && rec.options) for (const el of $$(doc, '[data-ty="options"]')) drawSummary(doc, el, rec.options);
+  if (rec && rec.groups) for (const el of $$(doc, '[data-ty="options"]')) drawGroups(doc, el, rec.groups, cfg.money);
 
   if (rec && !c.preview) purchaseOnce(c, rec);
   upsell(c, rec);

@@ -1,13 +1,17 @@
 "use client";
 /**
- * Step 4 — directions. Three art-directed pages side by side, each a live, scrollable preview in a
+ * Step 5 — directions. Three art-directed pages side by side, each a live, scrollable preview in a
  * phone frame with its archetype, palette and type pairing. Pick one to open it in the builder;
  * regenerate for new takes on the same styles, or switch to the next three styles.
+ *
+ * "Ad tracking for this page" (docs/OFFERS.md §A.4, per-page pixels): PX's required answer sits
+ * above the directions; until it is given (`gate`), "Use this direction" stays disabled and says why.
  */
 import { ArrowRightIcon, Loader2Icon, Maximize2Icon, MonitorIcon, PaletteIcon, RefreshCwIcon, ShuffleIcon, SmartphoneIcon, SparklesIcon, SquareIcon, TriangleAlertIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { Segmented } from "@/components/admin/common/segmented";
+import { PageTrackingChoice, type TrackingChoice } from "@/components/admin/pixels/page-tracking-choice";
 import { LandingPreview, type PreviewAssets } from "@/components/preview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -47,6 +51,10 @@ export interface StepDirectionsProps {
   copy: CopyState;
   onStopCopy(): void;
   onRetryCopy(): void;
+  /** the page's ad tracking answer (per-page pixels; null: the Details step's store pixels apply) */
+  tracking: { value: TrackingChoice | undefined; onChange(v: TrackingChoice): void; canCreate: boolean } | null;
+  /** why a direction can't be used yet (e.g. no tracking answer) */
+  gate: string | null;
 }
 
 const fontName = (id: string) => fontData(id)?.family ?? id;
@@ -61,9 +69,10 @@ function matchText({ match }: Direction): string {
 const ROW = "-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 adm-scroll lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0";
 const CELL = "w-[min(86vw,22rem)] shrink-0 snap-center lg:w-auto";
 
-export function StepDirections({ directions, error, assets, store, seedBase, creating, onUse, onRegenerate, onOtherStyles, canOtherStyles, ai, copy, onStopCopy, onRetryCopy }: StepDirectionsProps) {
+export function StepDirections({ directions, error, assets, store, seedBase, creating, onUse, onRegenerate, onOtherStyles, canOtherStyles, ai, copy, onStopCopy, onRetryCopy, tracking, gate }: StepDirectionsProps) {
   const [full, setFull] = useState<number | null>(null);
   const busy = creating !== null;
+  const blocked = busy || !!gate;
 
   return (
     <div className="grid gap-5">
@@ -88,6 +97,9 @@ export function StepDirections({ directions, error, assets, store, seedBase, cre
       </div>
 
       <CopyBanner ai={ai} copy={copy} onStop={onStopCopy} onRetry={onRetryCopy} />
+      {/* "Ad tracking for this page" (PX's answer; "Use this direction" waits for it) */}
+      {tracking ? <PageTrackingChoice value={tracking.value} onChange={tracking.onChange} canCreate={tracking.canCreate} /> : null}
+
 
       {error ? (
         <div className="adm-surface-flat flex flex-wrap items-start gap-3 p-5 text-sm" role="alert">
@@ -118,7 +130,8 @@ export function StepDirections({ directions, error, assets, store, seedBase, cre
                 store={store}
                 seedBase={seedBase}
                 creating={creating === i}
-                disabled={busy}
+                disabled={blocked}
+                gate={gate}
                 onUse={() => onUse(i)}
                 onFull={() => setFull(i)}
               />
@@ -136,7 +149,7 @@ export function StepDirections({ directions, error, assets, store, seedBase, cre
         </ul>
       )}
 
-      <FullPreview direction={full === null ? null : (directions?.[full] ?? null)} index={full ?? 0} assets={assets} store={store} onClose={() => setFull(null)} onUse={() => full !== null && onUse(full)} disabled={busy} />
+      <FullPreview direction={full === null ? null : (directions?.[full] ?? null)} index={full ?? 0} assets={assets} store={store} onClose={() => setFull(null)} onUse={() => full !== null && !gate && onUse(full)} disabled={blocked} />
     </div>
   );
 }
@@ -229,6 +242,7 @@ function DirectionCard({
   seedBase,
   creating,
   disabled,
+  gate,
   onUse,
   onFull,
 }: {
@@ -239,6 +253,8 @@ function DirectionCard({
   seedBase: number;
   creating: boolean;
   disabled: boolean;
+  /** why it can't be used yet (shown on the button) */
+  gate: string | null;
   onUse: () => void;
   onFull: () => void;
 }) {
@@ -303,11 +319,12 @@ function DirectionCard({
           className="h-10 flex-1 rounded-full"
           disabled={disabled && !creating}
           aria-busy={creating}
+          title={gate ?? undefined}
           onClick={creating ? undefined : onUse}
         >
           {creating ? <Loader2Icon className="animate-spin" /> : null}
-          {creating ? "Creating the page…" : "Use this direction"}
-          {!creating && <ArrowRightIcon />}
+          {creating ? "Creating the page…" : gate ? "Choose ad tracking first" : "Use this direction"}
+          {!creating && !gate && <ArrowRightIcon />}
         </Button>
         <Button variant="outline" size="icon-lg" className="size-10 rounded-full" aria-label={`Open ${direction.label} full screen`} onClick={onFull}>
           <Maximize2Icon />

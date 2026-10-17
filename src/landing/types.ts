@@ -19,8 +19,10 @@ import type {
   AssetRef,
   Bundle,
   FormConfig,
+  Item,
   Locale,
   Market,
+  Offer,
   Offers,
   PageDoc,
   Product,
@@ -122,9 +124,14 @@ export interface RenderContext {
   dir: "rtl" | "ltr";
   archetype: Archetype;
   seed: number;
-  /** page doc (read-only) for cross-section info (product, offers, form...) */
+  /** page doc (read-only) for cross-section info (product, items, offers, form...) */
   doc: PageDoc;
+  /** the page's story (name, words, photos, rating) */
   product: Product;
+  /** what the page sells (items[0] = lead item) */
+  items: Item[];
+  /** the lead item with its display name (item.name, else the product name) — single-item pages take price and options from it */
+  lead: Item & { name: string };
   offers: Offers;
   form: FormConfig;
   market: MarketInfo;
@@ -222,6 +229,8 @@ export interface VariantDef {
 export interface DefaultsInput {
   locale: Locale;
   product: Product;
+  /** what the page sells (items[0] = lead item) */
+  items: Item[];
   offers: Offers;
   archetype: Archetype;
   /** rng for picking among alternative default copy */
@@ -253,4 +262,4 @@ export function defineSection<S extends z.ZodTypeAny>(def: SectionDefinition<S>)
 }
 
 /* Re-exports for convenience in section files */
-export type { AssetRef, Bundle, Locale, Offers, PageDoc, Product, SectionBg, SectionInstance, ReactNode };
+export type { AssetRef, Bundle, Item, Locale, Offer, Offers, PageDoc, Product, SectionBg, SectionInstance, ReactNode };

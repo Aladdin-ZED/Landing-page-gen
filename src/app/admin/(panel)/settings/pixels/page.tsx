@@ -1,26 +1,14 @@
 import type { Metadata } from "next";
-import { PixelsForm } from "@/components/admin/settings/pixels-form";
-import { pageCounts } from "@/lib/admin-data/pages";
+import { PixelLibrary } from "@/components/admin/pixels/pixel-library";
 import { can, requireUser } from "@/lib/auth";
-import { pixelFormValues } from "@/lib/pixels/store.server";
-import { getSetting } from "@/lib/settings";
-import { applyStorePixelsAction, savePixelSettingsAction, sendPixelTestAction } from "./actions";
+import { pixelLibraryView } from "@/lib/pixels/library.server";
 
 export const metadata: Metadata = { title: "Pixels" };
 
+/** Settings → Pixels: the pixel library (pages own their pixels; docs/OFFERS.md §A.4). */
 export default async function PixelsSettingsPage() {
   const user = await requireUser({ permission: "settings.read" });
-  const [pixels, secrets, counts] = await Promise.all([getSetting("pixels", { fresh: true }), getSetting("tracking_secrets", { fresh: true }), pageCounts()]);
-  const canWrite = can(user.role, "settings.write");
-  return (
-    <PixelsForm
-      // tokens leave the server only as masks (••••3f9a)
-      initial={pixelFormValues(pixels, secrets)}
-      canWrite={canWrite}
-      save={savePixelSettingsAction}
-      test={canWrite ? sendPixelTestAction : null}
-      pages={{ total: counts.draft + counts.published, live: counts.published }}
-      apply={canWrite && can(user.role, "pages.write") ? applyStorePixelsAction : null}
-    />
-  );
+  // tokens leave the server only as masks (••••3f9a), and only for owners
+  const view = await pixelLibraryView({ canCreate: can(user.role, "settings.write"), fresh: true });
+  return <PixelLibrary initial={view} canPages={can(user.role, "pages.write")} canPublish={can(user.role, "pages.publish")} />;
 }

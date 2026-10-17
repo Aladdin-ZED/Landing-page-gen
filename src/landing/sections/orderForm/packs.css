@@ -1197,3 +1197,661 @@
     animation: none;
   }
 }
+
+/* ==========================================================================
+   Offers v2 (docs/OFFERS.md §E.2–E.4) — selected styles · densities · media · "Dès" · contents ·
+   perks · sold out. .lp-packs[data-picker][data-sel=soft|solid|outline][data-density][data-media].
+   soft (default): the look above (accent 8% into the card drained of its color, accent ring, glow).
+   solid: the card fills with the accent, text in accent-ink; chips invert to accent-ink 16% (the
+   saving chip too — never --sec-success on the accent). On the bold slab (cards are light sheets on
+   an accent slab) solid renders as an ink fill so it is never accent on accent.
+   outline: no fill, a 2px accent ring + the check (editorial / minimal archetypes).
+   ========================================================================== */
+@supports (color: oklch(from red l c h)) {
+  .lp-packs[data-sel="soft"] .lp-pack,
+  .lp-packs[data-sel="soft"] .lp-seg,
+  .lp-packs[data-sel="soft"] .lp-seg__detail {
+    --pk-sel: color-mix(in oklab, var(--sec-accent) 8%, var(--pk-card0));
+  }
+}
+
+/* --- solid ----------------------------------------------------------------- */
+.lp-packs[data-sel="solid"] .lp-pack:not(.lp-seg__opt) {
+  --pk-on: var(--sec-accent);
+  --pk-on-ink: var(--sec-accent-ink);
+  --pk-on-chip: color-mix(in oklab, var(--sec-accent-ink) 16%, transparent);
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected]:not(.lp-seg__opt) {
+  background: var(--pk-on);
+  color: var(--pk-on-ink);
+  box-shadow:
+    0 0 0 4px var(--pk-ring, var(--mx-tint)),
+    var(--pk-drop);
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected]:not(.lp-seg__opt)::before {
+  opacity: 0;
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] :is(.lp-pack__meta, .lp-pack__subt, .lp-pack__perks, .lp-pack__flabel, .lp-pack__contents, .lp-pack__perk) {
+  color: inherit;
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] :is(.lp-pack__meta, .lp-pack__subt, .lp-pack__flabel, .lp-pack__contents) {
+  opacity: 0.84;
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] .lp-pack__was {
+  color: inherit;
+  opacity: 0.72;
+  text-decoration-color: currentColor;
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] :is(.lp-pack__save, .lp-pack__chip, .lp-pack__tag) {
+  background: var(--pk-on-chip);
+  color: var(--pk-on-ink);
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] :is(.lp-pack__pct, .lp-pack__ship .lp-icon, .lp-pack__field--save .lp-pack__fval, .lp-pack__field--ship .lp-icon, .lp-pack__perk-ico) {
+  color: inherit;
+  stroke: currentColor;
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] .lp-pack__check {
+  background: var(--pk-on-ink);
+  box-shadow: none;
+  color: var(--pk-on);
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] :is(.lp-pack__qty, .lp-pack__gift, .lp-pack__thumb) {
+  background: var(--pk-on-chip);
+  color: inherit;
+}
+
+.lp-packs--tiers[data-sel="solid"] .lp-pack[data-selected] .lp-pack__qty,
+.lp-packs--ticket[data-sel="solid"] .lp-pack[data-selected] .lp-pack__qty {
+  background: none;
+  color: inherit;
+}
+
+.lp-packs--ticket[data-sel="solid"] .lp-pack[data-selected] .lp-pack__band {
+  background: var(--pk-on-chip);
+  box-shadow: inset 0 -1px 0 var(--pk-on-chip);
+}
+
+.lp-packs--ticket[data-sel="solid"] .lp-pack[data-selected] .lp-pack__tag {
+  background: var(--pk-on-ink);
+  color: var(--pk-on);
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] .lp-pack__media {
+  background: var(--pk-on-chip);
+}
+
+/* the bold slab: an ink fill (cards are light sheets on the accent slab); on a dark slab the accent
+   fill already stands apart, so it stays */
+.lp-orderForm--bold .lp-of__panel:not([data-bg="dark"]) .lp-packs[data-sel="solid"] .lp-pack:not(.lp-seg__opt) {
+  --pk-on: var(--sec-ink);
+  --pk-on-ink: var(--sec-card);
+  --pk-on-chip: color-mix(in oklab, var(--sec-card) 16%, transparent);
+}
+
+/* --- outline --------------------------------------------------------------- */
+.lp-packs[data-sel="outline"] .lp-pack[data-selected]:not(.lp-seg__opt) {
+  background: var(--sec-card);
+  box-shadow:
+    inset 0 0 0 2px var(--sec-accent),
+    var(--pk-drop);
+}
+
+.lp-packs[data-sel="outline"] .lp-pack[data-selected]:not(.lp-seg__opt)::before {
+  opacity: 0;
+}
+
+.lp-packs[data-sel="outline"] .lp-pack[data-selected] .lp-pack__qty:not(.lp-pack__qty--pic) {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--sec-accent);
+  color: var(--sec-accent);
+}
+
+.lp-packs--tiers[data-sel="outline"] .lp-pack[data-selected] .lp-pack__qty {
+  box-shadow: none;
+}
+
+.lp-packs--ticket[data-sel="outline"] .lp-pack[data-selected] .lp-pack__band {
+  background: var(--pk-tint);
+}
+
+.lp-packs--ticket[data-sel="outline"] .lp-pack[data-selected] :is(.lp-pack__qty, .lp-pack__main) {
+  color: inherit;
+}
+
+.lp-packs--ticket[data-sel="outline"] .lp-pack[data-selected] .lp-pack__check {
+  background: var(--sec-accent);
+  color: var(--sec-accent-ink);
+}
+
+.lp-packs--ticket[data-sel="outline"] .lp-pack[data-selected] :is(.lp-pack__meta, .lp-pack__subt) {
+  opacity: 1;
+}
+
+.lp-packs--pills[data-sel="outline"] .lp-seg__thumb {
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 2px var(--sec-accent), var(--pk-drop);
+}
+
+.lp-packs--pills[data-sel="outline"] .lp-seg__opt[data-selected] {
+  color: var(--sec-ink);
+}
+
+@supports not selector(:has(a)) {
+  .lp-packs--pills[data-sel="outline"] .lp-seg__opt[data-selected] {
+    background: var(--sec-card);
+    box-shadow: inset 0 0 0 2px var(--sec-accent);
+  }
+}
+
+/* --- "Dès": the card price can rise with the choices ------------------------ */
+.lp-pack__from {
+  font-family: var(--lp-font-body);
+  font-size: 0.56em;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.78;
+  vertical-align: 0.18em;
+}
+
+.lp-seg__price .lp-pack__from,
+.lp-of__show-price .lp-pack__from {
+  font-size: 0.86em;
+  vertical-align: baseline;
+}
+
+/* --- contents line / chips, perks -------------------------------------------- */
+.lp-pack__meta--contents {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.lp-pack__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-block-start: 0.15rem;
+}
+
+.lp-pack__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  max-inline-size: 100%;
+  padding: 0.18em 0.6em;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--sec-accent) 10%, var(--sec-card));
+  color: var(--sec-card-ink);
+  font-size: calc(var(--lp-step--1) * 0.82 * var(--lp-script-scale));
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-pack__chip[data-free] {
+  background: var(--sec-card);
+  box-shadow: inset 0 0 0 1px var(--mx-line);
+}
+
+.lp-pack__perklist {
+  display: grid;
+  flex-basis: 100%;
+  gap: 0.2rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  color: var(--sec-card-ink);
+}
+
+.lp-pack__perk {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.lp-pack__perk > :not(svg) {
+  min-inline-size: 0;
+}
+
+.lp-pack__perk-ico {
+  flex: none;
+  inline-size: 1em;
+  block-size: 1em;
+  margin-block-start: 0.12em;
+  fill: none;
+  stroke: var(--sec-accent);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lp-packs--visual .lp-pack__perklist {
+  justify-items: center;
+}
+
+.lp-packs--visual .lp-pack__perk {
+  text-align: center;
+}
+
+/* --- sold out: in place, dimmed, an "Épuisé" pill, the radio disabled -------- */
+.lp-pack[data-soldout] {
+  cursor: not-allowed;
+}
+
+.lp-pack[data-soldout] > :not(.lp-pack__out, .lp-pack__radio) {
+  opacity: 0.45;
+}
+
+@media (hover: hover) {
+  .lp-pack[data-soldout]:hover {
+    --pk-line: var(--mx-line);
+    translate: none;
+  }
+}
+
+.lp-pack__out {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: var(--pk-pad);
+  z-index: 3;
+  padding: 0.3em 0.75em;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  font-size: var(--of-lab);
+  font-weight: var(--lp-strong-weight);
+  line-height: 1.2;
+  white-space: nowrap;
+  translate: 0 -50%;
+}
+
+/* --- stack media: the composed thumbnail of an offer ------------------------ */
+.lp-pack__thumb {
+  grid-area: qty;
+  display: grid;
+  place-items: center;
+  inline-size: 3.5rem;
+  aspect-ratio: 1;
+  padding: 0.15rem;
+  border-radius: calc(max(var(--lp-radius-s), 0.8rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  background: var(--pk-tint);
+  overflow: hidden;
+}
+
+.lp-pack__thumb > .lp-pv {
+  inline-size: 100%;
+}
+
+.lp-pack__thumb .lp-ov {
+  --ov-cell-r: 0.4rem;
+  column-gap: 5%;
+}
+
+.lp-pack__thumb :is(.lp-ov__plus, .lp-ov__x, .lp-ov__free, .lp-ov__any, .lp-ov__or, .lp-pv__more, .lp-ov__more) {
+  display: none;
+}
+
+/* --- large media (tiers, ticket, visual cards, pills panel): a well that fits the composition --- */
+.lp-pack__media.lp-ov-host {
+  --host-r: var(--pk-media-r, 1);
+}
+
+.lp-packs--visual[data-n="2"] {
+  --pk-media-r: 1.15;
+}
+
+
+.lp-packs--tiers .lp-pack__media {
+  grid-area: qty;
+  inline-size: min(7.5rem, 86%);
+  margin-block-end: 0;
+}
+
+.lp-packs--ticket .lp-pack__media {
+  --host-r: 1;
+  grid-area: qty;
+  position: relative;
+  inline-size: 3.75rem;
+  margin-block: 0.6rem;
+  padding: 0.15rem;
+  border-radius: calc(max(var(--lp-radius-s), 0.7rem) * var(--lp-corner-k));
+}
+
+.lp-packs--ticket .lp-pack__media :is(.lp-ov__plus, .lp-ov__x, .lp-ov__free, .lp-ov__any, .lp-ov__or) {
+  display: none;
+}
+
+/* --- pills: word labels on multi-item pages, a detail panel with the composed visual --- */
+.lp-seg__qty--word {
+  max-inline-size: 100%;
+  overflow: hidden;
+  font-family: var(--lp-font-body);
+  font-size: calc(var(--lp-step-0) * 0.95 * var(--lp-script-scale));
+  font-weight: var(--lp-strong-weight);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-seg__detail {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: none;
+}
+
+.lp-seg__detail[data-visual] {
+  grid-template-columns: clamp(5.5rem, 32cqi, 9rem) minmax(0, 1fr);
+  column-gap: 1rem;
+  padding: 0.75rem;
+  padding-inline-end: 1.1rem;
+}
+
+.lp-seg__media {
+  --host-r: 1;
+  border-radius: max(calc(var(--pk-R) - 0.3rem * var(--lp-corner-d)), 0.5rem);
+  corner-shape: var(--lp-corner);
+  background: var(--pk-tint);
+  overflow: hidden;
+}
+
+.lp-seg__text {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "badge badge"
+    "main price"
+    "perks perks"
+    "gift gift";
+  align-content: center;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  min-inline-size: 0;
+}
+
+@container of (max-width: 26rem) {
+  .lp-seg__detail[data-visual] .lp-seg__text {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "badge" "main" "price" "perks" "gift";
+    gap: 0.4rem;
+  }
+
+  .lp-seg__detail[data-visual] .lp-pack__price {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.5rem;
+  }
+}
+
+/* --- density: compact ----------------------------------------------------------
+   stack: 56px one-line rows (40px media, one-line summary with ellipsis), 2 columns from 6 offers
+   on a wide form; columns / passes / cards: tighter paddings and smaller numerals. */
+.lp-packs--stack[data-density="compact"] {
+  gap: 0.5rem;
+}
+
+.lp-packs--stack[data-density="compact"] .lp-pack {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "check qty main price";
+  gap: 0 0.7rem;
+  min-block-size: 3.5rem;
+  padding-block: 0.4rem;
+  padding-inline: 0.75rem 0.9rem;
+}
+
+.lp-packs--stack[data-density="compact"] :is(.lp-pack__perks, .lp-pack__gift, .lp-pack__subt) {
+  display: none;
+}
+
+.lp-packs--stack[data-density="compact"] :is(.lp-pack__qty, .lp-pack__thumb) {
+  inline-size: 2.5rem;
+}
+
+.lp-packs--stack[data-density="compact"] .lp-pack__qn {
+  font-size: calc(1.05rem * var(--lp-script-scale-display));
+}
+
+.lp-packs--stack[data-density="compact"] .lp-pack__check {
+  inline-size: 1.3rem;
+  block-size: 1.3rem;
+}
+
+.lp-packs--stack[data-density="compact"] :is(.lp-pack__name, .lp-pack__meta) {
+  /* short names keep the one-line row; a long one ("Promo ×3 · Noir ou Gris") takes a second line
+     rather than losing its end to an ellipsis */
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.lp-packs--stack[data-density="compact"] .lp-pack__price {
+  flex-direction: row-reverse;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.lp-packs--stack[data-density="compact"] .lp-pack__now {
+  font-size: calc(var(--lp-step-0) * 1.1 * var(--lp-script-scale-display));
+}
+
+.lp-packs--stack[data-density="compact"] .lp-pack__badge {
+  inset-inline-end: 0.75rem;
+  padding-block: 0.22em;
+  font-size: calc(var(--of-lab) * 0.9);
+}
+
+.lp-packs--stack[data-density="compact"] .lp-pack[data-selected] {
+  translate: none;
+}
+
+@container of (max-width: 22rem) {
+  .lp-packs--stack[data-density="compact"] .lp-pack__was {
+    display: none;
+  }
+}
+
+@container of (min-width: 34rem) {
+  .lp-packs--stack[data-density="compact"]:is([data-n="6"], [data-n="7"], [data-n="8"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-packs--stack[data-density="compact"]:is([data-n="6"], [data-n="7"], [data-n="8"]) > .lp-units--inline {
+    grid-column: 1 / -1;
+  }
+}
+
+.lp-packs--tiers[data-density="compact"] .lp-pack,
+.lp-packs--visual[data-density="compact"] .lp-pack {
+  gap: 0.3rem;
+  padding-block: 1.15rem 2.6rem;
+}
+
+.lp-packs--visual[data-density="compact"] .lp-pack {
+  padding: 0.35rem 0.35rem 2.6rem;
+}
+
+.lp-packs--tiers[data-density="compact"] .lp-pack__qn {
+  font-size: min(calc(var(--lp-step-3) * var(--lp-script-scale-display)), 11cqi);
+}
+
+.lp-packs--tiers[data-density="compact"] .lp-pack__check,
+.lp-packs--visual[data-density="compact"] .lp-pack__check {
+  inset-block-end: 0.7rem;
+}
+
+.lp-packs--ticket[data-density="compact"] {
+  gap: 0.7rem;
+}
+
+.lp-packs--ticket[data-density="compact"] .lp-pack__fields {
+  padding-block-start: 0.6rem;
+}
+
+.lp-packs--ticket[data-density="compact"] :is(.lp-pack__check, .lp-pack__qty, .lp-pack__main, .lp-pack__tag) {
+  margin-block: 0.6rem;
+}
+
+.lp-packs--ticket[data-density="compact"] .lp-pack__qn {
+  font-size: calc(1.5rem * var(--lp-script-scale-display));
+}
+
+/* visual cards: 3 in a row, 2 columns from 4; 3 columns from 4 on a wide form, 4 at ≥ 56rem */
+.lp-packs--visual:is([data-n="6"]) {
+  --pk-cols: 3;
+}
+
+@container of (max-width: 22rem) {
+  .lp-packs--visual:is([data-n="4"], [data-n="6"], [data-n="7"], [data-n="8"]) {
+    --pk-cols: 2;
+  }
+}
+
+@container of (min-width: 56rem) {
+  .lp-packs--visual:is([data-n="4"], [data-n="7"], [data-n="8"]) {
+    --pk-cols: 4;
+  }
+}
+
+/* passes: 2 columns beside a panel */
+@container of (min-width: 34rem) {
+  .lp-packs--ticket:not([data-n="1"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-units--inline,
+  .lp-pack__thumb {
+    transition: none;
+  }
+}
+
+/* --- v2 refinements ------------------------------------------------------- */
+.lp-pack__contents {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: calc(var(--lp-step--1) * 0.92 * var(--lp-script-scale));
+  color: var(--sec-ink-soft);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.lp-pack__chips-or,
+.lp-pack__chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.lp-pack__chips-or {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lp-pack__or {
+  color: var(--sec-ink-soft);
+  font-size: calc(var(--lp-step--1) * 0.8 * var(--lp-script-scale));
+  font-weight: 500;
+}
+
+.lp-packs[data-sel="solid"] .lp-pack[data-selected] .lp-pack__or {
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* multi-item pages: landscape wells hold duos and trios at a legible size */
+.lp-packs[data-multi] {
+  --pk-media-r: 1.25;
+}
+
+.lp-packs--visual[data-multi][data-n="2"] {
+  --pk-media-r: 1.35;
+}
+
+/* an "inline" panel with nothing to hold (the selected offer has nothing to personalize) */
+.lp-units--inline:not(:has(.lp-unit, .lp-ushared:not([hidden]), .lp-uextra:not([hidden]))) {
+  display: none;
+}
+
+/* the 56px thumbnail of an offer that is not one item ×n: its lead picture + "+n" */
+.lp-othumb {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 1;
+  border-radius: calc(max(var(--lp-radius-s), 0.65rem) * var(--lp-corner-k));
+  corner-shape: var(--lp-corner);
+  overflow: hidden;
+  background: var(--sec-chip);
+}
+
+.lp-othumb > .lp-pic,
+.lp-othumb > .lp-ov__inset {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.lp-othumb__more {
+  position: absolute;
+  inset-block-end: 0.2rem;
+  inset-inline-end: 0.2rem;
+  z-index: 2;
+  padding: 0.1em 0.4em;
+  border-radius: 999px;
+  background: var(--sec-ink);
+  color: var(--sec-bg);
+  font-size: 0.66rem;
+  font-weight: var(--lp-strong-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.lp-pack__thumb:has(> .lp-othumb) {
+  padding: 0;
+}
+
+/* narrow columns (three cards side by side on a phone): the bullets wrap inside the card, a step
+   smaller, so the merchant's selling points stay visible */
+@container of (max-width: 30rem) {
+  .lp-packs--visual:not([data-n="1"], [data-n="2"], [data-n="4"]) .lp-pack__perklist {
+    gap: 0.25rem;
+    font-size: 0.92em;
+    line-height: 1.25;
+  }
+
+  .lp-packs--visual:not([data-n="1"], [data-n="2"], [data-n="4"]) .lp-pack__perk {
+    gap: 0.25em;
+  }
+}
+
+/* column cards are narrow: the contents line ("Jour + Nuit + Au choix : Jour ou Nuit · Offert") may
+   take a third line, so the gift at its end is never cut */
+.lp-packs:is(.lp-packs--tiers, .lp-packs--visual):not([data-n="1"]) :is(.lp-pack__meta--contents, .lp-pack__contents) {
+  -webkit-line-clamp: 3;
+}

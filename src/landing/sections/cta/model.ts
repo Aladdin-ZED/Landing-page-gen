@@ -144,7 +144,7 @@ export function ringPhrases(data: CtaData, fallback: string): string[] {
 
 /** Whole-percent saving of the single product against its real reference price, else null. */
 export function productSaving(ctx: RenderContext): number | null {
-  const { price, compareAt } = ctx.product;
+  const { price, compareAt } = ctx.lead;
   if (compareAt === undefined || !(compareAt > price) || ctx.offers.showSavings === "none") return null;
   const pct = Math.round(((compareAt - price) / compareAt) * 100);
   return pct >= 1 && pct <= 99 ? pct : null;

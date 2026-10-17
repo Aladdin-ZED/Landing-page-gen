@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircleIcon, PhoneIcon } from "lucide-react";
+import { MessageCircleIcon, PhoneIcon, ShoppingBagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LeadRow } from "@/lib/admin-data/orders";
@@ -15,7 +15,8 @@ import { useQueryState } from "../lib/use-query-state";
 
 /**
  * Abandoned checkouts: visitors who typed a valid phone but never ordered. A quick call or a
- * WhatsApp message often rescues them — both are one tap away.
+ * WhatsApp message often rescues them — both are one tap away. What they had picked in the form
+ * (`leads.selection`, the text the Sheet would get) tells the agent what to offer on the call.
  */
 export function LeadsPanel({ leads, pages }: { leads: { items: LeadRow[]; total: number; page: number; pageSize: number }; pages: { id: string; name: string }[] }) {
   const query = useQueryState();
@@ -62,6 +63,14 @@ export function LeadsPanel({ leads, pages }: { leads: { items: LeadRow[]; total:
                     <CopyButton value={l.phone} label="Copy phone" toastMessage="Phone copied" size="icon-xs" className="-my-1" />
                     {l.city && <span>· {l.city}</span>}
                   </span>
+                  {l.selection && (
+                    <span className="mt-1 flex min-w-0 items-start gap-1.5 text-xs">
+                      <ShoppingBagIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <bdi className="line-clamp-2 min-w-0 font-medium text-foreground/80 [overflow-wrap:anywhere]" title={l.selection}>
+                        {l.selection}
+                      </bdi>
+                    </span>
+                  )}
                 </div>
                 <div className="grid min-w-0 gap-0.5 text-xs text-muted-foreground sm:w-56">
                   <span className="truncate">{l.pageName ?? "Deleted page"}</span>

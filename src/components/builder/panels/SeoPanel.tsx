@@ -1,28 +1,21 @@
 "use client";
 /**
  * SEO & tracking panel: page language/market, search snippet (with a live preview), social image,
- * indexing, and the page's ad pixels — up to 3 Meta / TikTok pixels (backup ad accounts), validated
- * as you type, compared with the store pixels (Settings → Pixels) with a one-click "Use store pixels",
- * and a "Server" badge on the pixels whose orders are also sent from the server.
+ * indexing, and "Pixels on this page" (src/components/admin/pixels/page-pixels.tsx, docs/OFFERS.md
+ * §A.4): the page's own pixels picked from the library — no store-wide defaults.
  */
-import { Check, Globe, Plus, RefreshCw, X } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { storePixelSummaryAction } from "@/app/admin/(panel)/settings/pixels/actions";
-import { Input } from "@/components/ui/input";
+import { Globe } from "lucide-react";
+import { PagePixels } from "@/components/admin/pixels/page-pixels";
 import { Switch } from "@/components/ui/switch";
 import { plainLabel } from "@/lib/editor/paths";
 import { MARKET_SPECS, PHONE_SPECS } from "@/lib/markets/specs";
 import { LOCALES, MARKETS, type Locale, type Market, type PageDoc } from "@/lib/page/schema";
 import { relocalizeVariants } from "@/lib/page/variant-presets";
-import { PIXEL_ID_RE, PIXEL_LIMIT, PIXEL_PLATFORMS, normalizePixelId, type PixelPlatform } from "@/lib/pixels/ids";
-import { serverEventsFor, type StorePixelSummary } from "@/lib/pixels/summary";
-import { mergeStorePixels, trackingIds, withTrackingIds } from "@/lib/pixels/tracking";
-import { cn } from "@/lib/utils";
 import { useEditor, useEditorApi } from "../context";
+import { usePersistence } from "../persistence";
 import { ImageField } from "../fields/ImageField";
 import { TextField } from "../fields/TextField";
-import { Choice, FieldRow, Hint, PanelHeader, PanelSection } from "../ui";
+import { Choice, FieldRow, PanelHeader, PanelSection } from "../ui";
 
 const LOCALE_NAMES: Record<Locale, string> = {
   ar: "العربية — Arabic",
@@ -35,17 +28,11 @@ const LOCALE_NAMES: Record<Locale, string> = {
   pt: "Português",
 };
 
-type Tracking = PageDoc["tracking"];
-
-const PIXELS: Record<PixelPlatform, { label: string; short: string; example: string; kind: string }> = {
-  meta: { label: "Meta (Facebook & Instagram)", short: "Meta", example: "1234567890123456", kind: "Meta pixel ID (6–20 digits)" },
-  tiktok: { label: "TikTok", short: "TikTok", example: "C4ABCDEF1234567890", kind: "TikTok pixel ID (capital letters and digits)" },
-  snap: { label: "Snapchat", short: "Snapchat", example: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d", kind: "Snap pixel ID" },
-  ga4: { label: "Google Analytics 4", short: "GA4", example: "G-AB12CD34EF", kind: "GA4 measurement ID (G-…)" },
-};
 
 export function SeoPanel() {
   const doc = useEditor((s) => s.doc);
+  const pageId = useEditor((s) => s.page.id);
+  const { flush } = usePersistence();
   const api = useEditorApi();
   const set = (recipe: (d: PageDoc) => void, group?: string) => api.updateDoc((d) => recipe(d as PageDoc), group ?? null);
   const title = doc.seo.title?.trim() || doc.product.name;
@@ -63,8 +50,10 @@ export function SeoPanel() {
               onChange={(v) =>
                 set((d) => {
                   // the app's own variant words follow the language ("Couleur · Noir" → "اللون · أسود")
-                  const variants = relocalizeVariants(d.product.variants, d.locale, v);
-                  if (variants !== d.product.variants) d.product.variants = variants;
+                  for (const it of d.items) {
+                    const groups = relocalizeVariants(it.groups, d.locale, v);
+                    if (groups !== it.groups) it.groups = groups;
+                  }
                   d.locale = v;
                 })
               }
@@ -118,263 +107,10 @@ export function SeoPanel() {
           </FieldRow>
         </PanelSection>
 
-        <PixelsSection tracking={doc.tracking} onChange={(recipe, group) => set((d) => void (d.tracking = recipe(d.tracking)), group)} />
+        <PanelSection title="Pixels on this page" collapsible>
+          <PagePixels pageId={pageId} tracking={doc.tracking} flush={flush} onChange={(recipe, group) => set((d) => void (d.tracking = recipe(d.tracking)), group)} />
+        </PanelSection>
       </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* pixels                                                              */
-/* ------------------------------------------------------------------ */
-
-function PixelsSection({ tracking, onChange }: { tracking: Tracking; onChange: (recipe: (t: Tracking) => Tracking, group?: string) => void }) {
-  const store = useStorePixels();
-  // the page differs from the store where the store has pixels (other platforms are the page's own)
-  const differs = store
-    ? PIXEL_PLATFORMS.filter((p) => store.platforms[p].length > 0 && trackingIds(tracking, p).join(",") !== store.platforms[p].map((x) => x.id).join(","))
-    : [];
-
-  return (
-    <PanelSection title="Pixels" collapsible hint="They fire on the live page only — never in the builder or previews.">
-      {store?.configured ? (
-        differs.length ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-soft px-3 py-2.5 text-[12px] leading-relaxed text-foreground/80">
-            <span className="flex min-w-0 items-start gap-2">
-              <RefreshCw className="mt-0.5 size-3.5 shrink-0" />
-              <span>
-                {differs.map((p) => PIXELS[p].short).join(", ")} {differs.length === 1 ? "differs" : "differ"} from your store pixels.
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={() => onChange((t) => mergeStorePixels(t, store.tracking, "replace"))}
-              className="shrink-0 rounded-full bg-background px-2.5 py-1 text-[11.5px] font-medium text-foreground shadow-[0_0_0_1px_var(--border)] outline-none transition-colors hover:bg-foreground/[0.04] focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              Use store pixels
-            </button>
-          </div>
-        ) : (
-          <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-            <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-            Uses your store pixels.
-          </p>
-        )
-      ) : null}
-      <div className="grid gap-3.5">
-        {PIXEL_PLATFORMS.map((p) => (
-          <PlatformPixels key={p} platform={p} ids={trackingIds(tracking, p)} store={store} onCommit={(ids) => onChange((t) => withTrackingIds(t, p, ids), `pixel:${p}`)} />
-        ))}
-      </div>
-      <Hint>
-        Pixels marked <span className="font-medium text-foreground">Server</span> also get every order from the server (Meta Conversions API, TikTok Events
-        API), counted once with the browser. Tokens and test codes live in{" "}
-        <Link
-          href="/admin/settings/pixels"
-          target="_blank"
-          rel="noopener"
-          className="font-medium text-foreground underline decoration-foreground/25 underline-offset-2 hover:decoration-foreground"
-        >
-          Settings → Pixels
-        </Link>
-        .
-      </Hint>
-    </PanelSection>
-  );
-}
-
-/** The store pixels (ids + server flags, never a token); null while loading or without access. */
-function useStorePixels(): StorePixelSummary | null {
-  const [summary, setSummary] = useState<StorePixelSummary | null>(null);
-  useEffect(() => {
-    let alive = true;
-    storePixelSummaryAction()
-      .then((res) => {
-        if (alive && res.ok) setSummary(res.data);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return summary;
-}
-
-function PlatformPixels({
-  platform,
-  ids,
-  store,
-  onCommit,
-}: {
-  platform: PixelPlatform;
-  ids: string[];
-  store: StorePixelSummary | null;
-  onCommit: (ids: string[]) => void;
-}) {
-  const spec = PIXELS[platform];
-  const limit = PIXEL_LIMIT[platform];
-  const [adding, setAdding] = useState(false);
-  // always one field to type in; an extra blank field only while adding a backup pixel
-  const rows = ids.length ? ids : [""];
-  const replace = (i: number, v: string | undefined) => {
-    const next = [...ids];
-    if (v === undefined) next.splice(i, 1);
-    else if (i < next.length) next[i] = v;
-    else next.push(v);
-    onCommit(next);
-  };
-
-  return (
-    <div className="grid gap-1.5">
-      <div className="flex min-h-6 items-center justify-between gap-2">
-        <span className="text-[12.5px] leading-tight font-medium text-foreground/85">{spec.label}</span>
-        {limit > 1 && ids.length > 0 && !adding && ids.length < limit ? (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="-me-1 flex items-center gap-1 rounded-md px-1 py-0.5 text-[11.5px] font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <Plus className="size-3" />
-            Backup pixel
-          </button>
-        ) : null}
-      </div>
-      {rows.map((id, i) => (
-        <PixelField
-          key={i}
-          platform={platform}
-          index={i}
-          value={id || undefined}
-          server={!!id && !!store && serverEventsFor(store, platform, id)}
-          onCommit={(v) => replace(i, v)}
-        />
-      ))}
-      {adding ? (
-        <PixelField
-          platform={platform}
-          index={ids.length}
-          value={undefined}
-          server={false}
-          autoFocus
-          onCommit={(v) => {
-            if (v) replace(ids.length, v);
-            setAdding(false);
-          }}
-          onCancel={() => setAdding(false)}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * One pixel id. Validated as you type, committed when the field is left (or Enter): ids don't change
- * the preview, and a half-typed id never replaces a working one. Emptying the field removes the pixel.
- */
-function PixelField({
-  platform,
-  index,
-  value,
-  server,
-  autoFocus,
-  onCommit,
-  onCancel,
-}: {
-  platform: PixelPlatform;
-  index: number;
-  value: string | undefined;
-  server: boolean;
-  autoFocus?: boolean;
-  onCommit: (v: string | undefined) => void;
-  onCancel?: () => void;
-}) {
-  const spec = PIXELS[platform];
-  const [draft, setDraft] = useState<string | null>(null);
-  const raw = draft ?? value ?? "";
-  const normalized = normalizePixelId(platform, raw);
-  const error = draft !== null && normalized && !PIXEL_ID_RE[platform].test(normalized) ? `This doesn't look like a ${spec.kind}, e.g. ${spec.example}.` : null;
-  const id = `px-${platform}-${index}`;
-  const label = `${spec.label} pixel ${index + 1}`;
-  const removable = value !== undefined || !!onCancel;
-
-  const commit = () => {
-    if (draft === null) return;
-    setDraft(null);
-    if (!normalized) {
-      if (value !== undefined) onCommit(undefined);
-      else onCancel?.();
-      return;
-    }
-    if (error) {
-      // a new field with an invalid id is dropped; an existing one keeps its saved id
-      if (value === undefined) onCancel?.();
-      return;
-    }
-    if (normalized !== value) onCommit(normalized);
-    else if (value === undefined) onCancel?.();
-  };
-
-  return (
-    <div className="grid gap-1">
-      <div className="relative flex items-center gap-1">
-        <Input
-          id={id}
-          aria-label={label}
-          value={raw}
-          spellCheck={false}
-          autoCapitalize="none"
-          autoComplete="off"
-          autoFocus={autoFocus}
-          dir="ltr"
-          placeholder={platform === "ga4" ? "Paste the measurement ID" : "Paste the pixel ID"}
-          aria-invalid={!!error || undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              e.currentTarget.blur();
-            } else if (e.key === "Escape") {
-              setDraft(null);
-              if (value === undefined) onCancel?.();
-            }
-          }}
-          className={cn("h-8 min-w-0 flex-1 font-mono text-xs", server && "pe-[3.75rem]")}
-        />
-        {server ? (
-          <span
-            title="Orders are also sent from the server for this pixel"
-            className={cn(
-              "pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] leading-none font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset dark:text-emerald-300",
-              removable ? "end-10" : "end-2",
-            )}
-          >
-            Server
-          </span>
-        ) : null}
-        {removable ? (
-          <button
-            type="button"
-            aria-label={`Remove ${label}`}
-            // keeps the input's blur from committing first
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              setDraft(null);
-              if (value !== undefined) onCommit(undefined);
-              else onCancel?.();
-            }}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-foreground/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <X className="size-3.5" />
-          </button>
-        ) : null}
-      </div>
-      {error ? (
-        <p id={`${id}-error`} role="alert" className="text-[11.5px] leading-snug text-destructive">
-          {error}
-        </p>
-      ) : null}
     </div>
   );
 }

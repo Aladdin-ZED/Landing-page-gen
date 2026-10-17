@@ -1078,6 +1078,15 @@ export const EN: LocaleLibrary = {
       { title: "Duo pack", subtitle: "For you and someone close" },
       { title: "Trio pack", subtitle: "Best price per piece" },
     ],
+    offers: {
+      choice: { title: "Your choice", subtitle: "Pick your favorite" },
+      anyN: { title: "Any {n}", subtitle: "Build your own pack" },
+      duo: { title: "The duo", subtitle: "Both together" },
+      trio: { title: "The full trio", subtitle: "All three together" },
+      set: { title: "Complete set", subtitle: "The whole range in one box", short: "Full set" },
+      bogo: { title: "Buy 1, get 1 free", subtitle: "The second piece is free", short: "1 + 1" },
+      colors: { title: "{n}-color pack", subtitle: "One piece in each color", short: "{n} colors" },
+    },
     seo: {
       title: ["{product} — Cash on delivery", "{product} | Fast delivery, pay on arrival"],
       description: [

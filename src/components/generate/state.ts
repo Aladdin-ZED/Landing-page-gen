@@ -1,6 +1,7 @@
 /**
  * Generator wizard state: photos (local preview → uploaded asset), AI readings, product details
- * (options and ad pixels included) and the generation seed. Kept in a reducer and mirrored to sessionStorage, so a reload or a detour
+ * (options and ad pixels included), what the page sells (items, offers, offer look — the Offers
+ * step, docs/OFFERS.md §H.2), the page's tracking answer and the generation seed. Kept in a reducer and mirrored to sessionStorage, so a reload or a detour
  * to the media library never loses uploads or typed facts (local previews and blobs are not
  * stored; restored photos are read back from the media library).
  */
@@ -9,8 +10,9 @@ import type { ClassifyResult } from "@/lib/ai/client";
 import { assetRowOf } from "@/lib/media/asset-row";
 import { parseFocus, type AssetFocus } from "@/lib/media/focus";
 import { AnalysisSchema, VIBES, type Analysis } from "@/lib/ai/copy-schema";
-import { MARKETS, PRODUCT_CATEGORIES, VariantGroup as VariantGroupSchema, type Market, type ProductCategory } from "@/lib/page/schema";
-import { keepLinkedPhotos, MAX_VARIANT_GROUPS, type VariantGroup } from "@/lib/page/variant-presets";
+import type { TrackingChoice } from "@/components/admin/pixels/page-tracking-choice";
+import { AssetRef as AssetRefSchema, Item as ItemSchema, MARKETS, Offer as OfferSchema, OptionGroup as OptionGroupSchema, PRODUCT_CATEGORIES, Tracking as TrackingSchema, type AssetRef, type Item, type Market, type Offer, type OptionGroup, type ProductCategory } from "@/lib/page/schema";
+import { keepLinkedPhotos, MAX_VARIANT_GROUPS } from "@/lib/page/variant-presets";
 import { ExtractedPaletteSchema, type ExtractedPalette } from "@/lib/theme";
 import type { AssetRowLike } from "@/landing/context";
 import type { PageLocale } from "./labels";
@@ -19,9 +21,15 @@ export const STEPS = [
   { id: "photos", label: "Photos", hint: "Drop the product" },
   { id: "analysis", label: "Analysis", hint: "What the AI sees" },
   { id: "details", label: "Details", hint: "Name, price, facts" },
+  { id: "offers", label: "Offers", hint: "What it sells" },
   { id: "directions", label: "Directions", hint: "Pick a design" },
 ] as const;
-export type Step = 0 | 1 | 2 | 3;
+export type Step = 0 | 1 | 2 | 3 | 4;
+/** The last step (directions). */
+export const LAST_STEP = 4 as const;
+
+/** The offer look chosen in the wizard ("auto": each design chooses, §E.1 combos). */
+export type OfferLook = "auto" | "classic" | "boutique" | "compact";
 
 const FORMATS = ["webp", "avif", "png", "jpeg", "mp4", "webm"] as const;
 
@@ -123,10 +131,24 @@ export interface Details {
   market: Market;
   /** write the copy with the on-device language model */
   aiCopy: boolean;
-  /** product options (colors, sizes…) exactly as the page gets them — see src/components/admin/variants */
-  variants: VariantGroup[];
-  /** store pixels the owner unticked for this page ("meta:1234567890"); new store pixels stay on */
+  /** the lead product's options (colors, sizes, combined, fields) exactly as the page gets them — see src/components/admin/variants */
+  variants: OptionGroup[];
+  /** store pixels the owner unticked for this page ("meta:1234567890"); new store pixels stay on (until per-page pixels) */
   pixelsOff: string[];
+  /** Offers step: one product, or several (items) */
+  sells: "one" | "several";
+  /** the lead product's own name, short name and photos when the page sells several */
+  lead: { name: string; short?: string; images: AssetRef[] };
+  /** the other products (items[1..]) */
+  extraItems: Item[];
+  /** the offers as edited (null = the automatic suggestions for the current products) */
+  offers: Offer[] | null;
+  /** offers switched off */
+  offersOff: string[];
+  /** the offer look for every direction */
+  look: OfferLook;
+  /** "Ad tracking for this page" (the Directions step's required answer, per-page pixels) */
+  tracking?: TrackingChoice;
 }
 
 export interface WizardState {
@@ -185,6 +207,12 @@ export function initialState(defaults: { locale: PageLocale; market: Market; aiC
       aiCopy: defaults.aiCopy,
       variants: [],
       pixelsOff: [],
+      sells: "one",
+      lead: { name: "", images: [] },
+      extraItems: [],
+      offers: null,
+      offersOff: [],
+      look: "auto",
     },
     seedBase: newSeed(),
   };
@@ -221,11 +249,9 @@ export function reducer(state: WizardState, action: Action): WizardState {
       const photos = state.photos.filter((p) => p.key !== action.key);
       const mainKey = state.mainKey === action.key ? (photos.find((p) => p.status !== "error")?.key ?? photos[0]?.key ?? null) : state.mainKey;
       const cutout = state.cutout?.sourceKey === action.key ? null : state.cutout;
-      // options linked to a photo that left the page lose the link (never a dangling asset)
+      // options, products and offers linked to a photo that left the page lose the link (never a dangling asset)
       const kept = new Set(photos.flatMap((p) => (p.asset ? [p.asset.id] : [])));
-      const variants = keepLinkedPhotos(state.details.variants, kept);
-      const details = variants === state.details.variants ? state.details : { ...state.details, variants };
-      return { ...state, photos, mainKey, cutout, details };
+      return { ...state, photos, mainKey, cutout, details: keepPhotos(state.details, kept) };
     }
     case "setMain":
       return { ...state, mainKey: action.key };
@@ -250,15 +276,38 @@ export function reducer(state: WizardState, action: Action): WizardState {
   }
 }
 
+/** Details without references to photos that are not in `kept` (options, item wells, offer visuals). */
+export function keepPhotos(d: Details, kept: ReadonlySet<string>): Details {
+  const variants = keepLinkedPhotos(d.variants, kept);
+  const images = (list: readonly AssetRef[]) => list.filter((r) => kept.has(r.id));
+  const lead = { ...d.lead, images: images(d.lead.images) };
+  const extraItems = d.extraItems.map((it) => ({ ...it, images: images(it.images), groups: keepLinkedPhotos(it.groups, kept) }));
+  const offers = d.offers?.map((o) => {
+    if (o.visual.mode !== "custom") return o;
+    const list = images(o.visual.images);
+    return { ...o, visual: list.length ? { ...o.visual, images: list } : { mode: "auto" as const }, ...(o.gift?.image && !kept.has(o.gift.image.id) ? { gift: { label: o.gift.label } } : {}) };
+  }) ?? null;
+  return { ...d, variants, lead, extraItems, offers };
+}
+
 /* ------------------------------------------------------------------ */
 /* Session persistence                                                 */
 /* ------------------------------------------------------------------ */
 
-const STORAGE_KEY = "cod-studio:generate:v1";
+const STORAGE_KEY = "cod-studio:generate:v2";
+/** drafts saved before the Offers step (4 steps): restored, the directions step moves to 4 */
+const STORAGE_KEY_V1 = "cod-studio:generate:v1";
+
+/** A stored option group: v1 drafts saved choice groups without a kind (text). */
+const StoredGroup = z.preprocess(
+  (g) => (g && typeof g === "object" && !Array.isArray(g) && (g as { kind?: unknown }).kind === undefined ? { ...g, kind: "text" } : g),
+  OptionGroupSchema,
+);
+const TrackingChoiceSchema = z.union([z.object({ kind: z.literal("ids"), tracking: TrackingSchema }), z.object({ kind: z.literal("none") })]);
 
 const Stored = z.object({
-  step: z.number().int().min(0).max(3),
-  reached: z.number().int().min(0).max(3),
+  step: z.number().int().min(0).max(4),
+  reached: z.number().int().min(0).max(4),
   photos: z
     .array(
       z.object({
@@ -289,9 +338,16 @@ const Stored = z.object({
     locale: z.enum(["ar", "fr", "en"]),
     market: z.enum(MARKETS),
     aiCopy: z.boolean(),
-    // drafts saved before options / pixel choices existed restore with none
-    variants: z.array(VariantGroupSchema).max(MAX_VARIANT_GROUPS).catch([]),
+    // drafts saved before options / pixel choices / offers existed restore with none
+    variants: z.array(StoredGroup).max(MAX_VARIANT_GROUPS).catch([]),
     pixelsOff: z.array(z.string().max(80)).max(24).catch([]),
+    sells: z.enum(["one", "several"]).catch("one"),
+    lead: z.object({ name: z.string().max(120), short: z.string().max(40).optional(), images: z.array(AssetRefSchema).max(8) }).catch({ name: "", images: [] }),
+    extraItems: z.array(ItemSchema).max(7).catch([]),
+    offers: z.array(OfferSchema).max(8).nullable().catch(null),
+    offersOff: z.array(z.string().max(40)).max(8).catch([]),
+    look: z.enum(["auto", "classic", "boutique", "compact"]).catch("auto"),
+    tracking: TrackingChoiceSchema.optional().catch(undefined),
   }),
   seedBase: z.number().int().min(0).max(2_147_483_647),
 });
@@ -300,13 +356,20 @@ const Stored = z.object({
 export function loadState(): WizardState | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = Stored.safeParse(JSON.parse(raw));
+    const old = raw ? null : sessionStorage.getItem(STORAGE_KEY_V1);
+    if (!raw && !old) return null;
+    const json = JSON.parse((raw ?? old)!) as { step?: number; reached?: number };
+    // v1 had 4 steps: its directions step (3) is now 4, the Offers step comes before it
+    if (!raw && json && typeof json === "object") {
+      if (json.step === 3) json.step = 4;
+      if (json.reached === 3) json.reached = 4;
+    }
+    const parsed = Stored.safeParse(json);
     if (!parsed.success) return null;
     const s = parsed.data;
     const photos: Photo[] = s.photos.map((p) => ({ ...p, preview: p.asset.thumbUrl ?? p.asset.url, status: "ready", progress: 1 }));
     const step = (photos.length ? s.step : 0) as Step;
-    const details = { ...s.details, variants: keepLinkedPhotos(s.details.variants, new Set(s.photos.map((p) => p.asset.id))) };
+    const details: Details = keepPhotos(s.details as Details, new Set(s.photos.map((p) => p.asset.id)));
     return { ...s, details, step, reached: Math.max(step, photos.length ? s.reached : 0) as Step, photos, mainKey: photos.some((p) => p.key === s.mainKey) ? s.mainKey : (photos[0]?.key ?? null) };
   } catch {
     return null;
@@ -328,6 +391,7 @@ export function saveState(state: WizardState): void {
 
 export function clearState(): void {
   try {
+    sessionStorage.removeItem(STORAGE_KEY_V1);
     sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore

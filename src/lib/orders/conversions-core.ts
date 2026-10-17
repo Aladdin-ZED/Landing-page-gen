@@ -2,9 +2,12 @@
  * Server-side conversion events — the pure core: no database, no Next.js (unit-testable with a
  * mocked fetch, see scripts/qa/conversions-check.ts).
  *
- *   purchaseConversion(order…)            the Purchase event of a fresh order (or null)
- *   dispatchPurchase(event, secrets)      Meta Conversions API + TikTok Events API, one request per
- *                                         pixel that has a server token; never throws
+ *   purchaseConversion(order…)            the Purchase event of a fresh order (or null): the pixels of
+ *                                         the VERSION the order was validated against, contents per
+ *                                         item from allocate() (docs/OFFERS.md §G.7)
+ *   dispatchPurchase(event, secrets, lib) Meta Conversions API + TikTok Events API, one request per
+ *                                         pixel that has ITS OWN server token; the test code only
+ *                                         inside an active test window of the event's page; never throws
  *   sendTestEvent(…)                      Settings → Pixels "Send test event" (test_event_code only)
  *
  * Deduplication with the browser pixels (src/landing/runtime/pixels.ts): the same event names
@@ -18,10 +21,12 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
-import { round2 } from "@/lib/page/pricing";
+import { contentIdOf, expandUnits, itemById, leadItem } from "@/lib/page/catalog";
+import { allocate, bumpOffered, fromCents, round2 } from "@/lib/page/pricing";
 import type { PageDoc } from "@/lib/page/schema";
 import { PIXEL_EVENTS, PIXEL_NAMES, pixelIdList, purchaseEventId, type ServerPlatform } from "@/lib/pixels/ids";
-import type { SettingValue } from "@/lib/settings/schemas";
+import { testWindow, type PixelLibrary } from "@/lib/pixels/library";
+import type { PixelHealthEntry, SettingValue } from "@/lib/settings/schemas";
 import type { OrderPayload } from "./contract";
 import type { PageTarget } from "./resolve";
 import type { ValidOrder } from "./validate";
@@ -44,6 +49,14 @@ const RETRY_DELAY_MS = 1_200;
 
 export type TrackingSecrets = SettingValue<"tracking_secrets">;
 
+/** One line of the event's contents: a content id, its units and the average paid price per unit. */
+export interface ContentLine {
+  id: string;
+  quantity: number;
+  /** currency units (2 decimals): Σ allocated cents of those units / quantity */
+  itemPrice: number;
+}
+
 export interface PurchaseConversion {
   orderId: string;
   /** browser ↔ server deduplication key = purchaseEventId(orderId) */
@@ -55,8 +68,15 @@ export interface PurchaseConversion {
   /** order total (server-computed), currency of the page */
   value: number;
   currency: string;
+  /** units of the offer (free units included) */
   qty: number;
+  /** units + the bump when taken (num_items); absent → qty */
+  numItems?: number;
+  /** the lead item's content id */
   contentId: string;
+  /** per content id (offer units from allocate(), free units at 0, the bump item at the bump price); absent → one line */
+  contents?: ContentLine[];
+  /** product name (single-item page) or the offer label */
   contentName: string;
   customer: {
     /** E.164 "+212612345678" */
@@ -70,7 +90,7 @@ export interface PurchaseConversion {
   client: { ip: string | null; ua: string | null; fbp?: string; fbc?: string; ttclid?: string; ttp?: string };
   /** page URL the order came from (validated http(s)), else null */
   sourceUrl: string | null;
-  /** the page's pixel ids (server events go to those with a token) */
+  /** the validated version's pixel ids (server events go to those with their own token) */
   pixels: { meta: string[]; tiktok: string[] };
 }
 
@@ -105,14 +125,44 @@ function orderCountry(doc: PageDoc, phoneCountry: string): string | null {
 }
 
 /**
+ * Contents of an order per content id (§G.7): each unit's share of the offer price from allocate()
+ * (free units 0, surcharges on their unit) under its item's content id; a choice unit not resolved
+ * counts as the first available choice of its line; the bump item at the bump price.
+ */
+export function orderContents(
+  doc: PageDoc,
+  order: Pick<ValidOrder, "offer" | "selection" | "totals">,
+  pageKey: string,
+): { contents: ContentLine[]; numItems: number } {
+  const slots = expandUnits(order.offer, doc.items);
+  const cents = allocate(doc, order.offer, order.selection);
+  const acc = new Map<string, { q: number; c: number }>();
+  const add = (id: string, c: number) => {
+    const cur = acc.get(id) ?? { q: 0, c: 0 };
+    acc.set(id, { q: cur.q + 1, c: cur.c + c });
+  };
+  slots.forEach((s, k) => {
+    const itemId = s.item ?? order.selection.units[k]?.item ?? s.available?.[0] ?? s.choices?.[0] ?? "";
+    add(contentIdOf(doc, itemById(doc, itemId) ?? leadItem(doc), pageKey), cents[k] ?? 0);
+  });
+  const bump = doc.offers.orderBump;
+  const tookBump = order.selection.bump && bumpOffered(doc, order.offer.id) && order.totals.bump > 0;
+  const bumpItem = tookBump && bump?.item ? itemById(doc, bump.item) : undefined;
+  if (bumpItem) add(contentIdOf(doc, bumpItem, pageKey), order.totals.bump);
+  const contents = [...acc].map(([id, { q, c }]) => ({ id, quantity: q, itemPrice: round2(fromCents(c) / q) }));
+  return { contents, numItems: slots.length + (tookBump ? 1 : 0) };
+}
+
+/**
  * The Purchase event of a freshly stored order, or null when the page has no Meta/TikTok pixel or
- * the order looks automated.
+ * the order looks automated. `target.doc` is the version the order was validated against: its pixels
+ * are the ones the shopper's browser fired.
  */
 export function purchaseConversion(input: {
   orderId: string;
   createdAt: Date;
   payload: OrderPayload;
-  order: Pick<ValidOrder, "totals" | "items" | "phone" | "email" | "name" | "city">;
+  order: Pick<ValidOrder, "totals" | "items" | "offer" | "selection" | "phone" | "email" | "name" | "city">;
   target: Pick<PageTarget, "doc" | "pageId" | "source">;
   riskScore: number;
   ip: string;
@@ -129,6 +179,8 @@ export function purchaseConversion(input: {
   const fbc = payload.fbc && FBC_RE.test(payload.fbc) ? payload.fbc : undefined;
   const ttclid = payload.utm.ttclid && TT_ID_RE.test(payload.utm.ttclid) ? payload.utm.ttclid : undefined;
   const ttp = payload.ttp && TT_ID_RE.test(payload.ttp) ? payload.ttp : undefined;
+  const { contents, numItems } = orderContents(doc, order, payload.pageKey);
+  const label = order.items.bundleLabel?.trim();
 
   return {
     orderId: input.orderId,
@@ -136,12 +188,14 @@ export function purchaseConversion(input: {
     pageId: target.pageId,
     source: target.source,
     time: input.createdAt,
-    value: round2(order.totals.total),
+    value: round2(fromCents(order.totals.total)),
     currency: doc.currency,
     qty: order.items.qty,
-    // same content id as the browser pixel (runtime config: product.sku || pageKey)
-    contentId: doc.product.sku || payload.pageKey,
-    contentName: doc.product.name.slice(0, 160),
+    numItems,
+    // same content id as the browser pixel (runtime config: lead item sku || pageKey)
+    contentId: contentIdOf(doc, leadItem(doc), payload.pageKey),
+    contents,
+    contentName: (doc.items.length > 1 && label ? label : doc.product.name).slice(0, 160),
     customer: {
       phone: order.phone.e164,
       email: order.email || null,
@@ -168,20 +222,38 @@ export function purchaseConversion(input: {
 
 export interface ServerCredential {
   token: string;
-  /** the platform's "Test events" code: events land in Test events only while it is set */
+  /** the platform's "Test events" code: set only inside an active test window of the event's page */
   testCode?: string;
-  /** "pixel": the pixel's own token; "legacy": the single token stored before multi-pixel support */
-  source: "pixel" | "legacy";
 }
 
-/** The token (and test code) server events for this pixel use, or null (browser only). */
-export function serverCredentials(s: TrackingSecrets, platform: ServerPlatform, pixelId: string): ServerCredential | null {
-  const own = (platform === "meta" ? s.metaTokens : s.tiktokTokens)?.[pixelId];
-  const legacy = platform === "meta" ? s.metaCapiToken : s.tiktokToken;
-  const token = own || legacy;
+/** The pixel's own server token ("" = none). The legacy single tokens are never read (§A.2 #3). */
+export function ownToken(s: TrackingSecrets, platform: ServerPlatform, pixelId: string): string {
+  return (platform === "meta" ? s.metaTokens : s.tiktokTokens)?.[pixelId] ?? "";
+}
+
+/** The pixel's saved test event code ("" = none). Saved is not active: see serverCredentials. */
+export function savedTestCode(s: TrackingSecrets, platform: ServerPlatform, pixelId: string): string {
+  return (platform === "meta" ? s.metaTestCodes : s.tiktokTestCodes)?.[pixelId] ?? "";
+}
+
+/**
+ * The token (and test code) a server event of this pixel for this page uses, or null (browser only):
+ * the pixel's own token (no legacy fallback); its saved test code only while the pixel has an active
+ * test window for `pageId` (another page firing the same pixel sends production events).
+ */
+export function serverCredentials(
+  s: TrackingSecrets,
+  library: PixelLibrary | null | undefined,
+  platform: ServerPlatform,
+  pixelId: string,
+  pageId: string | null,
+  now: number = Date.now(),
+): ServerCredential | null {
+  const token = ownToken(s, platform, pixelId);
   if (!token) return null;
-  const testCode = (platform === "meta" ? s.metaTestCodes : s.tiktokTestCodes)?.[pixelId] || (platform === "meta" ? s.metaTestEventCode : s.tiktokTestEventCode);
-  return { token, ...(testCode ? { testCode } : {}), source: own ? "pixel" : "legacy" };
+  const code = savedTestCode(s, platform, pixelId);
+  const testing = !!code && !!pageId && !!testWindow(library, platform, pixelId, pageId, now);
+  return { token, ...(testing ? { testCode: code } : {}) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -242,6 +314,11 @@ export function hashCustomer(c: PurchaseConversion["customer"]): HashedCustomer 
 
 const unitPrice = (c: PurchaseConversion) => round2(c.value / Math.max(1, c.qty));
 
+/** The event's contents (events without contents: one line at the average price). */
+const contentsOf = (c: PurchaseConversion): ContentLine[] =>
+  c.contents?.length ? c.contents : [{ id: c.contentId, quantity: c.qty, itemPrice: unitPrice(c) }];
+const contentIds = (c: PurchaseConversion) => contentsOf(c).map((x) => x.id);
+
 /** Meta Conversions API body of a Purchase (access_token added at send time). */
 export function metaPurchaseBody(c: PurchaseConversion, h: HashedCustomer, testCode?: string): Record<string, unknown> {
   const userData: Record<string, unknown> = {
@@ -268,11 +345,11 @@ export function metaPurchaseBody(c: PurchaseConversion, h: HashedCustomer, testC
         custom_data: {
           currency: c.currency,
           value: c.value,
-          content_ids: [c.contentId],
+          content_ids: contentIds(c),
           content_type: "product",
           content_name: c.contentName,
-          contents: [{ id: c.contentId, quantity: c.qty, item_price: unitPrice(c) }],
-          num_items: c.qty,
+          contents: contentsOf(c).map((x) => ({ id: x.id, quantity: x.quantity, item_price: x.itemPrice })),
+          num_items: c.numItems ?? c.qty,
           order_id: c.orderId,
         },
       },
@@ -303,9 +380,9 @@ export function tiktokPurchaseBody(c: PurchaseConversion, h: HashedCustomer, pix
         user,
         ...(c.sourceUrl ? { page: { url: c.sourceUrl } } : {}),
         properties: {
-          contents: [{ content_id: c.contentId, content_type: "product", content_name: c.contentName, quantity: c.qty, price: unitPrice(c) }],
+          contents: contentsOf(c).map((x) => ({ content_id: x.id, content_type: "product", content_name: c.contentName, quantity: x.quantity, price: x.itemPrice })),
           content_type: "product",
-          content_ids: [c.contentId],
+          content_ids: contentIds(c),
           currency: c.currency,
           value: c.value,
           order_id: c.orderId,
@@ -404,48 +481,80 @@ function sendTikTok(body: Record<string, unknown>, token: string, attempts: numb
 /* dispatch                                                            */
 /* ------------------------------------------------------------------ */
 
+export type HealthCode = NonNullable<PixelHealthEntry["code"]>;
+
 export interface ConversionResult {
   platform: ServerPlatform;
   pixelId: string;
   ok: boolean;
   /** failure description (no request data, no token) */
   detail?: string;
+  /** failure class for pixel_health (§A.5) */
+  code?: HealthCode;
   testMode: boolean;
 }
 
+const META_TOKEN_CODES = new Set([102, 190, 463, 467]);
+const META_PERMISSION_CODES = new Set([3, 10, 200, 210, 294]);
+const META_RATE_CODES = new Set([4, 17, 32, 613, 80004]);
+const TIKTOK_TOKEN_CODES = new Set([40104, 40105, 40106]);
+const TIKTOK_RATE_CODES = new Set([40100, 40133, 51021]);
+
+/** The health class of a failed send (token · permission · pixel · rate · network · other). */
+export function failureCode(platform: ServerPlatform, status: number | null, json: Record<string, unknown> | null): HealthCode {
+  if (status === null) return "network";
+  if (status === 429) return "rate";
+  if (platform === "meta") {
+    const err = (json?.error ?? null) as { code?: unknown; message?: unknown } | null;
+    const code = Number(err?.code);
+    const msg = String(err?.message ?? "").toLowerCase();
+    if (META_TOKEN_CODES.has(code) || status === 401) return "token";
+    if (META_RATE_CODES.has(code)) return "rate";
+    if (META_PERMISSION_CODES.has(code) || (code >= 200 && code < 300) || status === 403) return "permission";
+    if (code === 100 && /pixel|dataset|object|does not exist|unsupported/.test(msg)) return "pixel";
+    if (status >= 500) return "network";
+    return "other";
+  }
+  const code = Number(json?.code);
+  const msg = String(json?.message ?? "").toLowerCase();
+  if (TIKTOK_TOKEN_CODES.has(code) || /access.?token/.test(msg) || status === 401) return "token";
+  if (TIKTOK_RATE_CODES.has(code)) return "rate";
+  if (code === 40001 || /permission|authori[sz]/.test(msg) || status === 403) return "permission";
+  if (/pixel/.test(msg)) return "pixel";
+  if (status >= 500) return "network";
+  return "other";
+}
+
 /**
- * Send the order's Purchase to every page pixel that has server credentials (one request per pixel,
- * all in parallel, each with one retry). Never throws.
+ * Send the order's Purchase to every pixel of the validated version that has its own server token
+ * (one request per pixel, all in parallel, each with one retry). The test code rides along only
+ * inside an active test window of the event's page. Never throws.
  */
-export async function dispatchPurchase(c: PurchaseConversion, secrets: TrackingSecrets): Promise<ConversionResult[]> {
+export async function dispatchPurchase(
+  c: PurchaseConversion,
+  secrets: TrackingSecrets,
+  library: PixelLibrary | null = null,
+  now: number = Date.now(),
+): Promise<ConversionResult[]> {
   const jobs: Promise<ConversionResult>[] = [];
   let hashed: HashedCustomer | null = null;
   const h = () => (hashed ??= hashCustomer(c.customer));
+  const result = (platform: ServerPlatform, pixelId: string, testMode: boolean, o: HttpOutcome): ConversionResult => ({
+    platform,
+    pixelId,
+    ok: o.ok,
+    testMode,
+    ...(o.ok ? {} : { detail: o.detail, code: failureCode(platform, o.status, o.json) }),
+  });
   for (const pixelId of c.pixels.meta) {
-    const cred = serverCredentials(secrets, "meta", pixelId);
+    const cred = serverCredentials(secrets, library, "meta", pixelId, c.pageId, now);
     if (!cred) continue;
-    jobs.push(
-      sendMeta(metaPurchaseBody(c, h(), cred.testCode), pixelId, cred.token, 2).then((o) => ({
-        platform: "meta" as const,
-        pixelId,
-        ok: o.ok,
-        testMode: !!cred.testCode,
-        ...(o.ok ? {} : { detail: o.detail }),
-      })),
-    );
+    jobs.push(sendMeta(metaPurchaseBody(c, h(), cred.testCode), pixelId, cred.token, 2).then((o) => result("meta", pixelId, !!cred.testCode, o)));
   }
   for (const pixelId of c.pixels.tiktok) {
-    const cred = serverCredentials(secrets, "tiktok", pixelId);
+    const cred = serverCredentials(secrets, library, "tiktok", pixelId, c.pageId, now);
     if (!cred) continue;
-    jobs.push(
-      sendTikTok(tiktokPurchaseBody(c, h(), pixelId, cred.testCode), cred.token, 2).then((o) => ({
-        platform: "tiktok" as const,
-        pixelId,
-        ok: o.ok,
-        testMode: !!cred.testCode,
-        ...(o.ok ? {} : { detail: o.detail }),
-      })),
-    );
+    jobs.push(sendTikTok(tiktokPurchaseBody(c, h(), pixelId, cred.testCode), cred.token, 2).then((o) => result("tiktok", pixelId, !!cred.testCode, o)));
   }
   try {
     return await Promise.all(jobs);
@@ -484,6 +593,8 @@ export interface TestEventResult {
   facts: string[];
   /** the platform's JSON answer (pretty, truncated) */
   response: string | null;
+  /** failure class (pixel_health) */
+  code?: HealthCode;
 }
 
 /** A synthetic Purchase sent with the test event code (it lands in Test events only, never in reports). */
@@ -543,5 +654,6 @@ export async function sendTestEvent(input: TestEventInput): Promise<TestEventRes
     message,
     facts,
     response,
+    ...(outcome.ok ? {} : { code: failureCode(input.platform, outcome.status, outcome.json) }),
   };
 }

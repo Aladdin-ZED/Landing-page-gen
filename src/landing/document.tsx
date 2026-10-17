@@ -5,7 +5,8 @@
  *     <head> meta · SEO/OG/Twitter · theme-color · favicon · font preloads
  *            ONE <style> (font faces + theme tokens + base + used chunks)
  *            <script type="application/json" id="lp-config"> · JSON-LD Product </head>
- *     <body> sections … ONE <script> (runtime) </body>
+ *     <body> sections … the runtime: its optional chunks (feature chunks, pixels, turnstile), then the
+ *            core chunk — or, with a single-bundle build, ONE <script> </body>
  *
  * LandingDocument = the product page; ThankYouDocument = the confirmation page (noindex);
  * LegalDocument = privacy / terms / shipping / contact in the page's theme (noindex, no JavaScript).
@@ -14,6 +15,7 @@
  */
 import type { ReactElement, ReactNode } from "react";
 import type { LandingRenderContext } from "./context";
+import * as generatedAssets from "./generated/assets";
 import { baseCss, legalCss, runtimeJs, sectionCss, thankYouCss } from "./generated/assets";
 import { sectionChunkCss, sectionVariants } from "./generated/chunks";
 import { LegalBody, legalLang, legalTitle, type LegalKind } from "./legal";
@@ -21,7 +23,11 @@ import { renderPageBody, usedSectionTypes, type PageBodyOptions } from "./page";
 import { brandName, isPlaceholderStoreName, plainText } from "./primitives";
 import { ThankYouBody } from "./thankyou/ThankYou";
 import type { RenderMode } from "./types";
+import { offersMath } from "@/lib/page/pricing";
+import { offerAvailable } from "@/lib/page/catalog";
+import { fromCents } from "@/lib/page/money";
 import type { PageDoc } from "@/lib/page/schema";
+import type { LandingRuntimeConfig, RuntimeFeature } from "./runtime/config";
 import { buildRuntimeConfig, inlineJson, type RuntimeEndpoints } from "@/lib/render/config";
 import { buildTheme, fontFaceCss, fontPreloads, type BuiltTheme } from "@/lib/theme";
 
@@ -47,6 +53,8 @@ export interface DocumentProps {
   turnstileSiteKey?: string;
   /** QA screenshots: html.lp-qa with transitions/animations collapsed to their end state */
   qa?: boolean;
+  /** publish version id embedded as config `ver` (§G.1); omitted in previews and exports */
+  ver?: string;
   /** passed to renderPageBody (e.g. ids of sections that failed a render probe) */
   body?: PageBodyOptions;
   /**
@@ -231,7 +239,11 @@ function seoMeta(doc: PageDoc, ctx: LandingRenderContext, urls: DocumentUrls, or
   };
 }
 
-/** schema.org Product with real data only (no invented ratings). */
+/**
+ * schema.org Product with real data only (no invented prices or ratings): one item → `Offer` at the
+ * lead item's price (as before); 2+ items → `AggregateOffer` over the offers' card prices (`from`:
+ * the lowest payable total of each available offer).
+ */
 function productJsonLd(doc: PageDoc, ctx: LandingRenderContext, meta: HeadMeta, origin?: string): Record<string, unknown> {
   const { product, offers } = doc;
   const images = origin
@@ -240,27 +252,87 @@ function productJsonLd(doc: PageDoc, ctx: LandingRenderContext, meta: HeadMeta, 
         .filter((u): u is string => !!u)
     : [];
   const soldOut = offers.urgency.stockLeft === 0;
+  const availability = soldOut ? "https://schema.org/OutOfStock" : "https://schema.org/InStock";
+  let offer: Record<string, unknown> = {
+    "@type": "Offer",
+    price: ctx.lead.price.toFixed(2),
+    priceCurrency: doc.currency,
+    availability,
+    itemCondition: "https://schema.org/NewCondition",
+    ...(meta.canonical ? { url: meta.canonical } : {}),
+  };
+  if (doc.items.length > 1) {
+    const maths = offersMath(doc);
+    const prices = offers.bundles.filter((b) => offerAvailable(b, doc.items)).map((b) => maths[offers.bundles.indexOf(b)]!.from);
+    const list = prices.length ? prices : maths.map((m) => m.from);
+    offer = {
+      "@type": "AggregateOffer",
+      lowPrice: fromCents(Math.min(...list)).toFixed(2),
+      highPrice: fromCents(Math.max(...list)).toFixed(2),
+      offerCount: list.length,
+      priceCurrency: doc.currency,
+      availability: soldOut || !prices.length ? "https://schema.org/OutOfStock" : availability,
+      itemCondition: "https://schema.org/NewCondition",
+      ...(meta.canonical ? { url: meta.canonical } : {}),
+    };
+  }
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
     description: meta.description,
     ...(images.length ? { image: [...new Set(images)] } : {}),
-    ...(product.sku ? { sku: product.sku } : {}),
+    ...(doc.items.length === 1 && ctx.lead.sku ? { sku: ctx.lead.sku } : {}),
     // a placeholder store name ("My store") is not a brand: leave it out rather than publish it
     ...(isPlaceholderStoreName(ctx.store.name) ? {} : { brand: { "@type": "Brand", name: ctx.store.name.trim() } }),
-    offers: {
-      "@type": "Offer",
-      price: product.price.toFixed(2),
-      priceCurrency: doc.currency,
-      availability: soldOut ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-      itemCondition: "https://schema.org/NewCondition",
-      ...(meta.canonical ? { url: meta.canonical } : {}),
-    },
+    offers: offer,
     ...(product.rating
       ? { aggregateRating: { "@type": "AggregateRating", ratingValue: product.rating.value, reviewCount: product.rating.count, bestRating: 5 } }
       : {}),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Runtime scripts (§F.9)                                              */
+/* ------------------------------------------------------------------ */
+
+/** Runtime chunks of a split build (scripts/build-landing-assets.mjs `runtimeChunks`), by name. */
+export type RuntimeChunkName = "landing" | "thanks" | "pixels" | "turnstile" | "units-matrix" | "units-fields" | "fill-steps-box";
+
+const CHUNK_OF_FEATURE: Record<RuntimeFeature, RuntimeChunkName> = { matrix: "units-matrix", fields: "units-fields", "steps-box": "fill-steps-box" };
+
+/**
+ * The split build's chunks when the asset build emits them (`runtimeChunks` in generated/assets.ts),
+ * read by a computed key so a single-bundle build (no such export) needs no code change here.
+ */
+function runtimeChunks(): Partial<Record<RuntimeChunkName, string>> | null {
+  const key = ["runtime", "Chunks"].join("");
+  const v = (generatedAssets as unknown as Record<string, unknown>)[key];
+  return v && typeof v === "object" ? (v as Partial<Record<RuntimeChunkName, string>>) : null;
+}
+
+const hasPixels = (p: LandingRuntimeConfig["pixels"]) => Object.values(p ?? {}).some((ids) => (Array.isArray(ids) ? ids.length > 0 : !!ids));
+
+/**
+ * The inline scripts of a document, in order: the optional chunks (the page's feature chunks, pixels
+ * when the page has pixels outside previews, turnstile when a site key is embedded) register
+ * themselves on `window.__lpx`, then the core chunk ("landing" / "thanks") runs them at init. A
+ * single-bundle build ships one script (runtimeJs).
+ */
+export function runtimeScripts(page: "landing" | "thanks", cfg: Pick<LandingRuntimeConfig, "features" | "pixels" | "mode" | "turnstileSiteKey">): string[] {
+  const chunks = runtimeChunks();
+  const core = chunks?.[page];
+  if (!chunks || !core) return runtimeJs ? [runtimeJs] : [];
+  const out: string[] = [];
+  const add = (name: RuntimeChunkName) => {
+    const js = chunks[name];
+    if (js && !out.includes(js)) out.push(js);
+  };
+  if (page === "landing") for (const f of cfg.features ?? []) add(CHUNK_OF_FEATURE[f]);
+  if (cfg.mode !== "preview" && hasPixels(cfg.pixels)) add("pixels");
+  if (page === "landing" && cfg.turnstileSiteKey) add("turnstile");
+  out.push(core);
+  return out;
 }
 
 interface ShellProps {
@@ -281,7 +353,8 @@ interface ShellProps {
 function Shell({ ctx, theme, page, lang, qa, head, css, config, jsonLd, children }: ShellProps): ReactElement {
   const preloads = fontPreloads(theme.fontIds, ctx.locale, ctx.base, theme.fontWeights);
   const themeColor = theme.tokens["lp-bg"];
-  const runtime = config !== undefined && !!runtimeJs;
+  const scripts = config !== undefined && page !== "legal" ? runtimeScripts(page, config as LandingRuntimeConfig) : [];
+  const runtime = scripts.length > 0;
   return (
     <html lang={lang ?? ctx.locale} dir={ctx.dir} className={qa ? "lp lp-qa" : "lp"} data-page={page} {...htmlAttrs(theme)}>
       {/* a standalone document rendered to static HTML — not a Next.js page, so next/head does not apply */}
@@ -302,7 +375,9 @@ function Shell({ ctx, theme, page, lang, qa, head, css, config, jsonLd, children
       </head>
       <body className="lp-body">
         {children}
-        {runtime ? <script dangerouslySetInnerHTML={{ __html: runtimeJs }} /> : null}
+        {scripts.map((js, i) => (
+          <script key={i} dangerouslySetInnerHTML={{ __html: js }} />
+        ))}
       </body>
     </html>
   );
@@ -318,6 +393,8 @@ function configFor(props: DocumentProps, page: "landing" | "thanks") {
     thankYouUrl: urls.thankYou,
     landingUrl: urls.landing,
     turnstileSiteKey: props.turnstileSiteKey,
+    ver: props.ver,
+    formVariant: doc.sections.find((x) => x.type === "orderForm" && !x.hidden)?.variant,
   });
 }
 
@@ -347,7 +424,7 @@ export function LandingDocument(props: DocumentProps): ReactElement {
           <meta property="og:image:alt" content={meta.image.alt} />
         </>
       ) : null}
-      <meta property="product:price:amount" content={doc.product.price.toFixed(2)} />
+      <meta property="product:price:amount" content={ctx.lead.price.toFixed(2)} />
       <meta property="product:price:currency" content={doc.currency} />
       <meta name="twitter:card" content={meta.image ? "summary_large_image" : "summary"} />
       <meta name="twitter:title" content={meta.title} />

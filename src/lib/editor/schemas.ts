@@ -58,7 +58,7 @@ export const PageRefInput = z.object({ pageId: RowId });
 
 export const VersionRefInput = z.object({ pageId: RowId, versionId: RowId });
 
-export const RestoreVersionInput = VersionRefInput.extend({ baseUpdatedAt: Timestamp });
+export const RestoreVersionInput = VersionRefInput.extend({ baseUpdatedAt: Timestamp, pixels: z.boolean().optional() });
 
 export const DuplicatePageInput = z.object({
   pageId: RowId,

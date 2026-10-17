@@ -133,7 +133,7 @@ export async function listPages(filters: PageFilters = {}): Promise<PageListItem
       unpublishedChanges: r.status === "published" && !!r.publishedChecksum && r.publishedChecksum !== docChecksum(doc ?? r.draft),
       doc,
       productName: doc?.product.name ?? raw?.product?.name ?? r.name,
-      price: doc?.product.price ?? null,
+      price: doc?.items[0]?.price ?? null,
       currency: doc?.currency ?? raw?.currency ?? "MAD",
       archetype: doc?.theme.archetype ?? null,
       versions: versionsBy.get(r.id) ?? 0,
@@ -201,11 +201,23 @@ async function getPageRow(id: string) {
   return row ?? null;
 }
 
+/**
+ * A copy's tracking: the same pixel ids, marked "Pixels copied from {page}" (docs/OFFERS.md §A.4)
+ * until the owner keeps or edits them. A copy without ids keeps its answer as it is.
+ */
+export function copiedTracking(doc: PageDoc, from: string): PageDoc {
+  const t = doc.tracking ?? {};
+  const hasIds = !!(t.metaPixelId?.length || t.tiktokPixelId?.length || t.snapPixelId?.length || t.ga4Id?.length);
+  if (!hasIds) return doc;
+  return { ...doc, tracking: { ...t, copiedFrom: from.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 120) || "another page" } };
+}
+
 /** Create a new draft page from a document (used by duplicate and "duplicate version as page"). */
 export async function createPageFromDoc(
-  input: { name: string; doc: PageDoc; versionLabel: string },
+  input: { name: string; doc: PageDoc; versionLabel: string; /** source page name: the copy's pixels get "copied from" */ copiedFrom?: string },
   actor: Actor,
 ): Promise<{ id: string; slug: string }> {
+  if (input.copiedFrom !== undefined) input = { ...input, doc: copiedTracking(input.doc, input.copiedFrom) };
   const id = newId();
   const slug = await uniqueSlug(input.name);
   const now = new Date();
@@ -240,7 +252,7 @@ export async function createPageFromDoc(
 export async function duplicatePage(id: string, actor: Actor): Promise<{ id: string; slug: string } | null> {
   const page = await getPageRow(id);
   if (!page) return null;
-  const created = await createPageFromDoc({ name: `${page.name} (copy)`, doc: page.draft, versionLabel: `Duplicated from “${page.name}”` }, actor);
+  const created = await createPageFromDoc({ name: `${page.name} (copy)`, doc: page.draft, versionLabel: `Duplicated from “${page.name}”`, copiedFrom: page.name }, actor);
   await audit("page.duplicated", { userId: actor.id, target: created.id, meta: { from: id }, ip: actor.ip });
   return created;
 }
@@ -324,47 +336,9 @@ export async function setHomePage(id: string | null, actor: Actor): Promise<bool
 }
 
 export const PIXEL_KEYS = ["metaPixelId", "tiktokPixelId", "snapPixelId", "ga4Id"] as const;
+/** @deprecated the store `pixels` setting is read only by the pixel library migration (§A.6) */
 export type StorePixels = Pick<PageDoc["tracking"], (typeof PIXEL_KEYS)[number]>;
 
-/**
- * Copy the store's pixel IDs into every non-archived page draft. Only platforms with a store ID are
- * written (a page keeps its own ID for the others). Each draft is updated with the builder's
- * compare-and-swap on updatedAt, so a page being edited elsewhere is skipped, never overwritten.
- * Live pages get "unpublished changes": the pixels reach visitors at the next publish.
- */
-export async function applyPixelsToDrafts(pixels: StorePixels, actor: Actor): Promise<{ updated: number; live: number; skipped: number }> {
-  const set = Object.fromEntries(PIXEL_KEYS.flatMap((k) => (pixels[k] ? [[k, pixels[k]] as const] : [])));
-  if (!Object.keys(set).length) return { updated: 0, live: 0, skipped: 0 };
-  const rows = await db
-    .select({ id: pages.id, status: pages.status, draft: pages.draft, updatedAt: pages.updatedAt })
-    .from(pages)
-    .where(ne(pages.status, "archived"))
-    .limit(1000);
-  let updated = 0;
-  let live = 0;
-  let skipped = 0;
-  for (const r of rows) {
-    const draft: unknown = r.draft;
-    if (!draft || typeof draft !== "object" || Array.isArray(draft)) {
-      skipped++;
-      continue;
-    }
-    const tracking = (draft as { tracking?: unknown }).tracking;
-    const current = tracking && typeof tracking === "object" ? (tracking as Record<string, unknown>) : {};
-    if (Object.entries(set).every(([k, v]) => JSON.stringify(current[k]) === JSON.stringify(v))) continue;
-    const next = { ...(draft as PageDoc), tracking: { ...current, ...set } };
-    const res = await db
-      .update(pages)
-      .set({ draft: next, updatedAt: new Date(Math.max(Date.now(), r.updatedAt.getTime() + 1)) })
-      .where(and(eq(pages.id, r.id), eq(pages.updatedAt, r.updatedAt)));
-    if (affected(res) === 1) {
-      updated++;
-      if (r.status === "published") live++;
-    } else skipped++;
-  }
-  if (updated) await audit("page.pixels_applied", { userId: actor.id, meta: { pages: updated, platforms: Object.keys(set) }, ip: actor.ip });
-  return { updated, live, skipped };
-}
 
 export function affected(res: unknown): number {
   const head = Array.isArray(res) ? res[0] : res;

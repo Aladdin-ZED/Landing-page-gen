@@ -72,11 +72,12 @@ export const PIXEL_HOSTS: Record<keyof PixelFlags, PixelHosts> = {
     img: ["https://www.facebook.com"],
     connect: ["https://www.facebook.com", "https://connect.facebook.net"],
   },
-  // events.js + its main/config chunks; events: analytics.tiktok.com/api/v2/pixel
+  // events.js + its main/config chunks; events: analytics.tiktok.com/api/v2/pixel; events.js also
+  // enriches with the visitor's IPv6 address (analytics-ipv6.tiktokw.us/ipv6/enrich_ipv6)
   tiktok: {
     script: ["https://analytics.tiktok.com"],
     img: ["https://analytics.tiktok.com"],
-    connect: ["https://analytics.tiktok.com"],
+    connect: ["https://analytics.tiktok.com", "https://analytics-ipv6.tiktokw.us"],
   },
   // scevent.min.js; events: tr.snapchat.com/p (tr-shadow mirrors it)
   snap: {

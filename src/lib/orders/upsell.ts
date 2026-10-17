@@ -3,12 +3,18 @@ import "server-only";
  * One-click post-purchase upsell from the thank-you page. The token returned with the order is
  * single-use (its hash is cleared atomically), valid for max(30, offer window) minutes (+2 min grace),
  * and the upsell price always comes from the version the order was placed on.
+ *
+ * A catalog-item upsell (`upsell.item`, docs/OFFERS.md §G.3–G.4) records the item, its own unit (name,
+ * short, sku: the Sheets Variante / SKU / Articles cells) and, when the item has options, that they are
+ * still to be confirmed by phone: "… + [UPSELL] 1 × Sérum (options à confirmer)".
  */
 import { timingSafeEqual } from "node:crypto";
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { orders } from "@/lib/db/schema";
+import { orders, type OrderItems, type OrderUnit } from "@/lib/db/schema";
+import { itemById, itemName, itemShort } from "@/lib/page/catalog";
 import { round2 } from "@/lib/page/pricing";
+import type { PageDoc } from "@/lib/page/schema";
 import { hashIp } from "@/lib/security/crypto";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { bumpOrderStats } from "@/lib/stats";
@@ -45,13 +51,13 @@ export async function acceptUpsell(input: { orderId: string; token: string }, ct
   if (CLOSED.has(order.status)) return { response: { ok: false, error: "expired" }, sync: false };
   const doc = order.versionId ? await versionDoc(order.versionId) : null;
   const offer = doc?.offers.upsell;
-  if (!offer?.enabled) return { response: { ok: false, error: "invalid" }, sync: false };
+  if (!doc || !offer?.enabled) return { response: { ok: false, error: "invalid" }, sync: false };
 
   const windowMs = Math.max(30, offer.windowMinutes) * 60_000 + GRACE_MS;
   if (Date.now() - order.createdAt.getTime() > windowMs) return { response: { ok: false, error: "expired" }, sync: false };
 
   const price = round2(offer.price);
-  const items = { ...order.items, upsell: { title: offer.title, price } };
+  const items: OrderItems = { ...order.items, upsell: upsellRecord(doc, offer, price) };
   const res = await db
     .update(orders)
     .set({
@@ -74,4 +80,30 @@ export async function acceptUpsell(input: { orderId: string; token: string }, ct
     response: { ok: true, orderId: order.id, total: round2(Number(order.total) + price), currency: order.currency },
     sync: !honeypot,
   };
+}
+
+/**
+ * The stored upsell: title and price, plus for a catalog item its id, "options à confirmer" when it has
+ * option groups, and its unit (no options chosen: the call center confirms them). The unit rides in
+ * the JSON next to the typed fields (OrderItems.upsell.unit, requested from C0): readers that don't
+ * know it ignore it.
+ */
+export function upsellRecord(doc: Pick<PageDoc, "items" | "product">, offer: { title: string; item?: string }, price: number): NonNullable<OrderItems["upsell"]> {
+  const item = offer.item ? itemById(doc, offer.item) : undefined;
+  if (!item) return { title: offer.title, price };
+  const unit: OrderUnit = {
+    item: item.id,
+    label: itemName(doc, item),
+    short: itemShort(doc, item),
+    ...(item.sku ? { sku: item.sku } : {}),
+    options: [],
+  };
+  const record: NonNullable<OrderItems["upsell"]> & { unit: OrderUnit } = {
+    title: offer.title,
+    price,
+    item: item.id,
+    ...(item.groups.length ? { confirmOptions: true as const } : {}),
+    unit,
+  };
+  return record;
 }

@@ -1,8 +1,14 @@
 "use client";
 /**
- * Product options editor — colors, sizes or any choice the customer makes on the order form
- * (Product.variants: up to 3 groups of up to 24 options). One component for the generate wizard's
- * Details step (density "comfortable") and the builder's Product panel ("compact").
+ * Product options editor — colors, sizes or any choice the customer makes on the order form (an
+ * item's `groups`: up to 4 — choice groups of up to 24 options, one combined option "color × size"
+ * and up to 2 custom fields, docs/OFFERS.md §D.5). One component for the generate wizard's Details
+ * step (density "comfortable"), the item cards and the builder's Product panel ("compact").
+ *
+ * Combined options (matrix.tsx) and custom fields (field-card.tsx) are offered by the preset bar
+ * when the MATRIX / FIELDS editor features are on; a choice group can be merged with another into
+ * one combined option (and split back) without losing photos, swatches, prices, codes or stock.
+ * Merging and splitting rename rule keys: `onRekey` lets the caller move the offers' line rules.
  *
  * Controlled: `value` is the page's list and every edit calls `onChange(next, coalesce)` with a
  * schema-valid list. `coalesce` names a typing burst ("variant:<id>:name", "opt:<id>:label",
@@ -16,7 +22,7 @@
  * palettes (and the on-device photo reading) — suggestions only, nothing is added without a click.
  * Option chips flow in the page's reading direction (RTL for Arabic), like on the order form.
  */
-import { ArrowDown, ArrowUp, Box, CircleAlert, Droplet, Footprints, Images, Palette, Plus, Ruler, SlidersHorizontal, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Box, CircleAlert, Combine, Droplet, Footprints, Grid3x3, Images, Palette, Plus, Ruler, SlidersHorizontal, Sparkles, TextCursorInput, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -24,8 +30,10 @@ import { Segmented } from "@/components/admin/common/segmented";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { dirOf, type AssetRef, type Locale } from "@/lib/page/schema";
+import { feature } from "@/lib/page/features";
+import { dirOf, isChoiceGroup, isFieldGroup, isMatrixGroup, LIMITS, type AssetRef, type FieldGroup, type Locale, type MatrixGroup, type OptionGroup } from "@/lib/page/schema";
 import {
   MAX_VARIANT_GROUPS,
   MAX_VARIANT_LABEL,
@@ -44,14 +52,27 @@ import {
   type VariantKind,
 } from "@/lib/page/variant-presets";
 import { cn } from "@/lib/utils";
+import { FieldCard } from "./field-card";
+import { CombinationsDialog, MatrixCard } from "./matrix";
+import { mergeBlocker, mergeGroups, newField, splitBlocker, splitGroup, type Rekey } from "./matrix-model";
 import { addOptions, isColorGroup, move, newGroup, removeAt, replaceAt, type AddResult, type VariantGroup, type VariantOption, type VariantPreset } from "./model";
+import { OptionExtras } from "./option-extras";
 import { Dot, OptionsField, type Density, type VariantPhoto } from "./options-field";
+import { IconAction } from "./parts";
 
 export type { VariantPhoto };
 
 export interface VariantsEditorProps {
-  value: readonly VariantGroup[];
-  onChange: (next: VariantGroup[], coalesce?: string | null) => void;
+  value: readonly OptionGroup[];
+  onChange: (next: OptionGroup[], coalesce?: string | null) => void;
+  /** merge / split renamed these rule keys (offers' line rules follow) */
+  onRekey?: (rekey: Rekey) => void;
+  /** page currency (price differences) */
+  currency?: string;
+  /** offer "Combined" options (default true; order extras: false) */
+  allowMatrix?: boolean;
+  /** most groups (default 4) */
+  maxGroups?: number;
   /** page language: group names, color names, reading direction */
   locale: Locale;
   /** the product's photos, linkable to options (first = main) */
@@ -90,10 +111,11 @@ interface Pending {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl, onPickPhoto, suggest, density = "comfortable", className }: VariantsEditorProps) {
+export function VariantsEditor({ value, onChange, onRekey, currency, allowMatrix = true, maxGroups = MAX_VARIANT_GROUPS, locale, photos = [], photoUrl, onPickPhoto, suggest, density = "comfortable", className }: VariantsEditorProps) {
   const [pending, setPending] = useState<Pending | null>(null);
   /** group whose entry takes the focus when it mounts */
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [creatingMatrix, setCreatingMatrix] = useState(false);
   const latest = useRef(value);
   useEffect(() => {
     latest.current = value;
@@ -126,8 +148,21 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
     return list;
   }, [value, pending]);
 
-  const used = new Set<VariantPreset>([...value.map((g) => inferPreset(g)), ...(pending ? [pending.preset] : [])]);
-  const room = value.length < MAX_VARIANT_GROUPS;
+  const used = new Set<VariantPreset>([...value.filter(isChoiceGroup).map((g) => inferPreset(g)), ...(pending ? [pending.preset] : [])]);
+  const room = value.length < maxGroups;
+  const canMatrix = allowMatrix && feature("MATRIX") && room && !value.some(isMatrixGroup);
+  const canField = feature("FIELDS") && room && value.filter(isFieldGroup).length < LIMITS.fieldsPerItem;
+  const taken = useMemo(() => variantIds(value), [value]);
+
+  const regroup = (res: { groups: OptionGroup[]; rekey: Rekey } | { error: string }, done: string) => {
+    if ("error" in res) {
+      toast.error(res.error);
+      return;
+    }
+    onChange(res.groups);
+    onRekey?.(res.rekey);
+    toast.success(done);
+  };
 
   const start = (preset: VariantPreset) => {
     if (!room) return;
@@ -138,8 +173,9 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
 
   /** Add labels to a group (committing a pending one); returns what happened. */
   const add = (target: { index: number; pending: boolean }, labels: string[], extra?: (label: string) => Partial<Pick<VariantOption, "swatch" | "image">>): AddResult | null => {
-    const current = target.pending ? pending?.group : value[target.index];
-    if (!current) return null;
+    const at = target.pending ? pending?.group : value[target.index];
+    if (!at || !isChoiceGroup(at)) return null;
+    const current: VariantGroup = at;
     const preset = target.pending ? pending!.preset : inferPreset(current);
     const res = addOptions(current, labels, { locale, preset, taken: variantIds(value) }, extra);
     if (!res.added.length) return res;
@@ -156,7 +192,7 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
   /** Remove options; a group left empty goes back to being set up (it stays on screen). */
   const removeOptions = (gi: number, keep: (o: VariantOption, i: number) => boolean) => {
     const g = value[gi];
-    if (!g) return;
+    if (!g || !isChoiceGroup(g)) return;
     const options = g.options.filter(keep);
     if (options.length === g.options.length) return;
     if (options.length) {
@@ -171,13 +207,14 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
     const g = value[gi];
     if (!g) return;
     onChange(removeAt(value, gi));
+    const n = isChoiceGroup(g) ? g.options.length : isMatrixGroup(g) ? g.dims.reduce((x, d) => x * d.values.length, 1) : 0;
     toast(`“${g.name}” removed`, {
-      description: `${g.options.length} option${g.options.length === 1 ? "" : "s"}`,
+      description: isFieldGroup(g) ? "Custom field" : `${n} ${isMatrixGroup(g) ? "combination" : "option"}${n === 1 ? "" : "s"}`,
       action: {
         label: "Undo",
         onClick: () => {
           const cur = latest.current;
-          if (cur.length >= MAX_VARIANT_GROUPS || cur.some((x) => x.id === g.id)) return;
+          if (cur.length >= maxGroups || cur.some((x) => x.id === g.id)) return;
           const next = [...cur];
           next.splice(Math.min(gi, next.length), 0, g);
           onChange(next);
@@ -190,9 +227,61 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
     <div className={cn("grid", compact ? "gap-2.5" : "gap-3", className)}>
       <AnimatePresence initial={false} mode="popLayout">
         {items.map((it) => {
-          const g = it.group;
+          const any = it.group;
+          const motionProps = {
+            layout: "position" as const,
+            initial: { opacity: 0, y: 8, scale: 0.985 },
+            animate: { opacity: 1, y: 0, scale: 1 },
+            exit: { opacity: 0, scale: 0.98, transition: { duration: 0.16 } },
+            transition: { duration: 0.32, ease: EASE },
+          };
+          const groupIssues = it.pending ? [] : issues.filter((x) => x.groupId === any.id);
+          if (isMatrixGroup(any)) {
+            return (
+              <motion.div key={any.id} {...motionProps}>
+                <MatrixCard
+                  group={any}
+                  density={density}
+                  locale={locale}
+                  dir={dir}
+                  currency={currency}
+                  photos={photos}
+                  photoUrl={urlOf}
+                  onPickPhoto={onPickPhoto}
+                  position={it.index}
+                  count={value.length}
+                  taken={taken}
+                  issues={groupIssues}
+                  onChange={(next, coalesce) => onChange(replaceAt(value, it.index, next), coalesce)}
+                  onMove={(by) => onChange(move(value, it.index, it.index + by))}
+                  onRemove={() => removeGroup(it.index)}
+                  splitBlocker={splitBlocker(any, value)}
+                  onSplit={() => regroup(splitGroup(value, any.id), "Split into separate options")}
+                />
+              </motion.div>
+            );
+          }
+          if (isFieldGroup(any)) {
+            return (
+              <motion.div key={any.id} {...motionProps}>
+                <FieldCard
+                  group={any}
+                  density={density}
+                  currency={currency}
+                  position={it.index}
+                  count={value.length}
+                  issues={groupIssues}
+                  onPatch={(patch, coalesce) => onChange(replaceAt(value, it.index, { ...any, ...patch } as FieldGroup), coalesce)}
+                  onMove={(by) => onChange(move(value, it.index, it.index + by))}
+                  onRemove={() => removeGroup(it.index)}
+                />
+              </motion.div>
+            );
+          }
+          const g = any as VariantGroup;
           const preset = it.pending ? pending!.preset : inferPreset(g);
           const colorGroup = preset === "color" || isColorGroup(g);
+          const partners = it.pending || !feature("MATRIX") || !allowMatrix ? [] : value.filter((x): x is VariantGroup => isChoiceGroup(x) && x.id !== g.id);
           return (
             <motion.div
               key={g.id}
@@ -217,7 +306,10 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
                 onPickPhoto={onPickPhoto}
                 palette={palette}
                 suggestions={colorGroup ? colorSuggestions(g.options.map((o) => o.label)) : []}
-                issues={it.pending ? [] : issues.filter((x) => x.groupId === g.id)}
+                issues={groupIssues}
+                currency={currency}
+                merge={partners.map((x) => ({ group: x, blocker: mergeBlocker(g, x, value) }))}
+                onMerge={(otherId) => regroup(mergeGroups(value, g.id, otherId, locale), "Merged into one combined option")}
                 autoFocus={focusId === g.id}
                 onFocused={() => setFocusId(null)}
                 onAdd={(labels, extra) => add(it, labels, extra)}
@@ -234,7 +326,7 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
                 }}
                 onPatch={(patch, coalesce) => {
                   if (it.pending) setPending((p) => (p ? { ...p, group: { ...p.group, ...patch } } : p));
-                  else onChange(replaceAt(value, it.index, { ...g, ...patch }), coalesce);
+                  else onChange(replaceAt(value, it.index, { ...g, ...patch } as VariantGroup), coalesce);
                 }}
                 onMoveGroup={(by) => onChange(move(value, it.index, it.index + by))}
                 onRemoveGroup={() => (it.pending ? setPending(null) : removeGroup(it.index))}
@@ -252,7 +344,24 @@ export function VariantsEditor({ value, onChange, locale, photos = [], photoUrl,
         colorDots={used.has("color") ? [] : colorSuggestions([]).slice(0, 3).map((s) => s.hex)}
         density={density}
         onPick={start}
+        max={maxGroups}
+        onMatrix={canMatrix ? () => setCreatingMatrix(true) : undefined}
+        onField={canField ? () => onChange([...value, newField(locale, taken)]) : undefined}
       />
+      {canMatrix || creatingMatrix ? (
+        <CombinationsDialog
+          open={creatingMatrix}
+          onOpenChange={setCreatingMatrix}
+          mode={{ kind: "create", onCreate: (g: MatrixGroup) => onChange([...latest.current, g].slice(0, maxGroups)) }}
+          locale={locale}
+          dir={dir}
+          currency={currency}
+          photos={photos}
+          photoUrl={urlOf}
+          onPickPhoto={onPickPhoto}
+          taken={taken}
+        />
+      ) : null}
     </div>
   );
 }
@@ -269,6 +378,9 @@ function PresetBar({
   colorDots,
   density,
   onPick,
+  onMatrix,
+  onField,
+  max,
 }: {
   empty: boolean;
   room: boolean;
@@ -277,11 +389,18 @@ function PresetBar({
   colorDots: readonly string[];
   density: Density;
   onPick: (p: VariantPreset) => void;
+  onMatrix?: () => void;
+  onField?: () => void;
+  max: number;
 }) {
   const compact = density === "compact";
   if (!room) {
-    return <p className="text-[11.5px] text-muted-foreground">3 option groups — the most the order form shows.</p>;
+    return <p className="text-[11.5px] text-muted-foreground">{max} options — the most there can be here.</p>;
   }
+  const special = cn(
+    "inline-flex items-center rounded-full border border-dashed border-foreground/[0.18] bg-background font-medium text-foreground/85 outline-none transition-[border-color,background-color,color] hover:border-brand/45 hover:bg-brand-soft/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 active:translate-y-px dark:bg-foreground/[0.04] [&_svg]:text-brand",
+    compact ? "h-7 gap-1.5 px-2.5 text-[12px] [&_svg]:size-3.5" : "h-9 gap-2 px-3.5 text-[13px] [&_svg]:size-4",
+  );
   // color, sizes and capacity are one group each; models and custom groups can repeat
   const presets = VARIANT_PRESETS.filter((p) => p === "custom" || p === "model" || !used.has(p));
   return (
@@ -326,6 +445,18 @@ function PresetBar({
             chip
           );
         })}
+        {onMatrix ? (
+          <button type="button" onClick={onMatrix} className={special}>
+            <Grid3x3 />
+            Combined (e.g. color × size)
+          </button>
+        ) : null}
+        {onField ? (
+          <button type="button" onClick={onField} className={special}>
+            <TextCursorInput />
+            Custom field
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -352,6 +483,10 @@ interface GroupCardProps {
   palette: ReturnType<typeof colorPalette>;
   suggestions: readonly ColorSuggestion[];
   issues: ReturnType<typeof variantIssues>;
+  currency?: string;
+  /** other choice groups this one can merge with (blocker = why not) */
+  merge: { group: VariantGroup; blocker: string | null }[];
+  onMerge: (otherId: string) => void;
   autoFocus: boolean;
   onFocused: () => void;
   onAdd: (labels: string[], extra?: (label: string) => Partial<Pick<VariantOption, "swatch" | "image">>) => AddResult | null;
@@ -468,6 +603,7 @@ function GroupCard(p: GroupCardProps) {
               <IconAction label="Move down" disabled={p.position >= p.count - 1} onClick={() => p.onMoveGroup(1)} compact={compact}>
                 <ArrowDown />
               </IconAction>
+              {p.merge.length ? <MergeMenu group={g} merge={p.merge} onMerge={p.onMerge} compact={compact} /> : null}
               <IconAction label={`Remove ${g.name || "group"}`} onClick={p.onRemoveGroup} compact={compact} danger>
                 <Trash2 />
               </IconAction>
@@ -587,6 +723,8 @@ function GroupCard(p: GroupCardProps) {
         </SuggestRow>
       ) : null}
 
+      {!pending && g.options.length ? <OptionExtras options={g.options} groupId={g.id} dir={dir} currency={p.currency} onChange={(i, o, coalesce) => p.onUpdate(i, o, coalesce)} /> : null}
+
       {/* per unit */}
       <div className={cn("flex items-start justify-between gap-3 border-t border-foreground/[0.06]", compact ? "pt-2.5" : "pt-3")}>
         <label htmlFor={ids.unit} className="flex min-w-0 cursor-pointer items-start gap-2.5">
@@ -604,23 +742,37 @@ function GroupCard(p: GroupCardProps) {
   );
 }
 
-function IconAction({ label, onClick, disabled, compact, danger, children }: { label: string; onClick: () => void; disabled?: boolean; compact: boolean; danger?: boolean; children: ReactNode }) {
+function MergeMenu({ group, merge, onMerge, compact }: { group: VariantGroup; merge: { group: VariantGroup; blocker: string | null }[]; onMerge: (id: string) => void; compact: boolean }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size={compact ? "icon-xs" : "icon-sm"}
-          aria-label={label}
-          disabled={disabled}
-          onClick={onClick}
-          className={cn("text-muted-foreground", danger && "hover:bg-destructive/10 hover:text-destructive")}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size={compact ? "icon-xs" : "icon-sm"} aria-label="Merge into one combined option" className="text-muted-foreground">
+              <Combine />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Merge into one combined option</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="text-[11.5px] leading-snug font-normal text-muted-foreground">
+          Combine <bdi className="font-medium text-foreground">{group.name}</bdi> with… every pair becomes one choice; photos, prices, codes and stock are kept.
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {merge.map((m) => (
+          <DropdownMenuItem key={m.group.id} disabled={!!m.blocker} onSelect={() => onMerge(m.group.id)} className="grid items-start gap-0.5">
+            <span className="inline-flex items-center gap-2 font-medium">
+              <Grid3x3 />
+              <bdi>
+                {group.name} × {m.group.name}
+              </bdi>
+            </span>
+            {m.blocker ? <span className="ps-6 text-[11px] leading-snug text-muted-foreground">{m.blocker}</span> : <span className="ps-6 text-[11px] text-muted-foreground tabular-nums">{group.options.length * m.group.options.length} combinations</span>}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

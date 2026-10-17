@@ -120,8 +120,8 @@ export default defineSection({
     },
   ],
   schema,
-  defaults: ({ locale, product, offers, rng }): Data => {
-    const copy = defaultCopy(locale, product, offers, rng);
+  defaults: ({ locale, product, items, offers, rng }): Data => {
+    const copy = defaultCopy(locale, product, offers, rng, items[0]);
     return { title: copy.title, showTitle: false, items: copy.items, speed: "auto" };
   },
   fields,

@@ -1104,6 +1104,15 @@ export const FR: LocaleLibrary = {
       { title: "Pack Duo", subtitle: "Pour vous et un proche" },
       { title: "Pack Trio", subtitle: "Le meilleur prix par pièce" },
     ],
+    offers: {
+      choice: { title: "Au choix", subtitle: "Choisissez votre préféré" },
+      anyN: { title: "{n} au choix", subtitle: "Composez votre pack" },
+      duo: { title: "Le duo", subtitle: "Les deux ensemble" },
+      trio: { title: "Le trio complet", subtitle: "Les trois réunis" },
+      set: { title: "Coffret complet", subtitle: "Toute la gamme réunie", short: "Coffret" },
+      bogo: { title: "1 acheté, 1 offert", subtitle: "La deuxième pièce est offerte", short: "1 + 1" },
+      colors: { title: "Pack {n} couleurs", subtitle: "Une pièce de chaque couleur", short: "{n} couleurs" },
+    },
     seo: {
       title: ["{product} — Paiement à la livraison", "{product} | Livraison rapide, paiement à la réception"],
       description: [

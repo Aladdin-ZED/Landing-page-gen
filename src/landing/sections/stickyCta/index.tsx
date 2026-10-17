@@ -18,7 +18,7 @@
  */
 import type { ReactElement, ReactNode } from "react";
 import { z } from "zod";
-import { bundleMath, defaultBundleId } from "@/lib/page/pricing";
+import { offerViews, priceLine } from "../../offers/model";
 import { AssetRef, type SectionBg } from "@/lib/page/schema";
 import {
   Cta,
@@ -28,8 +28,6 @@ import {
   editAttr,
   plainText,
   resolveProductVisual,
-  savingsLabel,
-  savingsOf,
 } from "../../primitives";
 import { defineSection, type RenderContext } from "../../types";
 import { badgeSpot } from "../orderForm/parts";
@@ -61,7 +59,12 @@ interface Pack {
   id: string;
   isDefault: boolean;
   qty: number;
-  total: number;
+  /** one item ×n: the "×2" badge says it; any other offer is named instead */
+  sameItem: boolean;
+  /** offer name (multi-item pages show the chosen offer's name) */
+  name: string;
+  /** the card price, "Dès 249 DH" when the choices can cost more */
+  price: string;
   /** genuine struck reference, formatted */
   was?: string;
   /** "−20%" */
@@ -71,21 +74,18 @@ interface Pack {
 }
 
 function packsOf(ctx: RenderContext): Pack[] {
-  const def = defaultBundleId(ctx.offers);
-  return ctx.offers.bundles.map((b) => {
-    const m = bundleMath(b, ctx.product.price);
-    const saving = m.showReference ? savingsOf(m.total, m.reference) : null;
-    const labels = saving ? savingsLabel(ctx, saving) : {};
-    return {
-      id: b.id,
-      isDefault: b.id === def,
-      qty: m.qty,
-      total: m.total,
-      was: saving ? ctx.money(m.reference) : undefined,
-      pct: labels.pct,
-      amount: labels.pct ? undefined : labels.amount,
-    };
-  });
+  // the shared offer model (src/landing/offers/model.ts): `from` price, genuine savings only
+  return offerViews(ctx).map((v) => ({
+    id: v.id,
+    isDefault: v.selected,
+    qty: v.qty,
+    sameItem: v.sameItem,
+    name: v.name,
+    price: priceLine(ctx, v),
+    was: v.reference,
+    pct: v.savePct,
+    amount: v.savePct ? undefined : v.saveAmount,
+  }));
 }
 
 /** Runtime hook of a pack-specific element: shown only while its pack is the chosen one. */
@@ -101,7 +101,7 @@ function qtyBadges(
   className: string,
 ): ReactNode {
   return packs
-    .filter((p) => p.qty > 1)
+    .filter((p) => p.qty > 1 && p.sameItem)
     .map((p) => (
       <span
         key={p.id}
@@ -180,6 +180,8 @@ function render({
   const label = plainText(data.label) || ctx.t("sticky.cta");
   const packs = packsOf(ctx);
   const current = packs.find((p) => p.isDefault) ?? packs[0]!;
+  // multi-item pages name the chosen offer (docs/OFFERS.md §B.2), single-item pages the product
+  const multi = ctx.items.length > 1;
   const tile = thumb(ctx, data, packs, data.showPack);
   // without a picture the quantity rides next to the price instead of on the tile
   const inlineQty =
@@ -188,7 +190,7 @@ function render({
       : null;
   const price = (
     <bdi className="lp-sticky__price" data-lp-price="current">
-      {ctx.money(current.total)}
+      {current.price}
     </bdi>
   );
   // End-of-page marker: the runtime hides the bar while any [data-hero-cta] is on screen, so the bar
@@ -247,7 +249,17 @@ function render({
           {tile}
           <span className="lp-sticky__info">
             {/* isolated (dir auto): a Latin name on an Arabic page is cut at its END, never its start */}
-            <bdi className="lp-sticky__name">{ctx.product.name}</bdi>
+            {multi ? (
+              <span className="lp-sticky__name lp-sticky__name--offer">
+                {packs.map((p) => (
+                  <bdi key={p.id} className="lp-sticky__offer" {...packAttrs(p)}>
+                    {p.name}
+                  </bdi>
+                ))}
+              </span>
+            ) : (
+              <bdi className="lp-sticky__name">{ctx.product.name}</bdi>
+            )}
             {notes(ctx, data)}
           </span>
           <span className="lp-sticky__buy">

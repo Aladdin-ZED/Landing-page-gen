@@ -1,20 +1,25 @@
 "use client";
 /**
- * Product panel: identity (name, tagline, description, category, SKU), price, photos (sortable,
- * alt text), transparent cutout (pick one, or generate it in the browser with the local AI when
- * available), options (colors, sizes… — the editor shared with the generate wizard) and the real
- * rating (never invented).
+ * "Product & items" panel (docs/OFFERS.md §H.3): the page's story — name, tagline, description,
+ * category, photos (sortable, alt text), transparent cutout (pick one, or generate it in the
+ * browser with the local AI), the real rating (never invented) — and **What you sell**: the item
+ * cards shared with the generate wizard (src/components/admin/items): photo well with crops, name,
+ * short name with its Google Sheets preview, price, compare-at, SKU, sold out and the options
+ * editor (choice groups, combined options, custom fields). On a single-item page the one card sits
+ * where price and options were; "+ Add product" (MULTI_ITEM) and free reorder, Show first,
+ * Duplicate, Copy options from… and Delete (offers, bump and upsell follow) come with several.
  */
 import { CircleAlert, LoaderCircle, Scissors, Star } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { VariantsEditor, type VariantPhoto } from "@/components/admin/variants";
+import { ItemsEditor, type PhotoInfo, type PhotoSource } from "@/components/admin/items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { AiError, useAi } from "@/lib/ai/client";
+import { feature } from "@/lib/page/features";
 import { PRODUCT_CATEGORIES, type AssetRef, type Product } from "@/lib/page/schema";
-import { parseExtractedPalette } from "@/lib/theme";
+import { parseExtractedPalette, type ExtractedPalette } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useEditor, useEditorApi, useEditorStore } from "../context";
 import { assetUrl, useEnv } from "../env";
@@ -28,9 +33,43 @@ const CATEGORY_LABELS: Partial<Record<(typeof PRODUCT_CATEGORIES)[number], strin
 };
 const categoryLabel = (c: string) => CATEGORY_LABELS[c as keyof typeof CATEGORY_LABELS] ?? c.charAt(0).toUpperCase() + c.slice(1);
 
+/**
+ * The page's photos as the item and offer editors see them (wells, crops, custom visuals): the
+ * product photos first, any other asset the store knows by id, and the library picker.
+ */
+export function useBuilderPhotos(): PhotoSource {
+  const images = useEditor((s) => s.doc.product.images);
+  const assets = useEditor((s) => s.assets);
+  const media = useMedia();
+  const info = useCallback(
+    (id: string): PhotoInfo | null => {
+      const row = assets[id];
+      if (!row || row.kind === "video") return null;
+      return { ref: { id, alt: "" }, url: assetUrl(row, 240), large: assetUrl(row, 1440), width: row.width || 1, height: row.height || 1 };
+    },
+    [assets],
+  );
+  const photos = useMemo(
+    () =>
+      images.flatMap((ref): PhotoInfo[] => {
+        const i = info(ref.id);
+        return i ? [{ ...i, ref }] : [];
+      }),
+    [images, info],
+  );
+  const pick = useCallback(
+    async (title: string): Promise<AssetRef | null> => {
+      const a = await media.pick({ title });
+      return a ? { id: a.id, alt: a.alt, ...(a.focal ? { fx: a.focal.x, fy: a.focal.y } : {}) } : null;
+    },
+    [media],
+  );
+  return useMemo(() => ({ photos, info, pick }), [photos, info, pick]);
+}
+
 export function ProductPanel() {
   const product = useEditor((s) => s.doc.product);
-  const currency = useEditor((s) => s.doc.currency);
+  const several = useEditor((s) => s.doc.items.length > 1);
   const api = useEditorApi();
   const set = (recipe: (p: Product) => void, group?: string) => api.updateDoc((d) => recipe(d.product as Product), group ?? null);
 
@@ -43,47 +82,33 @@ export function ProductPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <PanelHeader title="Product" description="Used by every section, the order form and search results." />
+      <PanelHeader title="Product & items" description="The story every section tells, and what the page sells." />
       <div className="bld-scroll min-h-0 flex-1 overflow-y-auto pb-10">
         <PanelSection title="Basics" collapsible>
-          <FieldRow label="Name" htmlFor="p-name" error={name.error} count={name.raw.length} max={120}>
+          <FieldRow
+            label={several ? "Page product name" : "Name"}
+            htmlFor="p-name"
+            error={name.error}
+            count={name.raw.length}
+            max={120}
+            hint={several ? "The name of the range (headlines, search). Each product has its own name below." : undefined}
+          >
             <Input id="p-name" dir="auto" value={name.raw} maxLength={120} aria-invalid={!!name.error || undefined} onChange={(e) => name.onChange(e.target.value)} onFocus={name.onFocus} onBlur={name.onBlur} className="h-8 text-[13px]" />
           </FieldRow>
           <TextField id="p-tagline" label="Tagline" value={product.tagline} max={400} onChange={(v) => set((p) => void (p.tagline = v || undefined), "product:tagline")} help="One line under the name. *Emphasis* works." />
           <TextField id="p-desc" label="Description" value={product.description} max={4000} multiline rows={4} onChange={(v) => set((p) => void (p.description = v || undefined), "product:description")} help="Short paragraphs; start a line with “- ” for a bullet." />
-          <div className="grid grid-cols-2 gap-2.5">
-            <FieldRow label="Category">
-              <Choice value={product.category} onChange={(v) => set((p) => void (p.category = v))} options={PRODUCT_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))} />
-            </FieldRow>
-            <SkuField value={product.sku} onCommit={(v) => set((p) => void (p.sku = v), "product:sku")} />
-          </div>
-        </PanelSection>
-
-        <PanelSection title="Price" collapsible>
-          <div className="grid grid-cols-2 gap-2.5">
-            <FieldRow label="Price" htmlFor="p-price">
-              <NumberInput id="p-price" value={product.price} min={0} max={10_000_000} suffix={currency} onCommit={(v) => set((p) => void (p.price = v ?? 0), "product:price")} />
-            </FieldRow>
-            <FieldRow label="Compare at" htmlFor="p-compare">
-              <NumberInput id="p-compare" value={product.compareAt} min={0} max={10_000_000} suffix={currency} optional placeholder="—" onCommit={(v) => set((p) => void (p.compareAt = v), "product:compare")} />
-            </FieldRow>
-          </div>
-          {product.compareAt !== undefined && product.compareAt <= product.price ? (
-            <Hint tone="warn" icon={<CircleAlert />}>
-              “Compare at” must be a real, higher previous price — otherwise no saving is shown.
-            </Hint>
-          ) : (
-            <p className="text-[11px] leading-relaxed text-muted-foreground">Only enter a previous price you really sold at. Pack prices are set in Offers.</p>
-          )}
+          <FieldRow label="Category">
+            <Choice value={product.category} onChange={(v) => set((p) => void (p.category = v))} options={PRODUCT_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))} />
+          </FieldRow>
         </PanelSection>
 
         <PanelSection title="Photos" collapsible>
-          <ImagesField label="Product photos" value={product.images} max={30} onChange={(v) => set((p) => void (p.images = v), "product:images")} help="Drag to reorder. The first photo leads; add alt text to each." />
+          <ImagesField label="Product photos" value={product.images} max={30} onChange={(v) => set((p) => void (p.images = v), "product:images")} help="Drag to reorder. The first photo leads; add alt text to each. Products pick their photos below." />
           <CutoutBlock />
         </PanelSection>
 
-        <PanelSection title="Options" collapsible defaultOpen={product.variants.length > 0} hint="Colors, sizes or any choice the customer makes on the order form.">
-          <VariantsSection />
+        <PanelSection title="What you sell" collapsible hint={feature("MULTI_ITEM") ? "Products with their price, photos and options. Offers combine them." : "Price, photos and options. Pack prices are set in Offers."}>
+          <WhatYouSell />
         </PanelSection>
 
         <PanelSection title="Rating" collapsible defaultOpen={!!product.rating}>
@@ -94,17 +119,47 @@ export function ProductPanel() {
   );
 }
 
-function SkuField({ value, onCommit }: { value: string | undefined; onCommit: (v: string | undefined) => void }) {
-  const f = useCommitted<string | undefined>(
-    value,
-    (v) => v ?? "",
-    (raw) => (raw.length <= 60 ? { value: raw.trim() ? raw.trim() : undefined } : { error: "At most 60 characters" }),
-    onCommit,
-  );
+function WhatYouSell() {
+  const items = useEditor((s) => s.doc.items);
+  const offers = useEditor((s) => s.doc.offers);
+  const locale = useEditor((s) => s.doc.locale);
+  const currency = useEditor((s) => s.doc.currency);
+  const productName = useEditor((s) => s.doc.product.name);
+  const assets = useEditor((s) => s.assets);
+  const images = useEditor((s) => s.doc.product.images);
+  const api = useEditorApi();
+  const photos = useBuilderPhotos();
+  const palettes = useMemo(() => {
+    const out: Record<string, ExtractedPalette | null> = {};
+    for (const r of images) out[r.id] = parseExtractedPalette(assets[r.id]?.palette);
+    return out;
+  }, [images, assets]);
+  const lead = items[0]!;
   return (
-    <FieldRow label="SKU" htmlFor="p-sku" error={f.error}>
-      <Input id="p-sku" value={f.raw} maxLength={60} placeholder="Optional" onChange={(e) => f.onChange(e.target.value)} onFocus={f.onFocus} onBlur={f.onBlur} className="h-8 font-mono text-xs" />
-    </FieldRow>
+    <>
+      <ItemsEditor
+        items={items}
+        offers={offers}
+        locale={locale}
+        currency={currency}
+        productName={productName}
+        photos={photos}
+        palettes={palettes}
+        density="compact"
+        reorder
+        onChange={(next, coalesce) =>
+          api.updateDoc((d) => {
+            d.items = next.items;
+            if (next.offers) d.offers = next.offers;
+          }, coalesce ?? null)
+        }
+      />
+      {lead.compareAt !== undefined && lead.compareAt <= lead.price && items.length === 1 ? (
+        <Hint tone="warn" icon={<CircleAlert />}>
+          “Compare at” must be a real, higher previous price — otherwise no saving is shown.
+        </Hint>
+      ) : null}
+    </>
   );
 }
 
@@ -217,51 +272,6 @@ function CutoutBlock() {
       ) : null}
       {!cutout && images.length > 0 && !aiReady ? <p className="text-[11px] text-muted-foreground">Tip: upload a photo with a transparent background for the most striking hero.</p> : null}
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* variants (options)                                                  */
-/* ------------------------------------------------------------------ */
-
-/**
- * The shared options editor (src/components/admin/variants) on the page document: photos are the
- * product's photos (their palettes feed the color suggestions), the library picker links any other
- * photo, and typing bursts are coalesced into one undo step each.
- */
-function VariantsSection() {
-  const groups = useEditor((s) => s.doc.product.variants);
-  const locale = useEditor((s) => s.doc.locale);
-  const images = useEditor((s) => s.doc.product.images);
-  const assets = useEditor((s) => s.assets);
-  const api = useEditorApi();
-  const media = useMedia();
-  const photos = useMemo<VariantPhoto[]>(
-    () =>
-      images.flatMap((ref) => {
-        const row = assets[ref.id];
-        if (row?.kind === "video") return [];
-        return [{ ref, url: assetUrl(row, 160), palette: parseExtractedPalette(row?.palette) }];
-      }),
-    [images, assets],
-  );
-  return (
-    <VariantsEditor
-      value={groups}
-      locale={locale}
-      density="compact"
-      photos={photos}
-      photoUrl={(id) => assetUrl(assets[id], 160)}
-      onPickPhoto={async (title) => {
-        const a = await media.pick({ title });
-        return a ? { id: a.id, alt: a.alt, ...(a.focal ? { fx: a.focal.x, fy: a.focal.y } : {}) } : null;
-      }}
-      onChange={(next, coalesce) =>
-        api.updateDoc((d) => {
-          d.product.variants = next;
-        }, coalesce ?? null)
-      }
-    />
   );
 }
 

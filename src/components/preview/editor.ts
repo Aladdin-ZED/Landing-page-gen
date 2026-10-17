@@ -6,7 +6,59 @@
  *    typography; Enter / blur commit, Shift+Enter = new line, Escape cancels
  * The overlay lives outside <body> so it never touches the DOM React owns.
  * Interactive mode turns all of this off and only keeps the page from navigating the iframe away.
+ *
+ * Offers (docs/OFFERS.md §H.4, two-way selection): `selectOffer(id)` selects that offer in every
+ * attached preview (its input[name=bundle] radio, through the runtime's own "change" path) and
+ * scrolls it into view; a click on an offer card on the canvas ([data-bundle-card], or an offer
+ * CTA's [data-bundle]) emits `offerClicked` to the parent window (`onOfferClicked`), so the Offers
+ * panel opens that offer's editor. No React wiring is needed in the preview component.
  */
+
+/** Window event (parent window) fired when an offer is clicked on the canvas: detail = { offerId }. */
+export const OFFER_CLICKED_EVENT = "lp-editor:offer-clicked";
+
+/** Frame documents with an attached editor (selectOffer reaches each). */
+const frames = new Set<Document>();
+
+/** Select an offer in the previews (the runtime updates prices, units and visuals as for a tap). */
+export function selectOffer(offerId: string, reveal = true): void {
+  for (const doc of frames) {
+    const win = doc.defaultView as (Window & typeof globalThis) | null;
+    if (!win) continue;
+    const id = win.CSS.escape(offerId);
+    const radio = doc.querySelector<HTMLInputElement>(`input[name="bundle"][value="${id}"]`);
+    if (radio && !radio.checked) {
+      radio.checked = true;
+      radio.dispatchEvent(new win.Event("change", { bubbles: true }));
+    }
+    if (!reveal) continue;
+    const card = (radio?.closest("[data-bundle-card]") as HTMLElement | null) ?? doc.querySelector<HTMLElement>(`[data-bundle-card="${id}"]`);
+    if (!card) continue;
+    const r = card.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > win.innerHeight) card.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+}
+
+/** Subscribe to offer clicks on the canvas; returns the unsubscribe function. */
+export function onOfferClicked(cb: (offerId: string) => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const handler = (e: Event) => {
+    const id = (e as CustomEvent<{ offerId?: unknown }>).detail?.offerId;
+    if (typeof id === "string" && id) cb(id);
+  };
+  window.addEventListener(OFFER_CLICKED_EVENT, handler);
+  return () => window.removeEventListener(OFFER_CLICKED_EVENT, handler);
+}
+
+function offerClicked(target: EventTarget | null): void {
+  const node = target as Node | null;
+  const el = node && node.nodeType === 1 ? (node as Element) : (node?.parentElement ?? null);
+  const card = el?.closest("[data-bundle-card],a[data-bundle],button[data-bundle]");
+  const id = card?.getAttribute("data-bundle-card") || card?.getAttribute("data-bundle");
+  if (!id || typeof window === "undefined") return;
+  selectOffer(id, false);
+  window.dispatchEvent(new CustomEvent(OFFER_CLICKED_EVENT, { detail: { offerId: id } }));
+}
 
 export interface EditorHandlers {
   /** chip text for a section id, e.g. "Hero · stage" */
@@ -76,6 +128,7 @@ export function attachEditor(doc: Document, handlers: () => EditorHandlers): Edi
   const win = doc.defaultView as (Window & typeof globalThis) | null;
   if (!win) throw new Error("attachEditor: the frame has no window");
   const html = doc.documentElement;
+  frames.add(doc);
 
   const style = doc.createElement("style");
   style.setAttribute("data-lp", "editor");
@@ -258,6 +311,7 @@ export function attachEditor(doc: Document, handlers: () => EditorHandlers): Edi
     ev.stopPropagation();
     const id = sectionOf(ev.target)?.getAttribute("data-sid");
     if (id) handlers().select(id);
+    offerClicked(ev.target);
   };
 
   /**
@@ -340,6 +394,7 @@ export function attachEditor(doc: Document, handlers: () => EditorHandlers): Edi
     },
     refresh: schedule,
     destroy() {
+      frames.delete(doc);
       finish(false);
       if (raf) win.cancelAnimationFrame(raf);
       ro.disconnect();

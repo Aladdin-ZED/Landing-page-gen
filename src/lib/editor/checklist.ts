@@ -1,10 +1,19 @@
 /**
  * Pre-publish checklist: blocking errors (the page would be broken or misleading) and warnings
  * (quality and honesty), each with a "fix" target in the builder. Pure and isomorphic.
+ *
+ * Offers v2 (docs/OFFERS.md §H.4): every product priced and, with 2+ products, named; every offer
+ * priced; a product customers choose in a "choice" line has a photo of its own (else crop it from
+ * the group photo — a publish error, §B.4); options nobody could order (every combination out, a
+ * required field with a price); the page's option photos within the publish cap (page_too_large);
+ * a product sold in no offer; delivery fee > 0 with every offer free (warning, via offerWarnings).
  */
 import { getSection } from "@/landing/registry";
-import { bundleMath, bundleWarnings } from "@/lib/page/pricing";
-import type { PageDoc } from "@/lib/page/schema";
+import { isLegacyOffer, itemShort, itemVisual, offerName, offerUnits } from "@/lib/page/catalog";
+import { bundleMath, offerWarnings } from "@/lib/page/pricing";
+import { isChoicePick, isFixedPick, LIMITS, optionPhotoCount, type PageDoc } from "@/lib/page/schema";
+import { variantIssues } from "@/lib/page/variant-presets";
+import { pixelChecks, type PixelCheckContext } from "@/lib/pixels/checklist";
 import { validateDoc } from "@/lib/page/validate";
 import { assetRefsIn, fieldLabel, sectionIssues, valuesOfKind } from "./fields";
 import type { LeftTab } from "./store";
@@ -18,6 +27,9 @@ export interface CheckFix {
 }
 
 const STORE_SETTINGS = "/admin/settings/store";
+
+/** A checklist entry (spec name: ChecklistItem). */
+export type ChecklistItem = CheckItem;
 
 export interface CheckItem {
   id: string;
@@ -36,7 +48,9 @@ export interface Checklist {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-export function buildChecklist(doc: PageDoc, store: StoreHealth, now = Date.now()): Checklist {
+const NO_PIXEL_CONTEXT: PixelCheckContext = { library: null, health: {}, live: false };
+
+export function buildChecklist(doc: PageDoc, store: StoreHealth, now = Date.now(), pixels: PixelCheckContext = NO_PIXEL_CONTEXT): Checklist {
   const errors: CheckItem[] = [];
   const warnings: CheckItem[] = [];
   const add = (item: CheckItem) => (item.level === "error" ? errors : warnings).push(item);
@@ -53,10 +67,52 @@ export function buildChecklist(doc: PageDoc, store: StoreHealth, now = Date.now(
 
   /* ---- product & offer ---- */
   if (!doc.product.name.trim()) add({ id: "product:name", level: "error", title: "Name your product", fix: { tab: "product" } });
-  if (!(doc.product.price > 0)) add({ id: "product:price", level: "error", title: "Set the product price", fix: { tab: "product" } });
-  doc.offers.bundles.forEach((b, i) => {
-    if (!(b.price > 0)) add({ id: `bundle:${b.id}:price`, level: "error", title: `Pack ${i + 1} (x${b.qty}) has no price`, fix: { tab: "offers" } });
+  doc.items.forEach((it, i) => {
+    if (it.price > 0) return;
+    if (i === 0) add({ id: "product:price", level: "error", title: "Set the product price", fix: { tab: "product" } });
+    else add({ id: `item:${it.id}:price`, level: "error", title: `Set the price of ${itemShort(doc, it)}`, fix: { tab: "product" } });
   });
+  const offerLabel = (b: PageDoc["offers"]["bundles"][number], i: number) => (isLegacyOffer(doc, b) ? `Pack ${i + 1} (x${offerUnits(b)})` : `Offer “${offerName({ doc }, b)}”`);
+  doc.offers.bundles.forEach((b, i) => {
+    if (!(b.price > 0)) add({ id: `bundle:${b.id}:price`, level: "error", title: `${offerLabel(b, i)} has no price`, fix: { tab: "offers" } });
+  });
+
+  /* ---- items (Offers v2) ---- */
+  const several = doc.items.length > 1;
+  doc.items.forEach((it, i) => {
+    if (several && !it.name.trim()) add({ id: `item:${it.id}:name`, level: "error", title: `Name product ${i + 1}`, detail: "With two products or more, customers choose by name.", fix: { tab: "product" } });
+    for (const x of variantIssues(it.groups)) {
+      if (x.level !== "error") continue;
+      add({ id: `item:${it.id}:options:${x.groupId}`, level: "error", title: `${itemShort(doc, it)}: ${x.message}`, fix: { tab: "product" } });
+      break;
+    }
+    if (i > 0 && it.compareAt !== undefined && it.compareAt <= it.price) {
+      add({ id: `item:${it.id}:compare`, level: "warning", title: `${itemShort(doc, it)}: “compare at” is not higher than the price`, fix: { tab: "product" } });
+    }
+  });
+  const chosen = new Set(doc.offers.bundles.flatMap((b) => b.lines.flatMap((l) => (isChoicePick(l.pick) ? l.pick.choice : []))));
+  for (const it of doc.items) {
+    if (!several || !chosen.has(it.id)) continue;
+    const own = itemVisual(doc, it, { asset: (r) => (r ? ({ id: r.id } as never) : null) });
+    if (!own.asset) {
+      add({
+        id: `item:${it.id}:photo`,
+        level: "error",
+        title: `${itemShort(doc, it)} has no photo of its own`,
+        detail: "Customers choose it in an offer: crop it from the group photo (Product & items → its photos).",
+        fix: { tab: "product" },
+      });
+    }
+  }
+  if (several) {
+    const sold = new Set(doc.offers.bundles.flatMap((b) => b.lines.flatMap((l) => (isFixedPick(l.pick) ? [l.pick.item] : l.pick.choice))));
+    if (doc.offers.orderBump?.enabled && doc.offers.orderBump.item) sold.add(doc.offers.orderBump.item);
+    for (const it of doc.items) if (!sold.has(it.id)) add({ id: `item:${it.id}:unsold`, level: "warning", title: `${itemShort(doc, it)} is not sold in any offer`, detail: "Add it to an offer, or delete it.", fix: { tab: "offers" } });
+  }
+  const photos = optionPhotoCount(doc);
+  if (photos > LIMITS.pagePhotos) {
+    add({ id: "page:too-large", level: "error", title: `${photos} option photos: at most ${LIMITS.pagePhotos} per page`, detail: "The page would be too heavy to publish. Remove some option or combination photos.", fix: { tab: "product" } });
+  }
 
   /* ---- order form ---- */
   const form = doc.sections.find((s) => getSection(s.type)?.required);
@@ -97,16 +153,19 @@ export function buildChecklist(doc: PageDoc, store: StoreHealth, now = Date.now(
   }
 
   /* ---- prices ---- */
-  if (doc.product.compareAt !== undefined && doc.product.compareAt <= doc.product.price) {
+  const lead = doc.items[0]!;
+  if (lead.compareAt !== undefined && lead.compareAt <= lead.price) {
     add({ id: "product:compare", level: "warning", title: "“Compare at” is not higher than the price", detail: "No saving is shown; remove it or enter the real previous price.", fix: { tab: "product" } });
   }
-  doc.offers.bundles.forEach((b) => {
-    const m = bundleMath(b, doc.product.price);
+  doc.offers.bundles.forEach((b, i) => {
+    const m = bundleMath(doc, b);
     if (b.compareAt !== undefined && !m.showReference) {
-      add({ id: `bundle:${b.id}:compare`, level: "warning", title: `Pack x${b.qty}: “compare at” shows no real saving`, fix: { tab: "offers" } });
+      add({ id: `bundle:${b.id}:compare`, level: "warning", title: `${isLegacyOffer(doc, b) ? `Pack x${m.qty}` : offerLabel(b, i)}: “compare at” shows no real saving`, fix: { tab: "offers" } });
     }
   });
-  bundleWarnings(doc.offers, doc.product.price).forEach((w, i) => add({ id: `bundles:${i}`, level: "warning", title: w, fix: { tab: "offers" } }));
+  offerWarnings(doc)
+    .filter((w) => w.level === "warning")
+    .forEach((w, i) => add({ id: `bundles:${i}`, level: "warning", title: w.message, fix: { tab: "offers" } }));
 
   /* ---- extras: an offer shoppers can accept must say what it is ---- */
   const bump = doc.offers.orderBump;
@@ -166,6 +225,9 @@ export function buildChecklist(doc: PageDoc, store: StoreHealth, now = Date.now(
   }
   if (!doc.seo.title?.trim()) add({ id: "seo:title", level: "warning", title: "No SEO title", detail: "The product name is used in search results.", fix: { tab: "seo" } });
   if (!doc.seo.description?.trim()) add({ id: "seo:description", level: "warning", title: "No meta description", fix: { tab: "seo" } });
+
+  /* ---- ad pixels (PX) ---- */
+  for (const item of pixelChecks(doc, pixels)) add(item);
 
   return { errors, warnings, sampleSectionIds };
 }

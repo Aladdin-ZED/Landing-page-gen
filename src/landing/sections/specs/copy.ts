@@ -6,7 +6,7 @@
  * typical figure for the category — the section ships with `sample: true` until the merchant checks it.
  */
 import type { IconName } from "@/landing/primitives";
-import type { Locale, Product, ProductCategory } from "@/lib/page/schema";
+import { isChoiceGroup, type Item, type Locale, type Product, type ProductCategory } from "@/lib/page/schema";
 import { copyLang, fill, pick, shortName, type CopyLang, type Tri } from "../benefits/kit";
 import { nameFitsTitle } from "../guarantee/model";
 import { garmentOf, type Garment } from "../garment";
@@ -772,8 +772,8 @@ const clipLine = (s: string, max: number) => (s.length <= max ? s : s.slice(0, m
 /* Defaults                                                            */
 /* ------------------------------------------------------------------ */
 
-export function specsDefaults(input: { locale: Locale; product: Product; rng: () => number }): Data {
-  const { product, rng } = input;
+export function specsDefaults(input: { locale: Locale; product: Product; item: Item; rng: () => number }): Data {
+  const { product, item, rng } = input;
   const lang: CopyLang = copyLang(input.locale);
   const c = COMMON[lang];
   const fam = FAMILIES[FAMILY_OF[product.category] ?? "general"];
@@ -786,7 +786,7 @@ export function specsDefaults(input: { locale: Locale; product: Product; rng: ()
   const vars = { name: product.name, short: shortName(product.name) };
 
   // real facts first: the product's variant groups and its reference
-  const variantRows = product.variants.slice(0, 2).map((g) => ({
+  const variantRows = item.groups.filter(isChoiceGroup).slice(0, 2).map((g) => ({
     label: clipLine(g.name, 40),
     value: clipLine(g.options.map((o) => o.label).join(" · "), 90),
   }));
@@ -802,7 +802,7 @@ export function specsDefaults(input: { locale: Locale; product: Product; rng: ()
     })
     .filter((r) => !taken.has(r.label.toLowerCase()));
   const rows = [...familyRows, ...variantRows];
-  if (product.sku?.trim()) rows.push({ label: c.sku, value: clipLine(product.sku.trim(), 90) });
+  if (item.sku?.trim()) rows.push({ label: c.sku, value: clipLine(item.sku.trim(), 90) });
 
   const about = product.description?.trim() ? clip(product.description, 1200) : f.about;
   return {

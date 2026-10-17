@@ -185,8 +185,8 @@ export function ScrapbookHero({ id, variant, bg, data, ctx }: HeroProps): ReactE
                 <bdi className="lp-hero__sticker-pct" dir="ltr">
                   {ctx.t("bundle.savePct", { pct: best.pct })}
                 </bdi>
-                <bdi className="lp-hero__sticker-q" dir="ltr">
-                  ×{best.qty}
+                <bdi className="lp-hero__sticker-q" dir={best.sameItem ? "ltr" : undefined}>
+                  {best.label}
                 </bdi>
               </Sticker>
             </a>

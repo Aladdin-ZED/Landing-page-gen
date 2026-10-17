@@ -14,22 +14,26 @@
  *  - bold    — an accent slab with soft colored depth: giant headline (beside the form on desktop),
  *              big inputs, light cards, the best saving as a turning seal on the slab's corner.
  *
- * Runtime markup contract (docs/ARCHITECTURE.md "Order form markup") is followed exactly: see
- * packs.tsx (bundle radios), variants.tsx (option pickers) and parts.tsx (fields, summary, submit).
+ * Runtime markup contract (docs/OFFERS.md §F.6) is followed exactly: see picker.tsx (offer radios,
+ * the five offer layouts), units.tsx (personalization: units, item choosers, option groups, shared
+ * groups, extras, steps / box navigation, templates) and parts.tsx (fields, bump, summary, submit).
+ * Steps: 1 · choose your offer (with the "inline" fill the selected card holds the units) → 2 ·
+ * personalize (resolved fill rows / steps / box, §E.1) → 3 · your details; then the checkout.
  */
 import type { ReactElement, ReactNode } from "react";
 import { z } from "zod";
-import { orderTotals } from "@/lib/page/pricing";
+import { emptySelection, fromCents, orderTotals } from "@/lib/page/pricing";
+import { defaultOfferView } from "../../offers/model";
 import { AssetRef, type SectionBg } from "@/lib/page/schema";
 import { Badge as RingBadge } from "../../illustrations";
 import { Honeypot, Icon, Picture, SectionShell, cx } from "../../primitives";
 import { defineSection, type RenderContext } from "../../types";
 import { formCopy, uiLabels } from "./copy";
 import { LETTERBOX, fitsCover } from "./fit";
-import { PackPicker, PackVisual, allFree, bestSaving, packsOf, type CardStyle, type Pack } from "./packs";
 import { Bump, CodChip, Fields, Head, OrderLine, Privacy, StepTitle, Submit, Summary, Trust, WhatsAppAlt } from "./parts";
+import { PackPicker, PackVisual, allFree, bestSaving, displayOf, packsOf, type Pack } from "./picker";
 import { Plain } from "./text";
-import { OptionsSummary, VariantPickers, optionGroups } from "./variants";
+import { Extras, OptionsSummary, Units, pageHasUnits } from "./units";
 
 const VARIANT_IDS = ["card", "split", "minimal", "bold"] as const;
 type Variant = (typeof VARIANT_IDS)[number];
@@ -93,9 +97,12 @@ function Showcase({ ctx, packs, image }: { ctx: RenderContext; packs: Pack[]; im
           <PackVisual ctx={ctx} pack={p} sizes="(min-width: 64rem) 22rem, 6rem" className="lp-of__show-pv" />
           <span className="lp-of__show-cap lp-glass">
             <bdi className="lp-of__show-name">
-              <Plain ctx={ctx} text={p.titled ? `${p.name} · ${p.qtyLabel}` : p.name} />
+              <Plain ctx={ctx} text={p.titled && p.legacy ? `${p.name} · ${p.qtyLabel}` : p.name} />
             </bdi>
-            <bdi className="lp-of__show-price">{p.total}</bdi>
+            <bdi className="lp-of__show-price">
+              {p.fromWord ? <span className="lp-pack__from">{p.fromWord} </span> : null}
+              {p.total}
+            </bdi>
           </span>
         </span>
       ))}
@@ -106,18 +113,23 @@ function Showcase({ ctx, packs, image }: { ctx: RenderContext; packs: Pack[]; im
 function render({ id, variant, bg, data, ctx }: { id: string; variant: string; bg: SectionBg; data: Data; ctx: RenderContext }): ReactElement | null {
   const v: Variant = (VARIANT_IDS as readonly string[]).includes(variant) ? (variant as Variant) : "card";
   const packs = packsOf(ctx);
-  const pack = packs.find((p) => p.selected) ?? packs[0];
+  const pack = defaultOfferView(ctx);
   if (!pack) return null;
-  const total = orderTotals(ctx.product, ctx.offers, pack.id, false)?.total ?? pack.m.total;
+  const display = displayOf(ctx, v);
+  const t = orderTotals(ctx.doc, emptySelection(pack.id));
+  const total = t ? fromCents(t.total) : pack.m.total;
   const L = uiLabels(ctx.locale);
   const titleId = `${id}-title`;
   const title = data.title.trim() || ctx.form.title?.trim() || ctx.t("form.title");
   const submitLabel = data.submitLabel.trim() || ctx.form.submitLabel?.trim() || ctx.t("form.submit");
   const reassurance = data.reassurance.trim() || ctx.form.reassurance?.trim() || ctx.t("form.reassurance");
-  const style = ctx.offers.cardStyle as CardStyle;
-  const hasVariants = optionGroups(ctx).length > 0;
+  const fill = display.fill;
+  const hasUnits = pageHasUnits(fill);
+  const personalize = hasUnits && fill !== "inline";
   // bold: cards, option rows, add-on and summary are light sheets laid on the color slab
   const surface: SectionBg | undefined = v === "bold" ? "surface" : undefined;
+  const units = hasUnits ? <Units ctx={ctx} sid={id} fill={fill} packs={packs} current={pack} surface={surface} /> : null;
+  const extras = ctx.offers.extras.length ? <Extras ctx={ctx} offerId={pack.id} /> : null;
 
   // card: the receipt line (product, chosen pack, live total) heads the checkout block
   const orderLine = v === "card" && data.showOrderLine;
@@ -141,7 +153,8 @@ function render({ id, variant, bg, data, ctx }: { id: string; variant: string; b
       <div className="lp-of__steps">
         <fieldset className="lp-of__step lp-of__step--packs" data-lp-bundles="" data-reveal="draw">
           <StepTitle ctx={ctx} n={++step} text={packsLabel} path="packsLabel" />
-          <PackPicker ctx={ctx} sid={id} packs={packs} style={style} surface={surface} />
+          <PackPicker ctx={ctx} sid={id} packs={packs} display={display} surface={surface} inline={fill === "inline" ? units : undefined} />
+          {fill === "inline" ? extras : null}
           {allFree(packs) ? (
             <p className="lp-of__ship">
               <Icon name="truck" size="1.2em" />
@@ -149,10 +162,11 @@ function render({ id, variant, bg, data, ctx }: { id: string; variant: string; b
             </p>
           ) : null}
         </fieldset>
-        {hasVariants ? (
-          <fieldset className="lp-of__step lp-of__step--options" data-reveal="draw">
+        {personalize ? (
+          <fieldset className="lp-of__step lp-of__step--options" data-reveal="draw" data-fill={fill}>
             <StepTitle ctx={ctx} n={++step} text={optionsLabel} path="optionsLabel" />
-            <VariantPickers ctx={ctx} defaultQty={pack.qty} surface={surface} />
+            {units}
+            {extras}
           </fieldset>
         ) : null}
         <fieldset className="lp-of__step lp-of__step--details" data-reveal="draw">
@@ -168,10 +182,11 @@ function render({ id, variant, bg, data, ctx }: { id: string; variant: string; b
             <span>{L.yourOrder}</span>
           </p>
         ) : null}
-        <Bump ctx={ctx} surface={surface} />
+        {!hasUnits && extras ? <div className="lp-of__extras">{extras}</div> : null}
+        <Bump ctx={ctx} surface={surface} offerId={pack.id} />
         {data.showSummary ? (
           <Summary ctx={ctx} bundleId={pack.id} surface={surface} subtotal={!orderLine} className={v === "split" ? "lp-sum--inline" : undefined} />
-        ) : hasVariants ? (
+        ) : hasUnits || ctx.items.length > 1 ? (
           <OptionsSummary ctx={ctx} as="line" />
         ) : null}
         <Submit ctx={ctx} label={submitLabel} reassurance={reassurance} total={total} />
@@ -233,7 +248,7 @@ function render({ id, variant, bg, data, ctx }: { id: string; variant: string; b
               uid={`${id}-disc`}
               text={ringText}
               label={best.label}
-              sublabel={ringText.length ? (best.pack.titled ? best.pack.name : best.pack.qtyLabel) : undefined}
+              sublabel={ringText.length ? (best.pack.titled || !best.pack.legacy ? best.pack.short : best.pack.qtyLabel) : undefined}
               glyph="none"
               sep="dot"
               // the seal straddles the slab corner, half on the section: never in the section's own colour

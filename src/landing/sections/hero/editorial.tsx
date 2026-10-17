@@ -105,7 +105,7 @@ export function EditorialHero({ id, variant, bg, data, ctx }: HeroProps): ReactE
             {/* the name keeps its own direction: a Latin name on an Arabic page is cut at its end */}
             <bdi className="lp-hero__caption-name">{ctx.product.name}</bdi>
             <span className="lp-hero__caption-price">
-              <Money ctx={ctx} amount={ctx.product.price} />
+              <Money ctx={ctx} amount={ctx.lead.price} />
             </span>
           </figcaption>
         </figure>

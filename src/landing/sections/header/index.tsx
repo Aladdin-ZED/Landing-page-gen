@@ -23,6 +23,8 @@
  */
 import type { ReactElement } from "react";
 import { z } from "zod";
+import { everyOfferFree, fromCents } from "@/lib/page/pricing";
+import { offerViews } from "../../offers/model";
 import type { SectionBg } from "@/lib/page/schema";
 import { ARCHETYPE_DEFS } from "@/lib/theme/archetypes";
 import { createT } from "../../i18n";
@@ -115,7 +117,7 @@ const TAGLINES_FREE: Lines = {
 };
 
 function defaults({ locale, offers, rng }: DefaultsInput): Data {
-  const free = offers.shippingFee === 0 && offers.bundles.every((b) => b.freeShipping);
+  const free = everyOfferFree({ offers });
   const l = lang(locale);
   const pool = [...TAGLINES[l], ...(free ? TAGLINES_FREE[l] : [])];
   const tagline = pool[Math.floor(rng() * pool.length)] ?? createT(locale)("trust.cod");
@@ -220,11 +222,13 @@ function Contact({ ctx, kind }: { ctx: RenderContext; kind: Data["contact"] }): 
   return null;
 }
 
-/** What a visitor pays at least: the cheapest offer, else the product's own price. */
+/** What a visitor pays at least: the lowest card price (`from`) of the offers that can be ordered, else the product's own price. */
 function fromPrice(ctx: RenderContext): number | undefined {
-  const prices = ctx.offers.bundles.map((b) => b.price).filter((n) => Number.isFinite(n) && n > 0);
+  const views = offerViews(ctx);
+  const open = views.filter((v) => !v.soldOut);
+  const prices = (open.length ? open : views).map((v) => fromCents(v.math.from)).filter((n) => Number.isFinite(n) && n > 0);
   if (prices.length) return Math.min(...prices);
-  const unit = ctx.product.price;
+  const unit = ctx.lead.price;
   return Number.isFinite(unit) && unit > 0 ? unit : undefined;
 }
 

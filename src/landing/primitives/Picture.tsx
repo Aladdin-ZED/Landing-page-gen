@@ -14,6 +14,7 @@ import {
   type FrameName,
   type FrameShape,
 } from "@/lib/media/focus";
+import type { CropBox } from "@/lib/page/schema";
 import type { ResolvedAsset } from "../types";
 import { cssVars, cx, safeHex, safePosition, safeRatio } from "./util";
 
@@ -62,6 +63,13 @@ export interface PictureProps {
   frameLg?: PictureFrame;
   /** breakpoint of `frameLg` (rem or px, default "64rem") */
   frameMin?: string;
+  /**
+   * Crop of the photo (an item cut out of a group photo, AssetRef.box): the picture shows exactly that
+   * region — at its own ratio, or cover-fitted to `ratio` — through object-position + --pic-zoom (the
+   * fitted-crop path of base.css; no new image files). `fit="contain"` is ignored with a box: the
+   * caller sizes the box to the crop's ratio instead (boxRatio).
+   */
+  box?: CropBox | null;
 }
 
 /**
@@ -92,9 +100,11 @@ export function Picture({
   frame,
   frameLg,
   frameMin,
+  box: crop0,
 }: PictureProps): ReactElement {
   const box = cx(mask && (mask === "page" ? "lp-mask" : `lp-mask-${mask}`), className);
   if (!asset) return <EmptyPicture className={box} ratio={ratio} alt={alt} />;
+  if (crop0) return <BoxPicture asset={asset} crop={crop0} sizes={sizes} priority={priority} className={box} imgClassName={imgClassName} alt={alt} ratio={ratio} />;
   const lgPos = fit === "contain" ? undefined : safePosition(positionLg);
   const crop = lgPos
     ? steppedPosition(asset, lgPos, { ratio, mask, frame, frameMin, sizes, position: safePosition(position) })
@@ -117,6 +127,86 @@ export function Picture({
       className={cx("lp-pic", fit === "contain" && "lp-pic--contain", asset.alpha && "lp-pic--alpha", crop?.zoom && "lp-pic--zoom", box)}
       style={style}
     >
+      {asset.srcsetAvif ? <source type="image/avif" srcSet={asset.srcsetAvif} sizes={imgSizes} /> : null}
+      <source type="image/webp" srcSet={asset.srcsetWebp} sizes={imgSizes} />
+      <img
+        className={cx("lp-pic__img", imgClassName)}
+        src={asset.src}
+        width={asset.width}
+        height={asset.height}
+        alt={alt ?? asset.alt}
+        loading={priority ? "eager" : "lazy"}
+        decoding={priority ? undefined : "async"}
+        fetchPriority={priority ? "high" : undefined}
+      />
+    </picture>
+  );
+}
+
+/** Width / height of a crop of `asset` (the intrinsic ratio of an item cut out of a group photo). */
+export function boxRatio(asset: Pick<ResolvedAsset, "aspect" | "width" | "height">, crop: CropBox): number {
+  const A = asset.aspect > 0 ? asset.aspect : asset.width > 0 && asset.height > 0 ? asset.width / asset.height : 1;
+  return (A * crop.w) / crop.h;
+}
+
+const pct = (v: number) => `${Math.round(Math.min(1, Math.max(0, v)) * 1000) / 10}%`;
+
+/**
+ * The window that shows exactly `crop` of the photo, cover-fitted to the frame ratio `R` (default:
+ * the crop's own ratio): object-position + scale about the same fractions (base.css fitted crop).
+ * In image fractions the frame shows the window (sx, sy, vw, vh); at zoom 1 a cover fit shows
+ * (vw1, vh1), so zoom = vw1 / vw and the position fraction f = s / (1 − v) puts the window in place.
+ */
+export function boxCrop(asset: Pick<ResolvedAsset, "aspect" | "width" | "height">, crop: CropBox, R0?: number): { pos: string; zoom?: number; ratio: number } {
+  const A = asset.aspect > 0 ? asset.aspect : asset.width > 0 && asset.height > 0 ? asset.width / asset.height : 1;
+  const r = (A * crop.w) / crop.h;
+  const R = R0 && R0 > 0 ? R0 : r;
+  let vw: number;
+  let vh: number;
+  let sx: number;
+  let sy: number;
+  if (r > R) {
+    vh = crop.h;
+    vw = (crop.h * R) / A;
+    sx = crop.x + (crop.w - vw) / 2;
+    sy = crop.y;
+  } else {
+    vw = crop.w;
+    vh = (crop.w * A) / R;
+    sx = crop.x;
+    sy = crop.y + (crop.h - vh) / 2;
+  }
+  const vw1 = A > R ? R / A : 1;
+  const zoom = vw1 / vw;
+  const fx = vw < 0.999 ? sx / (1 - vw) : 0.5;
+  const fy = vh < 0.999 ? sy / (1 - vh) : 0.5;
+  return { pos: `${pct(fx)} ${pct(fy)}`, ...(zoom > 1.001 ? { zoom: Math.round(zoom * 1000) / 1000 } : {}), ratio: Math.round(R * 10000) / 10000 };
+}
+
+function BoxPicture({
+  asset,
+  crop,
+  sizes,
+  priority,
+  className,
+  imgClassName,
+  alt,
+  ratio,
+}: {
+  asset: ResolvedAsset;
+  crop: CropBox;
+  sizes: string;
+  priority: boolean;
+  className?: string;
+  imgClassName?: string;
+  alt?: string;
+  ratio?: string | number;
+}): ReactElement {
+  const c = boxCrop(asset, crop, parseRatio(ratio));
+  const style = cssVars({ "--ph": asset.alpha ? undefined : safeHex(asset.dominant), "--ratio": String(c.ratio), "--pic-pos": c.pos, "--pic-org": c.pos, "--pic-zoom": c.zoom });
+  const imgSizes = c.zoom ? scaleSizes(sizes, c.zoom) : sizes;
+  return (
+    <picture className={cx("lp-pic lp-pic--box", asset.alpha && "lp-pic--alpha", c.zoom && "lp-pic--zoom", className)} style={style}>
       {asset.srcsetAvif ? <source type="image/avif" srcSet={asset.srcsetAvif} sizes={imgSizes} /> : null}
       <source type="image/webp" srcSet={asset.srcsetWebp} sizes={imgSizes} />
       <img

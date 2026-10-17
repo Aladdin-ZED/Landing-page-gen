@@ -6,7 +6,8 @@
  * ships free; no country is named, so the copy holds in any market.
  */
 import type { IconName } from "@/landing/primitives";
-import type { Locale, Offers, Product, ProductCategory } from "@/lib/page/schema";
+import { everyOfferFree } from "@/lib/page/pricing";
+import { isChoiceGroup, type Item, type Locale, type Offers, type Product, type ProductCategory } from "@/lib/page/schema";
 import { garmentOf } from "../garment";
 
 type Lang = "ar" | "fr" | "en";
@@ -179,14 +180,14 @@ export interface ClaimCopy {
 
 /** Free delivery is claimed only when no fee is added and every pack ships free. */
 export function freeDelivery(offers: Offers): boolean {
-  return (offers.shippingFee ?? 0) === 0 && offers.bundles.every((b) => b.freeShipping);
+  return everyOfferFree({ offers });
 }
 
 /** Default heading + the four promises, in the page language and tuned to the product. */
-export function defaultCopy(locale: Locale, product: Product, offers: Offers, rng: () => number): { title: string; items: ClaimCopy[] } {
+export function defaultCopy(locale: Locale, product: Product, offers: Offers, rng: () => number, item?: Item): { title: string; items: ClaimCopy[] } {
   const c = COPY[langOf(locale)];
   const free = freeDelivery(offers);
-  const choice = product.variants.some((g) => g.options.length > 1);
+  const choice = (item?.groups ?? []).some((g) => !isChoiceGroup(g) || g.options.length > 1);
   return {
     title: pick(rng, c.titles),
     items: [

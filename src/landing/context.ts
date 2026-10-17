@@ -22,6 +22,7 @@
 import { createT } from "./i18n";
 import { formatMoney } from "./runtime/money";
 import type { PageLinks, RenderContext, RenderMode, ResolvedAsset, ResolvedVideo, StoreContext } from "./types";
+import { namedLead } from "@/lib/page/catalog";
 import { dirOf, type AssetRef, type PageDoc } from "@/lib/page/schema";
 import { formatNumber, marketInfoForLocale, moneyFormat } from "@/lib/markets/info";
 import { FULL_BOX, parseFocus, percentPair, robustCrop, type AssetFocus, type FocusKind } from "@/lib/media/focus";
@@ -266,9 +267,9 @@ export function fixtureAssetResolver(rows: Iterable<AssetRowLike>, base = "/"): 
   return rowAssetResolver(withFocus, (key) => `${prefix}dev-fixtures/${key}`);
 }
 
-const REF_KEYS = new Set(["id", "alt", "fx", "fy"]);
+const REF_KEYS = new Set(["id", "alt", "fx", "fy", "box"]);
 
-/** Every AssetRef id referenced anywhere in the document (product, offers, sections, SEO). */
+/** Every AssetRef id referenced anywhere in the document (product, items, offers, sections, SEO). */
 export function collectAssetIds(doc: PageDoc, extra: readonly (AssetRef | null | undefined)[] = []): string[] {
   const ids = new Set<string>();
   const visit = (v: unknown, depth: number) => {
@@ -285,6 +286,7 @@ export function collectAssetIds(doc: PageDoc, extra: readonly (AssetRef | null |
     for (const x of Object.values(o)) visit(x, depth + 1);
   };
   visit(doc.product, 0);
+  visit(doc.items, 0);
   visit(doc.offers, 0);
   visit(doc.seo, 0);
   for (const s of doc.sections) visit(s.data, 0);
@@ -494,6 +496,8 @@ export function createRenderContext(doc: PageDoc, opts: RenderContextOptions): L
     seed,
     doc,
     product: doc.product,
+    items: doc.items,
+    lead: namedLead(doc),
     offers: doc.offers,
     form: doc.form,
     market: marketInfoForLocale(doc.market, locale, doc.form.phoneCountry),

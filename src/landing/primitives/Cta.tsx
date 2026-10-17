@@ -63,7 +63,7 @@ export function Cta({
 }: CtaProps): ReactElement {
   const bundles = ctx.offers.bundles;
   const bundle = bundleId ? bundles.find((b) => b.id === bundleId) : undefined;
-  const liveBundle = bundle ? undefined : bundles.find((b) => b.id === defaultBundleId(ctx.offers));
+  const liveBundle = bundle ? undefined : bundles.find((b) => b.id === defaultBundleId(ctx.offers, ctx.items));
   const price = withPrice ? (bundle?.price ?? liveBundle?.price) : undefined;
   const custom = !!label?.trim();
   const labelNode = (

@@ -8,13 +8,15 @@
  *
  * Each photo becomes WebP renditions named like real media keys: "<assetId>-<width>.webp", where
  * assetId = sha256(master WebP)[0..32] — so fixtures exercise exactly the same srcset logic as live
- * assets. Originals are cached in qa/.fixture-cache (git-ignored).
+ * assets. Originals are cached in qa/.fixture-cache (git-ignored). The derived photos of the Offers v2
+ * fixtures (scripts/qa/fixture-derived.ts) are rebuilt from the new masters at the end.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import sharp from "sharp";
 import { extractPalette } from "@/lib/theme";
+import { buildDerived } from "./fixture-derived";
 
 const ROOT = resolve(__dirname, "..", "..");
 const OUT = join(ROOT, "public", "dev-fixtures");
@@ -104,6 +106,7 @@ async function main() {
     });
     console.error(`  ${src.name}: ${id} ${W}×${H} → ${widths.join(", ")}`);
   }
+  rows.push(...(await buildDerived(OUT)));
   process.stdout.write(JSON.stringify(rows, null, 2) + "\n");
 }
 

@@ -80,7 +80,7 @@ export function OrdersView(props: OrdersViewProps) {
             { value: "blocked", label: "Blocklist", count: tabCounts.blocked, icon: <BanIcon /> },
           ]}
         />
-        {tab === "orders" && tabCounts.orders > 0 && <ExportButton />}
+        {((tab === "orders" && tabCounts.orders > 0) || (tab === "leads" && tabCounts.leads > 0)) && <ExportButton leads={tab === "leads"} />}
       </div>
 
       {tab === "orders" && props.orders && (
@@ -100,10 +100,12 @@ export function OrdersView(props: OrdersViewProps) {
   );
 }
 
-function ExportButton() {
+/** CSV of what the screen shows (filters kept); on the Abandoned tab, the leads with their selection. */
+function ExportButton({ leads }: { leads?: boolean }) {
   const query = useQueryState();
   const params = new URLSearchParams(query.params.toString());
   for (const k of ["tab", "order", "page"]) params.delete(k);
+  if (leads) params.set("tab", "leads");
   const qs = params.toString();
   return (
     <Button asChild variant="outline" className="h-9 rounded-full px-4">

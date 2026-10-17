@@ -2,8 +2,9 @@ import "server-only";
 /**
  * createOrder — the public order pipeline.
  *
- *   resolve pageKey → idempotent replay → validate (prices recomputed from the PUBLISHED doc)
- *   → Turnstile → per-IP limit → blocklist → duplicate (same phone + page, 12 h)
+ *   resolve pageKey → idempotent replay → the version the shopper saw (orderVersion: ≤ 72 h after it
+ *   was replaced) → validate (prices recomputed in cents from that version; "stale" when the page the
+ *   shopper saw is gone and the order no longer matches) → Turnstile → per-IP limit → blocklist → duplicate (same phone + page, 12 h)
  *   → per-phone limit → per-page burst signal → risk score → insert → lead converted + stats
  *   → { ok, orderId, upsellToken, total, currency }
  *
@@ -25,12 +26,14 @@ import { newOrderId } from "@/lib/db/ids";
 import { blocklist, leads, orders } from "@/lib/db/schema";
 import { hashIp, sign } from "@/lib/security/crypto";
 import { rateLimit, type RateResult } from "@/lib/security/rate-limit";
+import { leadItem } from "@/lib/page/catalog";
+import { fromCents, offerMath } from "@/lib/page/pricing";
 import type { PageDoc } from "@/lib/page/schema";
 import { bumpOrderStats } from "@/lib/stats";
 import type { OrderPayload, OrderResponse } from "./contract";
 import { purchaseConversion, type PurchaseConversion } from "./conversions";
 import { logError } from "./log";
-import { resolvePageKey, type PageTarget } from "./resolve";
+import { orderVersion, resolvePageKey, type PageTarget } from "./resolve";
 import { scoreRisk } from "./risk";
 import { checkCaptcha } from "./turnstile";
 import { validateOrder } from "./validate";
@@ -112,22 +115,27 @@ async function findByIdem(idem: string): Promise<OrderRow | undefined> {
 }
 
 export async function createOrder(payload: OrderPayload, ctx: CreateOrderContext): Promise<CreateOrderResult> {
-  const target = ctx.target ?? (await resolvePageKey(payload.pageKey, "order"));
-  if (!target) return fail("unavailable");
-  const { doc } = target;
+  const resolved = ctx.target ?? (await resolvePageKey(payload.pageKey, "order"));
+  if (!resolved) return fail("unavailable");
 
   // 1. idempotency — a retried submit returns the original answer
   const prior = await findByIdem(payload.idem);
-  if (prior) return replay(prior, target);
+  if (prior) return replay(prior, resolved);
 
-  // 2. fields & prices against the published document (bots that filled the honeypot learn nothing)
+  // 2. fields & prices against the version the shopper saw (bots that filled the honeypot learn nothing)
+  const version = await orderVersion(resolved, payload as { v?: unknown; ver?: unknown });
+  // the version validated against: stored on the order, and its pixels get the server events
+  const target: PageTarget = { ...resolved, versionId: version.versionId, doc: version.doc };
+  const { doc } = target;
   const honeypot = !!payload.website || !!ctx.honeypot;
-  const v = validateOrder(payload, doc);
+  const v = validateOrder(payload, doc, { fallback: version.fallback });
   if (!v.ok) {
     if (honeypot) return { response: decoyResponse(doc, payload.bundleId), sync: false };
+    if (v.stale) return { response: { ok: false, error: "stale" }, sync: false };
     return { response: { ok: false, error: "invalid", fields: v.fields }, sync: false };
   }
   const o = v.value;
+  const money = { subtotal: fromCents(o.totals.subtotal), shipping: fromCents(o.totals.shipping), total: fromCents(o.totals.total) };
 
   // 3. optional Turnstile — after local validation, so a typo never burns the single-use token
   const captcha = await checkCaptcha(target, ctx.captchaToken, ctx.ip, { noOrigin: ctx.noOrigin });
@@ -265,9 +273,9 @@ export async function createOrder(payload: OrderPayload, ctx: CreateOrderContext
         productName: doc.product.name.slice(0, 160),
         items: o.items,
         qty: o.items.qty,
-        subtotal: o.totals.subtotal,
-        shipping: o.totals.shipping,
-        total: o.totals.total,
+        subtotal: money.subtotal,
+        shipping: money.shipping,
+        total: money.total,
         currency: doc.currency,
         locale: o.locale,
         utm: Object.keys(utm).length ? utm : null,
@@ -311,7 +319,7 @@ export async function createOrder(payload: OrderPayload, ctx: CreateOrderContext
             ),
           ),
         ),
-      bumpOrderStats(target.pageId, now, { orders: 1, revenue: o.totals.total }),
+      bumpOrderStats(target.pageId, now, { orders: 1, revenue: money.total }),
     ]).catch((err) => logError("orders:bookkeeping", err));
   }
 
@@ -320,7 +328,7 @@ export async function createOrder(payload: OrderPayload, ctx: CreateOrderContext
     : purchaseConversion({ orderId, createdAt: now, payload, order: o, target, riskScore: risk.score, ip: ctx.ip, ua: ctx.ua });
 
   return {
-    response: { ok: true, orderId, total: o.totals.total, currency: doc.currency, ...(token ? { upsellToken: token } : {}) },
+    response: { ok: true, orderId, total: money.total, currency: doc.currency, ...(token ? { upsellToken: token } : {}) },
     sync: !honeypot,
     ...(conversion ? { conversion } : {}),
   };
@@ -331,6 +339,7 @@ export async function createOrder(payload: OrderPayload, ctx: CreateOrderContext
  * invalid or throttled bot submissions must be indistinguishable from accepted ones.
  */
 export function decoyResponse(doc: PageDoc | null, bundleId?: unknown): OrderResponse {
-  const price = doc ? (doc.offers.bundles.find((b) => b.id === bundleId)?.price ?? doc.product.price) : 0;
+  const offer = doc?.offers.bundles.find((b) => b.id === bundleId);
+  const price = doc ? (offer ? fromCents(offerMath(doc, offer).from) : leadItem(doc).price) : 0;
   return { ok: true, orderId: newOrderId(), total: price, currency: doc?.currency ?? "MAD" };
 }

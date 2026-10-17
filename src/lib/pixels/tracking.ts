@@ -6,7 +6,7 @@
  * Each list holds 1…PIXEL_LIMIT valid ids; a platform without ids has no key (never []).
  * Older documents stored single strings; the schema reads them as one-id lists.
  */
-import type { LandingRuntimeConfig } from "@/landing/runtime/config";
+import type { LandingRuntimeConfigV1 as LandingRuntimeConfig } from "@/landing/runtime/config";
 import type { Tracking } from "@/lib/page/schema";
 import type { PixelFlags } from "@/lib/render/csp";
 import { PIXEL_PLATFORMS, TRACKING_KEYS, normalizePixelId, pixelIdList, type PixelPlatform } from "./ids";
@@ -78,6 +78,7 @@ export function trackingFlags(t: Partial<Record<string, unknown>> | null | undef
 }
 
 /**
+ * @deprecated (GN removes the last caller) — pages own their pixels; nothing fills them from the store.
  * Store pixels into a page's tracking:
  *  - "fill": only platforms the page has no ids for (a page's own ids always win) — new pages;
  *  - "replace": every platform the store has ids for takes the store's list (others untouched) —

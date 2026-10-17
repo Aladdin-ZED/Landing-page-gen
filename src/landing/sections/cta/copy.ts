@@ -6,6 +6,7 @@
  * short enough to be set huge in the poster layout.
  */
 import type { IconName } from "@/landing/primitives";
+import { everyOfferFree } from "@/lib/page/pricing";
 import type { Locale, Offers, ProductCategory } from "@/lib/page/schema";
 import type { Garment } from "../garment";
 
@@ -167,7 +168,7 @@ export function titlesFor(lang: Lang, category: ProductCategory | undefined, gar
 /** “Free” delivery only when no fee is charged and every pack ships free. */
 export function defaultPoints(lang: Lang, offers: Offers): { icon: IconName; text: string }[] {
   const c = COMMON[lang];
-  const free = (offers.shippingFee ?? 0) === 0 && offers.bundles.every((b) => b.freeShipping);
+  const free = everyOfferFree({ offers });
   return [
     { icon: "cash-hand", text: c.cod },
     { icon: "truck", text: free ? c.freeDelivery : c.delivery },
