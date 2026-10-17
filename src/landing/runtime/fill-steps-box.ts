@@ -48,7 +48,8 @@ export function stepsKit(h: Host): StepsKit {
     if (!box) return out;
     const have = $$(box, "[" + attr + "]").filter((x) => !x.closest("template"));
     const tpl = box.querySelector<HTMLTemplateElement>("template[" + attr + "-tpl]");
-    const src = (tpl && tpl.content && tpl.content.firstElementChild) || have[0];
+    // React (admin preview) appends a <template>'s children to the element itself, not to .content
+    const src = (tpl && ((tpl.content && tpl.content.firstElementChild) || tpl.firstElementChild)) || have[0];
     for (const el of have) {
       const k = parseInt(el.getAttribute(attr) || "", 10);
       if (ks.indexOf(k) >= 0 && !(k in out)) out[k] = el;

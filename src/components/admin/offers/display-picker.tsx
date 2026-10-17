@@ -301,7 +301,13 @@ export function DisplayPicker({ doc, archetype, formVariant = "card", onChange, 
 
           <div className="grid grid-cols-2 gap-3">
             <Axis label="Media">
-              <Segmented<(typeof OFFER_MEDIA)[number]> size="sm" label="Media" value={rule.media.includes(d.media) ? d.media : rule.media[0]!} onChange={(media) => set({ media })} options={rule.media.map((m) => ({ value: m, label: MEDIA_UI[m] }))} />
+              {rule.media.length > 1 ? (
+                <Segmented<(typeof OFFER_MEDIA)[number]> size="sm" label="Media" value={rule.media.includes(d.media) ? d.media : rule.media[0]!} onChange={(media) => set({ media })} options={rule.media.map((m) => ({ value: m, label: MEDIA_UI[m] }))} />
+              ) : (
+                <span className="inline-flex h-7 items-center gap-1 text-[11.5px] text-muted-foreground">
+                  <span className="font-medium text-foreground">{MEDIA_UI[rule.media[0]!]}</span>· set by {PICKER_UI[d.picker]}
+                </span>
+              )}
             </Axis>
             <Axis label="Density">
               {rule.density ? (

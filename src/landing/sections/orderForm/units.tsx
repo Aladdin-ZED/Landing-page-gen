@@ -898,6 +898,9 @@ export function Units({ ctx, sid, fill, packs, current, surface }: UnitsProps): 
   for (const s of expandUnits(current.offer, ctx.items)) if (s.item) counts.set(s.item, (counts.get(s.item) ?? 0) + 1);
   const sharedItems = ctx.items.filter((it) => it.groups.some((g) => !g.perUnit));
   const noFill = packs.filter((p) => fillableSlots(ctx, p.offer).length === 0);
+  // steps / box: the strip and the prev/next pair exist whenever SOME offer needs them (the runtime fills
+  // and shows them on an offer switch), not only when the default offer does
+  const most = nav ? Math.max(0, ...packs.map((p) => fillableSlots(ctx, p.offer).length)) : 0;
   return (
     <div
       className={cx("lp-vars lp-units", `lp-units--${fill}`)}
@@ -911,7 +914,7 @@ export function Units({ ctx, sid, fill, packs, current, surface }: UnitsProps): 
       {sharedItems.map((it) => (
         <SharedBlock key={it.id} ctx={ctx} item={it} count={counts.get(it.id) ?? 0} hidden={!counts.has(it.id)} />
       ))}
-      {nav && slots.length ? (
+      {most > 0 ? (
         <div className={fill === "steps" ? "lp-usteps" : "lp-ubox"} data-lp-steps="" role="group" aria-label={unitWord(ctx.locale, fill === "steps" ? "steps" : "box")}>
           {slots.map((s, i) =>
             fill === "steps" ? (
@@ -937,15 +940,15 @@ export function Units({ ctx, sid, fill, packs, current, surface }: UnitsProps): 
           />
         ))}
       </div>
-      {nav && slots.length > 1 ? (
+      {most > 1 ? (
         <div className="lp-unav">
-          <button type="button" className="lp-unav__b lp-unav__b--prev" data-lp-prev="" disabled>
+          <button type="button" className="lp-unav__b lp-unav__b--prev" data-lp-prev="" disabled hidden={slots.length < 2 || undefined}>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M14.5 6.5L9 12l5.5 5.5" />
             </svg>
             <span>{unitWord(ctx.locale, "prev")}</span>
           </button>
-          <button type="button" className="lp-unav__b lp-unav__b--next" data-lp-next="">
+          <button type="button" className="lp-unav__b lp-unav__b--next" data-lp-next="" hidden={slots.length < 2 || undefined}>
             <span>{unitWord(ctx.locale, "next")}</span>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M9.5 6.5L15 12l-5.5 5.5" />

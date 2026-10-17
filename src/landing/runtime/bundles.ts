@@ -7,8 +7,8 @@
  *    its words in data-other): inside [data-lp-sum-reasons] (a <dd>: one span.lp-sum__reason per
  *    line); a hidden marker gets summary rows after it instead, cloned from template[data-lp-reason-tpl]
  *    ([data-lp-reason-label], [data-lp-reason-amount]) or <div class="lp-sum__row lp-sum__row--reason">,
- *  - [data-lp-price="current"] (the live total, = the submit button) and [data-lp-price="offer"]
- *    (offer price + surcharges, before bump and delivery).
+ *  - [data-lp-price="current"] and [data-lp-price="offer"]: the live offer price (price + surcharges,
+ *    before bump and delivery, as the server renders them); the submit button has [data-lp-sum="total"].
  * Other modules request a change with emit("select", id); the applied result is emitted as "bundle".
  * The shopper's offer is remembered for the tab (sessionStorage "lp-b:<pageKey>").
  */
@@ -38,7 +38,7 @@ export function renderSums(c: Ctx): void {
   }
   for (const el of $$(doc, "[data-lp-price]")) {
     const k = el.getAttribute("data-lp-price");
-    if (k === "current" || k === "offer") setText(el, money(c, k === "current" ? t.total : t.price + t.deltas));
+    if (k === "current" || k === "offer") setText(el, money(c, t.price + t.deltas));
   }
   for (const mark of $$(doc, "[data-lp-sum-reasons]")) reasons(c, mark, t);
 }

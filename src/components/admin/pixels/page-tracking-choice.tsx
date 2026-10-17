@@ -238,11 +238,19 @@ export function PageTrackingChoice({ value: controlled, onChange: emit, canCreat
           </label>
 
           {value?.kind === "ids" && trackingRefs(value.tracking).length > 0 && library ? (
-            <p className="flex flex-wrap items-center gap-1.5 text-[0.75rem] text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.75rem] text-muted-foreground">
               Fires:
               {trackingRefs(value.tracking).map((r) => {
                 const px = findEntryView(library, r.platform, r.id);
-                return px ? <PixelStatusChip key={`${r.platform}:${r.id}`} pixel={px} now={now} className="h-5 px-2 text-[0.66rem]" /> : null;
+                return px ? (
+                  <span key={`${r.platform}:${r.id}`} className="inline-flex min-w-0 items-center gap-1.5">
+                    <PlatformMark platform={r.platform} size="sm" className="size-4 rounded-[5px] text-[0.55rem]" />
+                    <span className="max-w-[9rem] truncate font-medium text-foreground/80" dir="auto">
+                      {pixelLabel(px)}
+                    </span>
+                    <PixelStatusChip pixel={px} now={now} className="h-5 px-2 text-[0.66rem]" />
+                  </span>
+                ) : null;
               })}
             </p>
           ) : null}

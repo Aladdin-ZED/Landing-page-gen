@@ -692,6 +692,11 @@
   scale: 0.97;
 }
 
+/* an offer with nothing to fill: the strip and the prev / next row take no room */
+:is(.lp-usteps, .lp-ubox, .lp-unav):not(:has(> :not([hidden]))) {
+  display: none;
+}
+
 /* --- box: a tray of N tiles, the tapped tile's panel below ------------------- */
 .lp-ubox {
   display: grid;
@@ -890,6 +895,11 @@
 .lp-uextras {
   display: grid;
   gap: 1rem;
+}
+
+/* the page extras after the pieces: their own block, not the last piece's caption */
+.lp-units + .lp-uextras {
+  margin-block-start: 1.5rem;
 }
 
 .lp-of__extras {
